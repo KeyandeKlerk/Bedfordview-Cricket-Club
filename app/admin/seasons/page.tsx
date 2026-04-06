@@ -56,11 +56,12 @@ export default function SeasonsPage() {
     <>
       <style>{`
         .form-input { width: 100%; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 14px; min-height: 44px; }
-        .season-form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-        .season-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        @media (max-width: 600px) {
-          .season-form-grid { grid-template-columns: 1fr; }
+        .season-form-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 12px; }
+        @media (min-width: 640px) {
+          .season-form-grid { grid-template-columns: 1fr 1fr 1fr; }
         }
+        .season-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .season-table-scroll .table { min-width: 480px; }
       `}</style>
 
       <div style={{ paddingTop: 'var(--nav-h)', minHeight: '100vh', paddingBottom: 80 }}>

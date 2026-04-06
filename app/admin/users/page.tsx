@@ -64,17 +64,26 @@ export default function AdminUsersPage() {
       <style>{`
         .au-form-grid {
           display: grid;
-          grid-template-columns: 2fr 1fr auto;
+          grid-template-columns: 1fr;
           gap: 12px;
           align-items: end;
         }
-        @media (max-width: 600px) {
+        @media (min-width: 480px) {
           .au-form-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: 2fr 1fr;
           }
-          .au-form-grid .btn { width: 100%; justify-content: center; }
+        }
+        @media (min-width: 640px) {
+          .au-form-grid {
+            grid-template-columns: 2fr 1fr auto;
+          }
+        }
+        .au-form-grid .btn { width: 100%; justify-content: center; }
+        @media (min-width: 640px) {
+          .au-form-grid .btn { width: auto; }
         }
         .au-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .au-table-scroll .table { min-width: 480px; }
         .au-input, .au-select {
           width: 100%; padding: 8px 12px;
           background: var(--surface); border: 1px solid var(--border);

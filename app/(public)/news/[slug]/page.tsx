@@ -79,7 +79,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
   return (
     <>
       <style>{`
-        .article-page { padding-top: var(--nav-h); min-height: 100vh; padding-bottom: 80px; }
+        .article-page { padding-top: var(--nav-h); min-height: 100vh; padding-bottom: 80px; max-width: 100vw; overflow-x: hidden; }
         .article-hero {
           background: linear-gradient(180deg, #060f22 0%, #050c1a 100%);
           border-bottom: 1px solid rgba(59,130,246,0.15);

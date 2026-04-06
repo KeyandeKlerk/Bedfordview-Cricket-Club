@@ -408,9 +408,10 @@ export default function AdminOrdersPage() {
         }
         .stat-card-value {
           font-family: var(--font-display);
-          font-size: 24px; font-weight: 800;
+          font-size: clamp(16px, 3.5vw, 24px); font-weight: 800;
           color: #60a5fa; line-height: 1;
           margin-bottom: 5px;
+          word-break: break-all;
         }
         .stat-card-label {
           font-family: var(--font-display);

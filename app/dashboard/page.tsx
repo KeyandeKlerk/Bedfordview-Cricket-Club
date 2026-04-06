@@ -334,7 +334,9 @@ export default async function DashboardPage() {
           font-size: 13px; font-weight: 700;
           color: var(--text); margin-bottom: 3px;
           letter-spacing: -0.01em;
-          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          overflow: hidden; text-overflow: ellipsis;
+          white-space: nowrap;
+          max-width: 100%;
         }
         .match-meta {
           display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
@@ -352,11 +354,13 @@ export default async function DashboardPage() {
         .match-result {
           font-family: var(--font-display);
           font-size: 11px; font-weight: 600;
-          color: var(--sky); white-space: nowrap;
+          color: var(--sky);
           padding: 3px 9px; border-radius: 5px;
           background: rgba(56,189,248,0.08);
           border: 1px solid rgba(56,189,248,0.18);
-          flex-shrink: 0;
+          flex-shrink: 1;
+          min-width: 0;
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
         .score-btn {
           display: inline-flex; align-items: center; gap: 5px;
@@ -371,8 +375,10 @@ export default async function DashboardPage() {
           transition: background 0.15s, border-color 0.15s;
           min-height: 36px;
           flex-shrink: 0;
+          max-width: 100%;
         }
         .score-btn:hover { background: rgba(37,99,235,0.28); border-color: rgba(96,165,250,0.5); }
+        .match-card-body { flex-wrap: wrap; }
 
         .empty-state {
           text-align: center; padding: 28px 20px;
@@ -531,7 +537,7 @@ export default async function DashboardPage() {
           /* On mobile, sidebar comes AFTER main content but admin panel floats up */
           .db-sidebar { order: -1; }
           .db-main { order: 2; }
-          .admin-grid { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+          .admin-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
         }
         @media (max-width: 600px) {
           .admin-grid { grid-template-columns: repeat(2, 1fr); }
@@ -540,9 +546,11 @@ export default async function DashboardPage() {
           .hero-stat-num { font-size: 24px; }
           .db-hero { padding: 28px 0 32px; }
           .live-teams { font-size: 20px; }
+          .admin-tile { min-height: 72px; }
+          .admin-tile-sub { display: none; }
         }
-        @media (max-width: 480px) {
-          .admin-grid { grid-template-columns: 1fr; }
+        @media (max-width: 360px) {
+          .admin-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
         }
       `}</style>
 

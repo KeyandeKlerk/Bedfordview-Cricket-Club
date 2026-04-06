@@ -201,7 +201,7 @@ export default function ShopPage() {
         }
         .shop-layout {
           display: grid;
-          grid-template-columns: 1fr 340px;
+          grid-template-columns: 1fr;
           gap: 28px;
           padding-top: 32px;
           align-items: start;
@@ -471,8 +471,7 @@ export default function ShopPage() {
           align-items: center; gap: 14px;
           backdrop-filter: blur(12px);
         }
-        /* Default: mobile-first — single column, bottom bar visible */
-        .shop-layout { grid-template-columns: 1fr; }
+        /* Mobile-first defaults */
         .cart-panel-desktop { display: none; }
         .product-grid { grid-template-columns: 1fr; }
         .form-row { grid-template-columns: 1fr; }

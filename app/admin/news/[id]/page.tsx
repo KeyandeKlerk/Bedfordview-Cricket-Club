@@ -117,16 +117,17 @@ export default function ArticleEditorPage() {
   return (
     <>
       <style>{`
-        .article-editor { padding-top: calc(var(--nav-h) + 32px); padding-bottom: 80px; }
+        .article-editor { padding-top: calc(var(--nav-h) + 32px); padding-bottom: 80px; max-width: 100vw; overflow-x: hidden; }
         .editor-header {
-          display: flex; align-items: center; justify-content: space-between;
+          display: flex; align-items: flex-start; justify-content: space-between;
           margin-bottom: 28px; flex-wrap: wrap; gap: 12px;
         }
         .editor-title-h {
           font-family: 'Syne', sans-serif;
           font-size: 24px; font-weight: 800; color: #f0f8ff; letter-spacing: -0.02em;
+          min-width: 0; flex: 1;
         }
-        .editor-actions { display: flex; gap: 10px; }
+        .editor-actions { display: flex; gap: 10px; flex-shrink: 0; flex-wrap: wrap; }
         .field { margin-bottom: 20px; }
         .field label {
           display: block;

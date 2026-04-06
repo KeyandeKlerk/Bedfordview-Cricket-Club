@@ -30,7 +30,7 @@ export default async function NewsPage() {
   return (
     <>
       <style>{`
-        .news-page { padding-top: var(--nav-h); min-height: 100vh; padding-bottom: 80px; }
+        .news-page { padding-top: var(--nav-h); min-height: 100vh; padding-bottom: 80px; max-width: 100vw; overflow-x: hidden; }
         .news-hero {
           background: linear-gradient(180deg, #060f22 0%, #050c1a 100%);
           border-bottom: 1px solid rgba(59,130,246,0.15);
@@ -49,8 +49,14 @@ export default async function NewsPage() {
         }
         .articles-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-          gap: 20px;
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
+        @media (min-width: 600px) {
+          .articles-grid {
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+          }
         }
         .article-card {
           background: rgba(5,18,42,0.7);

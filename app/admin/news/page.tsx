@@ -59,9 +59,14 @@ export default function AdminNewsPage() {
           background: rgba(5,18,42,0.7);
           border: 1px solid rgba(59,130,246,0.14);
           border-radius: 12px;
-          padding: 16px 20px;
-          display: flex; align-items: center; justify-content: space-between;
-          gap: 16px; flex-wrap: wrap;
+          padding: 14px 16px;
+          display: flex; flex-direction: column; gap: 10px;
+        }
+        @media (min-width: 640px) {
+          .article-row {
+            flex-direction: row; align-items: center;
+            padding: 16px 20px; gap: 16px;
+          }
         }
         .article-row-info { flex: 1; min-width: 0; }
         .article-row-title {
@@ -69,13 +74,14 @@ export default function AdminNewsPage() {
           font-size: 15px; font-weight: 700;
           color: #e2eeff; letter-spacing: -0.01em;
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          max-width: 100%;
         }
         .article-row-meta {
           font-family: 'Outfit', sans-serif;
           font-size: 11px; color: rgba(147,197,253,0.45);
           margin-top: 4px;
         }
-        .article-row-actions { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
+        .article-row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .btn-sm {
           font-family: 'Outfit', sans-serif;
           font-size: 11px; font-weight: 600;

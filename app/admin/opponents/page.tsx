@@ -116,7 +116,7 @@ export default function AdminOpponentsPage() {
           <div style={{ color: 'var(--muted)', textAlign: 'center', padding: '40px 0' }}>No opponents yet.</div>
         ) : (
           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
-            <table className="table">
+            <table className="table" style={{ minWidth: 480 }}>
               <thead>
                 <tr><th>Club</th><th>Short Name</th><th>Aliases</th><th></th></tr>
               </thead>

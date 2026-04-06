@@ -106,10 +106,12 @@ export default async function ResultsContent({ category }: { category: 'senior' 
         .result-outcome {
           font-family: 'Outfit', sans-serif;
           font-size: 12px; font-weight: 600;
-          color: #38bdf8; white-space: nowrap;
+          color: #38bdf8;
           padding: 4px 10px; border-radius: 6px;
           background: rgba(56,189,248,0.08);
           border: 1px solid rgba(56,189,248,0.2);
+          max-width: 100%;
+          overflow-wrap: break-word;
         }
         .format-pill {
           padding: 3px 9px; border-radius: 5px;

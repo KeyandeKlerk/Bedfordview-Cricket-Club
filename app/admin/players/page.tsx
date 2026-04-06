@@ -271,10 +271,11 @@ export default function AdminPlayersPage() {
 
         /* ── PLAYER LIST ── */
         .ap-player-row {
-          display: flex; align-items: center; gap: 14px;
+          display: flex; align-items: flex-start; gap: 12px;
           padding: 14px 0;
           border-bottom: 1px solid var(--border);
           transition: background 0.12s;
+          flex-wrap: wrap;
         }
         .ap-player-row:last-child { border-bottom: none; }
         .ap-player-row.inactive { opacity: 0.5; }
@@ -284,7 +285,7 @@ export default function AdminPlayersPage() {
           border: 1px solid rgba(59,130,246,0.25);
           display: flex; align-items: center; justify-content: center;
           font-family: var(--font-display); font-size: 13px; font-weight: 800;
-          color: #93c5fd; flex-shrink: 0;
+          color: #93c5fd; flex-shrink: 0; margin-top: 2px;
         }
         .ap-player-info { flex: 1; min-width: 0; }
         .ap-player-name {
@@ -300,7 +301,13 @@ export default function AdminPlayersPage() {
         }
         .ap-player-meta-sep { width: 2px; height: 2px; border-radius: 50%; background: currentColor; opacity: 0.4; }
         .ap-player-actions {
-          display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+          display: flex; align-items: center; gap: 6px;
+          flex-shrink: 0;
+        }
+        @media (max-width: 480px) {
+          .ap-player-row { align-items: flex-start; }
+          .ap-player-actions { width: 100%; padding-left: 52px; }
+          .ap-row-btn { flex: 1; justify-content: center; min-height: 40px; }
         }
         .ap-row-btn {
           display: inline-flex; align-items: center;
@@ -505,7 +512,6 @@ export default function AdminPlayersPage() {
 
         @media (max-width: 480px) {
           .ap-form-row { grid-template-columns: 1fr; }
-          .ap-player-meta { display: none; }
         }
       `}</style>
 

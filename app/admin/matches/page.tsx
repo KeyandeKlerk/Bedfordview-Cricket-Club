@@ -234,7 +234,9 @@ export default function AdminMatchesPage() {
           font-size: 15px; font-weight: 700;
           color: var(--text); letter-spacing: -0.01em;
           margin-bottom: 5px;
-          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          overflow: hidden; text-overflow: ellipsis;
+          white-space: nowrap;
+          max-width: 100%;
         }
         .am-card-meta {
           display: flex; align-items: center; gap: 8px; flex-wrap: wrap;

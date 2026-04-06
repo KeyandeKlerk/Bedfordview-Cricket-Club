@@ -96,11 +96,12 @@ export default function AdminCompetitionsPage() {
   return (
     <div style={{ paddingTop: 'var(--nav-h)', minHeight: '100vh', paddingBottom: 80 }}>
       <style>{`
-        .comp-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-        .comp-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        @media (max-width: 640px) {
-          .comp-form-grid { grid-template-columns: 1fr; }
+        .comp-form-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 12px; }
+        @media (min-width: 640px) {
+          .comp-form-grid { grid-template-columns: 1fr 1fr; }
         }
+        .comp-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .comp-table-scroll .table { min-width: 560px; }
       `}</style>
       <div className="page-hero">
         <div className="container">
