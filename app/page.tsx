@@ -113,18 +113,25 @@ export default async function HomePage() {
           .hero-stats { margin-top: 52px; }
         }
         @media (max-width: 480px) {
-          .hero-content { padding: 36px 16px 52px; }
-          .hero-stats { margin-top: 36px; padding-top: 24px; gap: 0; flex-wrap: nowrap; }
-          .hero-stat { padding-right: 20px; margin-right: 20px; }
-          .hero-stat-num { font-size: 24px; }
+          .hero-content { padding: 32px 16px 48px; }
+          .hero-eyebrow { display: none; }
+          .hero-title { margin-bottom: 20px; }
+          .hero-sub { font-size: 15px; margin-bottom: 28px; }
+          .hero-stats { margin-top: 32px; padding-top: 20px; gap: 0; flex-wrap: wrap; }
+          .hero-stat { padding-right: 24px; margin-right: 24px; margin-bottom: 12px; }
+          .hero-stat-num { font-size: 26px; }
           .hero-stat-label { font-size: 9px; }
-          .preview-section { padding: 48px 0 60px; }
-          .footer-inner { flex-direction: column; align-items: flex-start; gap: 16px; }
+          .preview-section { padding: 40px 0 52px; }
+          .footer-inner { flex-direction: column; align-items: flex-start; gap: 16px; padding: 0 16px; }
           .footer-links { flex-wrap: wrap; margin-left: -8px; }
-          .cta-section { padding: 56px 20px; }
-          .hero-sub { font-size: 15px; }
+          .cta-section { padding: 48px 16px; }
+          .cta-sub { font-size: 14px; }
           .hero-actions { gap: 10px; flex-direction: column; }
           .hero-actions .btn { width: 100%; justify-content: center; min-width: 0; }
+          .match-row-body { padding: 12px 14px; }
+          .match-vs { font-size: 13px; }
+          .match-meta { font-size: 10px; white-space: normal; }
+          .match-result { white-space: normal; font-size: 10px; }
         }
 
         .hero-eyebrow {
@@ -148,7 +155,7 @@ export default async function HomePage() {
 
         .hero-title {
           font-family: 'Syne', sans-serif;
-          font-size: clamp(52px, 9vw, 108px);
+          font-size: clamp(38px, 10vw, 108px);
           font-weight: 800;
           line-height: 0.92;
           letter-spacing: -0.03em;
