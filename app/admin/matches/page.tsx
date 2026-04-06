@@ -396,6 +396,8 @@ export default function AdminMatchesPage() {
           .am-card-date-block { display: none; }
           .am-card-vs { font-size: 14px; }
           .am-filter-btn { padding: 7px 10px; font-size: 10px; }
+          .am-card-actions { flex-wrap: wrap; }
+          .am-card-actions .am-action-btn { flex: 1; min-width: 80px; justify-content: center; }
         }
       `}</style>
 

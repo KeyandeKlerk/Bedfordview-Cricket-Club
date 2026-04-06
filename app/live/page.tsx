@@ -123,6 +123,7 @@ export default function LivePage() {
           padding-top: var(--nav-h);
           min-height: 100vh;
           padding-bottom: 80px;
+          overflow-x: hidden;
         }
 
         /* ── HERO ── */

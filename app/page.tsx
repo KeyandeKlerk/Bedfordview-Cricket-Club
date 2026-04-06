@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { getMatches } from '@/lib/queries'
+import { createClient } from '@supabase/supabase-js'
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-ZA', {
@@ -10,14 +11,31 @@ function formatDate(dateStr: string) {
 export default async function HomePage() {
   let upcoming: any[] = []
   let recent: any[] = []
+  let heroStats = [
+    { num: '50', label: 'Over Format' },
+    { num: 'Easterns', label: 'League' },
+    { num: new Date().getFullYear().toString(), label: 'Season' },
+  ]
 
   try {
-    const [u, r] = await Promise.all([
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const [u, r, seasonData, totalMatchesRes, winsRes] = await Promise.all([
       getMatches('upcoming'),
       getMatches('completed'),
+      supabase.from('seasons').select('name').eq('is_active', true).single(),
+      supabase.from('matches').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
+      supabase.from('matches').select('*', { count: 'exact', head: true }).eq('status', 'completed').ilike('result_text', '%won%'),
     ])
     upcoming = u.slice(0, 3)
     recent = r.slice(0, 3)
+    heroStats = [
+      { num: String(winsRes.count ?? 0), label: 'Wins' },
+      { num: String(totalMatchesRes.count ?? 0), label: 'Matches' },
+      { num: seasonData.data?.name ?? new Date().getFullYear().toString(), label: 'Season' },
+    ]
   } catch (_) {}
 
   return (
@@ -95,7 +113,7 @@ export default async function HomePage() {
           .hero-stats { margin-top: 52px; }
         }
         @media (max-width: 480px) {
-          .hero-content { padding: 36px 0 52px; }
+          .hero-content { padding: 36px 16px 52px; }
           .hero-stats { margin-top: 36px; padding-top: 24px; gap: 0; flex-wrap: nowrap; }
           .hero-stat { padding-right: 20px; margin-right: 20px; }
           .hero-stat-num { font-size: 24px; }
@@ -105,8 +123,8 @@ export default async function HomePage() {
           .footer-links { flex-wrap: wrap; margin-left: -8px; }
           .cta-section { padding: 56px 20px; }
           .hero-sub { font-size: 15px; }
-          .hero-actions { gap: 10px; }
-          .hero-actions .btn { flex: 1; justify-content: center; min-width: 0; }
+          .hero-actions { gap: 10px; flex-direction: column; }
+          .hero-actions .btn { width: 100%; justify-content: center; min-width: 0; }
         }
 
         .hero-eyebrow {
@@ -460,11 +478,7 @@ export default async function HomePage() {
             <Link href="/fixtures" className="btn btn-ghost">View Fixtures</Link>
           </div>
           <div className="hero-stats fade-up fade-up-3">
-            {[
-              { num: '50',   label: 'Over Format' },
-              { num: 'Easterns', label: 'League' },
-              { num: new Date().getFullYear().toString(), label: 'Season' },
-            ].map(s => (
+            {heroStats.map(s => (
               <div key={s.label} className="hero-stat">
                 <div className="hero-stat-num">{s.num}</div>
                 <div className="hero-stat-label">{s.label}</div>

@@ -115,26 +115,28 @@ export default function AdminOpponentsPage() {
         ) : opponents.length === 0 ? (
           <div style={{ color: 'var(--muted)', textAlign: 'center', padding: '40px 0' }}>No opponents yet.</div>
         ) : (
-          <table className="table">
-            <thead>
-              <tr><th>Club</th><th>Short Name</th><th>Aliases</th><th></th></tr>
-            </thead>
-            <tbody>
-              {opponents.map(o => (
-                <tr key={o.id}>
-                  <td style={{ fontWeight: 600 }}>{o.canonical_name}</td>
-                  <td style={{ color: 'var(--muted)' }}>{o.short_name || '—'}</td>
-                  <td style={{ color: 'var(--muted)', fontSize: 12 }}>{o.aliases.length ? o.aliases.join(', ') : '—'}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button className="btn btn-ghost" onClick={() => startEdit(o)} style={{ fontSize: 12, padding: '4px 10px' }}>Edit</button>
-                      <button className="btn btn-ghost" onClick={() => handleDelete(o.id)} style={{ fontSize: 12, padding: '4px 10px', color: 'var(--red)' }}>Delete</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+            <table className="table">
+              <thead>
+                <tr><th>Club</th><th>Short Name</th><th>Aliases</th><th></th></tr>
+              </thead>
+              <tbody>
+                {opponents.map(o => (
+                  <tr key={o.id}>
+                    <td style={{ fontWeight: 600 }}>{o.canonical_name}</td>
+                    <td style={{ color: 'var(--muted)' }}>{o.short_name || '—'}</td>
+                    <td style={{ color: 'var(--muted)', fontSize: 12 }}>{o.aliases.length ? o.aliases.join(', ') : '—'}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button className="btn btn-ghost" onClick={() => startEdit(o)} style={{ fontSize: 12, padding: '4px 10px' }}>Edit</button>
+                        <button className="btn btn-ghost" onClick={() => handleDelete(o.id)} style={{ fontSize: 12, padding: '4px 10px', color: 'var(--red)' }}>Delete</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

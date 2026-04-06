@@ -541,6 +541,9 @@ export default async function DashboardPage() {
           .db-hero { padding: 28px 0 32px; }
           .live-teams { font-size: 20px; }
         }
+        @media (max-width: 480px) {
+          .admin-grid { grid-template-columns: 1fr; }
+        }
       `}</style>
 
       <div className="db">

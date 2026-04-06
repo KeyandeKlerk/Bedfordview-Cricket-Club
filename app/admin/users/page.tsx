@@ -61,6 +61,27 @@ export default function AdminUsersPage() {
 
   return (
     <div style={{ paddingTop: 'var(--nav-h)', minHeight: '100vh', paddingBottom: 80 }}>
+      <style>{`
+        .au-form-grid {
+          display: grid;
+          grid-template-columns: 2fr 1fr auto;
+          gap: 12px;
+          align-items: end;
+        }
+        @media (max-width: 600px) {
+          .au-form-grid {
+            grid-template-columns: 1fr;
+          }
+          .au-form-grid .btn { width: 100%; justify-content: center; }
+        }
+        .au-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .au-input, .au-select {
+          width: 100%; padding: 8px 12px;
+          background: var(--surface); border: 1px solid var(--border);
+          borderRadius: 4px; color: var(--text); font-size: 14px;
+          min-height: 44px;
+        }
+      `}</style>
       <div className="page-hero">
         <div className="container">
           <div className="section-label">Admin</div>
@@ -73,11 +94,11 @@ export default function AdminUsersPage() {
           <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, textTransform: 'uppercase', marginBottom: 16 }}>
             Assign Role
           </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: 12, alignItems: 'end' }}>
+          <div className="au-form-grid">
             <div>
               <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>User ID (from Supabase Auth)</label>
               <input
-                style={{ width: '100%', padding: '8px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: 14 }}
+                style={{ width: '100%', padding: '8px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: 14, minHeight: 44 }}
                 placeholder="user-uuid"
                 value={newUserId}
                 onChange={e => setNewUserId(e.target.value)}
@@ -87,7 +108,7 @@ export default function AdminUsersPage() {
             <div>
               <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Role</label>
               <select
-                style={{ width: '100%', padding: '8px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: 14 }}
+                style={{ width: '100%', padding: '8px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: 14, minHeight: 44 }}
                 value={newRole}
                 onChange={e => setNewRole(e.target.value as 'scorer' | 'admin')}
               >
@@ -103,27 +124,29 @@ export default function AdminUsersPage() {
         {loading ? (
           <div style={{ color: 'var(--muted)' }}>Loading...</div>
         ) : (
-          <table className="table">
-            <thead><tr><th>User ID</th><th>Role</th><th>Assigned</th><th></th></tr></thead>
-            <tbody>
-              {roles.map(r => (
-                <tr key={r.id}>
-                  <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{r.user_id.slice(0, 16)}...</td>
-                  <td><span className={`badge ${r.role === 'admin' ? 'badge-lime' : 'badge-gold'}`}>{r.role}</span></td>
-                  <td style={{ color: 'var(--muted)', fontSize: 13 }}>{new Date(r.assigned_at).toLocaleDateString()}</td>
-                  <td>
-                    <button
-                      className="btn btn-ghost"
-                      onClick={() => handleRevoke(r)}
-                      style={{ fontSize: 12, color: 'var(--red)' }}
-                    >
-                      Revoke
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="au-table-scroll">
+            <table className="table">
+              <thead><tr><th>User ID</th><th>Role</th><th>Assigned</th><th></th></tr></thead>
+              <tbody>
+                {roles.map(r => (
+                  <tr key={r.id}>
+                    <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{r.user_id.slice(0, 16)}...</td>
+                    <td><span className={`badge ${r.role === 'admin' ? 'badge-lime' : 'badge-gold'}`}>{r.role}</span></td>
+                    <td style={{ color: 'var(--muted)', fontSize: 13 }}>{new Date(r.assigned_at).toLocaleDateString()}</td>
+                    <td>
+                      <button
+                        className="btn btn-ghost"
+                        onClick={() => handleRevoke(r)}
+                        style={{ fontSize: 12, color: 'var(--red)' }}
+                      >
+                        Revoke
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

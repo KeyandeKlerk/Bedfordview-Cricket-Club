@@ -95,6 +95,13 @@ export default function AdminCompetitionsPage() {
 
   return (
     <div style={{ paddingTop: 'var(--nav-h)', minHeight: '100vh', paddingBottom: 80 }}>
+      <style>{`
+        .comp-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+        .comp-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        @media (max-width: 640px) {
+          .comp-form-grid { grid-template-columns: 1fr; }
+        }
+      `}</style>
       <div className="page-hero">
         <div className="container">
           <div className="section-label">Admin</div>
@@ -120,7 +127,7 @@ export default function AdminCompetitionsPage() {
             <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, textTransform: 'uppercase', marginBottom: 16 }}>
               {editId === 'new' ? 'New Competition' : 'Edit Competition'}
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+            <div className="comp-form-grid">
               <input style={inputStyle} placeholder="Competition name *" value={form.name} onChange={e => f('name', e.target.value)} />
               <select style={inputStyle} value={form.season_id} onChange={e => f('season_id', e.target.value)}>
                 <option value="">Select season *</option>
@@ -156,34 +163,36 @@ export default function AdminCompetitionsPage() {
             No competitions{filterSeason ? ' for this season' : ''}.
           </div>
         ) : (
-          <table className="table">
-            <thead>
-              <tr><th>Competition</th><th>Season</th><th>Format</th><th>Overs</th><th>Status</th><th></th></tr>
-            </thead>
-            <tbody>
-              {visible.map(c => (
-                <tr key={c.id}>
-                  <td style={{ fontWeight: 600 }}>{c.name}</td>
-                  <td style={{ color: 'var(--muted)', fontSize: 13 }}>{seasonName(c.season_id)}</td>
-                  <td style={{ color: 'var(--muted)', fontSize: 13 }}>{c.match_format} · {c.type}</td>
-                  <td style={{ color: 'var(--muted)' }}>{c.overs_per_innings}</td>
-                  <td>
-                    <span className={`badge ${c.is_active ? 'badge-lime' : 'badge-muted'}`}>
-                      {c.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button className="btn btn-ghost" onClick={() => startEdit(c)} style={{ fontSize: 12, padding: '4px 10px' }}>Edit</button>
-                      <button className="btn btn-ghost" onClick={() => toggleActive(c)} style={{ fontSize: 12, padding: '4px 10px' }}>
-                        {c.is_active ? 'Deactivate' : 'Activate'}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="comp-table-scroll">
+            <table className="table">
+              <thead>
+                <tr><th>Competition</th><th>Season</th><th>Format</th><th>Overs</th><th>Status</th><th></th></tr>
+              </thead>
+              <tbody>
+                {visible.map(c => (
+                  <tr key={c.id}>
+                    <td style={{ fontWeight: 600 }}>{c.name}</td>
+                    <td style={{ color: 'var(--muted)', fontSize: 13 }}>{seasonName(c.season_id)}</td>
+                    <td style={{ color: 'var(--muted)', fontSize: 13 }}>{c.match_format} · {c.type}</td>
+                    <td style={{ color: 'var(--muted)' }}>{c.overs_per_innings}</td>
+                    <td>
+                      <span className={`badge ${c.is_active ? 'badge-lime' : 'badge-muted'}`}>
+                        {c.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button className="btn btn-ghost" onClick={() => startEdit(c)} style={{ fontSize: 12, padding: '4px 10px' }}>Edit</button>
+                        <button className="btn btn-ghost" onClick={() => toggleActive(c)} style={{ fontSize: 12, padding: '4px 10px' }}>
+                          {c.is_active ? 'Deactivate' : 'Activate'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

@@ -201,11 +201,16 @@ export default function StatsContent({ category }: { category: 'senior' | 'junio
         .stats-page { padding-top: var(--nav-h); min-height: 100vh; }
 
         /* ── TABS ── */
+        .stats-tabs-scroll {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          margin-bottom: 28px;
+        }
         .stats-tabs {
           display: flex;
           gap: 0;
           border-bottom: 1px solid rgba(59,130,246,0.12);
-          margin-bottom: 28px;
+          min-width: max-content;
         }
         .stats-tab {
           padding: 14px 28px;
@@ -388,7 +393,7 @@ export default function StatsContent({ category }: { category: 'senior' | 'junio
         }
 
         @media (max-width: 768px) {
-          .stats-tabs { margin-bottom: 20px; }
+          .stats-tabs-scroll { margin-bottom: 20px; }
           .stats-tab { padding: 12px 16px; font-size: 14px; }
           .filter-label { display: none; }
           .stats-summary { grid-template-columns: repeat(2, 1fr); }
@@ -423,16 +428,18 @@ export default function StatsContent({ category }: { category: 'senior' | 'junio
         <div className="container" style={{ paddingBottom: 80 }}>
 
           {/* Tabs */}
-          <div className="stats-tabs">
-            <button className={`stats-tab${tab === 'batting'  ? ' active' : ''}`} onClick={() => setTab('batting')}>
-              <span className="stats-tab-icon">🏏</span> Batting
-            </button>
-            <button className={`stats-tab${tab === 'bowling'  ? ' active' : ''}`} onClick={() => setTab('bowling')}>
-              <span className="stats-tab-icon">⚾</span> Bowling
-            </button>
-            <button className={`stats-tab${tab === 'fielding' ? ' active' : ''}`} onClick={() => setTab('fielding')}>
-              <span className="stats-tab-icon">🧤</span> Fielding
-            </button>
+          <div className="stats-tabs-scroll">
+            <div className="stats-tabs">
+              <button className={`stats-tab${tab === 'batting'  ? ' active' : ''}`} onClick={() => setTab('batting')}>
+                <span className="stats-tab-icon">🏏</span> Batting
+              </button>
+              <button className={`stats-tab${tab === 'bowling'  ? ' active' : ''}`} onClick={() => setTab('bowling')}>
+                <span className="stats-tab-icon">⚾</span> Bowling
+              </button>
+              <button className={`stats-tab${tab === 'fielding' ? ' active' : ''}`} onClick={() => setTab('fielding')}>
+                <span className="stats-tab-icon">🧤</span> Fielding
+              </button>
+            </div>
           </div>
 
           {/* Filters */}

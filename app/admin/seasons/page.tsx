@@ -55,7 +55,12 @@ export default function SeasonsPage() {
   return (
     <>
       <style>{`
-        .form-input { width: 100%; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 14px; }
+        .form-input { width: 100%; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 14px; min-height: 44px; }
+        .season-form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+        .season-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        @media (max-width: 600px) {
+          .season-form-grid { grid-template-columns: 1fr; }
+        }
       `}</style>
 
       <div style={{ paddingTop: 'var(--nav-h)', minHeight: '100vh', paddingBottom: 80 }}>
@@ -69,7 +74,7 @@ export default function SeasonsPage() {
         <div className="container" style={{ paddingTop: 32, maxWidth: 640 }}>
           <form onSubmit={handleCreate} style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 4, padding: 24, marginBottom: 32 }}>
             <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, textTransform: 'uppercase', marginBottom: 16 }}>New Season</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div className="season-form-grid">
               <input className="form-input" placeholder="Name (e.g. 2025/26)" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required />
               <input className="form-input" type="date" placeholder="Start" value={form.start_date} onChange={e => setForm(p => ({ ...p, start_date: e.target.value }))} required />
               <input className="form-input" type="date" placeholder="End" value={form.end_date} onChange={e => setForm(p => ({ ...p, end_date: e.target.value }))} required />
@@ -81,31 +86,33 @@ export default function SeasonsPage() {
           {loading ? (
             <div style={{ color: 'var(--muted)' }}>Loading...</div>
           ) : (
-            <table className="table">
-              <thead><tr><th>Season</th><th>Dates</th><th>Status</th><th></th></tr></thead>
-              <tbody>
-                {seasons.map(s => (
-                  <tr key={s.id}>
-                    <td style={{ fontWeight: 600 }}>{s.name}</td>
-                    <td style={{ color: 'var(--muted)', fontSize: 13 }}>{s.start_date} → {s.end_date}</td>
-                    <td>
-                      <span className={`badge ${s.is_active ? 'badge-lime' : 'badge-muted'}`}>
-                        {s.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td>
-                      <button
-                        className="btn btn-ghost"
-                        onClick={() => toggleActive(s)}
-                        style={{ fontSize: 12, padding: '4px 10px' }}
-                      >
-                        {s.is_active ? 'Deactivate' : 'Set Active'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="season-table-scroll">
+              <table className="table">
+                <thead><tr><th>Season</th><th>Dates</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                  {seasons.map(s => (
+                    <tr key={s.id}>
+                      <td style={{ fontWeight: 600 }}>{s.name}</td>
+                      <td style={{ color: 'var(--muted)', fontSize: 13 }}>{s.start_date} → {s.end_date}</td>
+                      <td>
+                        <span className={`badge ${s.is_active ? 'badge-lime' : 'badge-muted'}`}>
+                          {s.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          className="btn btn-ghost"
+                          onClick={() => toggleActive(s)}
+                          style={{ fontSize: 12, padding: '4px 10px' }}
+                        >
+                          {s.is_active ? 'Deactivate' : 'Set Active'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>

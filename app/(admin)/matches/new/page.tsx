@@ -130,9 +130,17 @@ export default function NewMatchPage() {
           width: 100%; padding: 10px 14px;
           background: var(--surface); border: 1px solid var(--border);
           border-radius: 4px; color: var(--text); font-size: 14px;
+          min-height: 44px;
         }
         .form-select:focus, .form-input:focus {
           outline: none; border-color: var(--lime);
+        }
+        .nm-inline-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .nm-inline-row .form-select,
+        .nm-inline-row .form-input { flex: 1; min-width: 0; }
+        @media (max-width: 640px) {
+          .nm-inline-row { flex-direction: column; }
+          .nm-inline-row .btn { width: 100%; justify-content: center; }
         }
       `}</style>
 
@@ -196,7 +204,7 @@ export default function NewMatchPage() {
             <div className="form-section">
               <label className="form-label">Opponent *</label>
               {addingOpponent ? (
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div className="nm-inline-row">
                   <input
                     className="form-input"
                     placeholder="Opponent name"
@@ -207,7 +215,7 @@ export default function NewMatchPage() {
                   <button type="button" className="btn btn-ghost" onClick={() => setAddingOpponent(false)}>Cancel</button>
                 </div>
               ) : (
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div className="nm-inline-row">
                   <select className="form-select" value={opponentId} onChange={e => setOpponentId(e.target.value)} required>
                     <option value="">Select opponent...</option>
                     {opponents.map(o => <option key={o.id} value={o.id}>{o.canonical_name}</option>)}
