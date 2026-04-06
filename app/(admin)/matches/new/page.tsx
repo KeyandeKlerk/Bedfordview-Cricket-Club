@@ -7,13 +7,12 @@ export default function NewMatchPage() {
   const router = useRouter()
   const [seasons, setSeasons]           = useState<any[]>([])
   const [competitions, setCompetitions] = useState<any[]>([])
-  const [teams, setTeams]               = useState<any[]>([])
   const [opponents, setOpponents]       = useState<any[]>([])
   const [grounds, setGrounds]           = useState<any[]>([])
 
   const [seasonId, setSeasonId]         = useState('')
   const [competitionId, setCompetitionId] = useState('')
-  const [teamId, setTeamId]             = useState('')
+  const [teamCategory, setTeamCategory] = useState<'senior' | 'junior'>('senior')
   const [opponentId, setOpponentId]     = useState('')
   const [groundId, setGroundId]         = useState('')
   const [matchDate, setMatchDate]       = useState('')
@@ -27,9 +26,8 @@ export default function NewMatchPage() {
 
   useEffect(() => {
     async function load() {
-      const [seasonsRes, teamsRes, opponentsRes, groundsRes] = await Promise.all([
+      const [seasonsRes, opponentsRes, groundsRes] = await Promise.all([
         supabase.from('seasons').select('*').order('start_date', { ascending: false }),
-        supabase.from('teams').select('*').eq('is_active', true).order('name'),
         supabase.from('opponents').select('*').order('canonical_name'),
         supabase.from('grounds').select('*').order('name'),
       ])
@@ -38,7 +36,6 @@ export default function NewMatchPage() {
         const active = seasonsRes.data.find((s: any) => s.is_active)
         if (active) setSeasonId(active.id)
       }
-      if (teamsRes.data)    setTeams(teamsRes.data)
       if (opponentsRes.data) setOpponents(opponentsRes.data)
       if (groundsRes.data)  setGrounds(groundsRes.data)
     }
@@ -75,7 +72,7 @@ export default function NewMatchPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!seasonId || !competitionId || !teamId || !opponentId || !matchDate) {
+    if (!seasonId || !competitionId || !opponentId || !matchDate) {
       setError('All required fields must be filled.')
       return
     }
@@ -89,7 +86,6 @@ export default function NewMatchPage() {
         .insert({
           season_id: seasonId,
           competition_id: competitionId,
-          team_id: teamId,
           opponent_id: opponentId,
           ground_id: groundId || null,
           match_date: matchDate,
@@ -191,13 +187,22 @@ export default function NewMatchPage() {
               )}
             </div>
 
-            {/* Team */}
+            {/* Senior / Junior */}
             <div className="form-section">
-              <label className="form-label">Our Team *</label>
-              <select className="form-select" value={teamId} onChange={e => setTeamId(e.target.value)} required>
-                <option value="">Select team...</option>
-                {teams.map(t => <option key={t.id} value={t.id}>{t.name} ({t.category ?? 'senior'})</option>)}
-              </select>
+              <label className="form-label">Team *</label>
+              <div style={{ display: 'flex', gap: 10 }}>
+                {(['senior', 'junior'] as const).map(cat => (
+                  <button
+                    key={cat}
+                    type="button"
+                    className={teamCategory === cat ? 'btn btn-primary' : 'btn btn-ghost'}
+                    onClick={() => setTeamCategory(cat)}
+                    style={{ flex: 1, justifyContent: 'center', textTransform: 'capitalize' }}
+                  >
+                    {cat === 'senior' ? 'Senior XI' : 'Junior XI'}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Opponent */}

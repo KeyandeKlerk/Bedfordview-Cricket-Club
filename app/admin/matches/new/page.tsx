@@ -9,8 +9,6 @@ export default function NewMatchPage() {
   const [competitions, setCompetitions] = useState<any[]>([])
   const [opponents, setOpponents]       = useState<any[]>([])
   const [grounds, setGrounds]           = useState<any[]>([])
-  const [teams, setTeams]               = useState<any[]>([])
-
   const [seasonId, setSeasonId]           = useState('')
   const [competitionId, setCompetitionId] = useState('')
   const [opponentId, setOpponentId]       = useState('')
@@ -27,11 +25,10 @@ export default function NewMatchPage() {
 
   useEffect(() => {
     async function load() {
-      const [seasonsRes, opponentsRes, groundsRes, teamsRes] = await Promise.all([
+      const [seasonsRes, opponentsRes, groundsRes] = await Promise.all([
         supabase.from('seasons').select('*').order('start_date', { ascending: false }),
         supabase.from('opponents').select('*').order('canonical_name'),
         supabase.from('grounds').select('*').order('name'),
-        supabase.from('teams').select('id, name, category').order('category'),
       ])
       if (seasonsRes.data) {
         setSeasons(seasonsRes.data)
@@ -40,7 +37,6 @@ export default function NewMatchPage() {
       }
       if (opponentsRes.data) setOpponents(opponentsRes.data)
       if (groundsRes.data)   setGrounds(groundsRes.data)
-      if (teamsRes.data)     setTeams(teamsRes.data)
     }
     load()
   }, [])
@@ -63,7 +59,6 @@ export default function NewMatchPage() {
 
   const activeSeason = seasons.find(s => s.id === seasonId)
   const selectedComp = competitions.find(c => c.id === competitionId)
-  const teamId = teams.find((t: any) => t.category === teamCategory)?.id ?? null
 
   async function addNewOpponent() {
     if (!newOpponentName.trim()) return
@@ -103,7 +98,6 @@ export default function NewMatchPage() {
           match_format: selectedComp?.match_format ?? 'club',
           overs_per_innings: selectedComp?.overs_per_innings ?? 20,
           status: 'upcoming',
-          team_id: teamId,
         })
         .select('id')
         .single()
@@ -204,11 +198,6 @@ export default function NewMatchPage() {
                   </button>
                 ))}
               </div>
-              {!teamId && (
-                <p style={{ color: 'var(--red)', fontSize: 12, marginTop: 4 }}>
-                  No {teamCategory} team found in DB — run migration 008 first.
-                </p>
-              )}
             </div>
 
             {/* Opponent */}

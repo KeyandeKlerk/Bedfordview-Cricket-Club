@@ -17,7 +17,7 @@ export default function ResultsContent() {
   useEffect(() => {
     supabase
       .from('matches')
-      .select('*, opponent:opponents(canonical_name), ground:grounds(name), competition:competitions(name, match_format, overs_per_innings), team:teams(category)')
+      .select('*, opponent:opponents(canonical_name), ground:grounds(name), competition:competitions(name, match_format, overs_per_innings, category)')
       .eq('status', 'completed')
       .order('match_date', { ascending: false })
       .then(({ data }) => {
@@ -27,7 +27,7 @@ export default function ResultsContent() {
   }, [])
 
   const results = useMemo(() =>
-    category === 'all' ? allResults : allResults.filter((m: any) => m.team?.category === category),
+    category === 'all' ? allResults : allResults.filter((m: any) => m.competition?.category === category),
     [allResults, category]
   )
 
@@ -157,7 +157,7 @@ export default function ResultsContent() {
             </div>
           ) : (
             results.map((m: any) => {
-              const isJunior = m.team?.category === 'junior'
+              const isJunior = m.competition?.category === 'junior'
               return (
                 <Link key={m.id} href={`/results/${m.id}`} className="result-card">
                   <div className={`result-accent${isJunior ? ' result-accent-junior' : ''}`} />

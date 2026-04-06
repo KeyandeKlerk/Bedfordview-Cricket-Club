@@ -21,7 +21,7 @@ export default function FixturesContent() {
   useEffect(() => {
     supabase
       .from('matches')
-      .select('*, opponent:opponents(canonical_name), ground:grounds(name), competition:competitions(name, overs_per_innings, match_format), team:teams(category)')
+      .select('*, opponent:opponents(canonical_name), ground:grounds(name), competition:competitions(name, overs_per_innings, match_format, category)')
       .eq('status', 'upcoming')
       .order('match_date', { ascending: true })
       .then(({ data }) => {
@@ -31,7 +31,7 @@ export default function FixturesContent() {
   }, [])
 
   const fixtures = useMemo(() =>
-    category === 'all' ? allFixtures : allFixtures.filter((m: any) => m.team?.category === category),
+    category === 'all' ? allFixtures : allFixtures.filter((m: any) => m.competition?.category === category),
     [allFixtures, category]
   )
 
@@ -187,7 +187,7 @@ export default function FixturesContent() {
               <div key={month} className="month-group">
                 <div className="month-label">{month}</div>
                 {ms.map((m: any) => {
-                  const isJunior = m.team?.category === 'junior'
+                  const isJunior = m.competition?.category === 'junior'
                   return (
                     <div key={m.id} className="fixture-card">
                       <div className={`fixture-accent${isJunior ? ' fixture-accent-junior' : ''}`} />
