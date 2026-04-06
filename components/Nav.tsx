@@ -87,12 +87,12 @@ export default function Nav() {
         .nav-inner {
           max-width: 1200px;
           margin: 0 auto;
-          padding: 0 24px;
+          padding: 0 20px;
           height: 100%;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 32px;
+          gap: 16px;
         }
 
         /* Logo */
@@ -338,14 +338,17 @@ export default function Nav() {
           position: fixed;
           top: var(--nav-h);
           left: 0; right: 0;
-          background: rgba(6,15,34,0.97);
+          bottom: 0;
+          background: rgba(6,15,34,0.98);
           border-bottom: 1px solid rgba(59,130,246,0.15);
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
-          padding: 16px 20px 24px;
+          padding: 8px 20px 40px;
           flex-direction: column;
-          gap: 4px;
+          gap: 0;
           z-index: 99;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
         }
         .mobile-menu.open { display: flex; }
         .mobile-menu a, .mobile-menu button {
@@ -403,20 +406,18 @@ export default function Nav() {
         @media (max-width: 768px) {
           .nav-links, .nav-right { display: none; }
           .nav-hamburger { display: flex; }
+          .nav-inner { padding: 0 16px; gap: 12px; }
+        }
+        @media (max-width: 380px) {
+          .nav-logo-text { display: none; }
         }
 
-        /* Backdrop overlay */
+        /* Backdrop overlay — only rendered in DOM when menuOpen=true */
         .mobile-overlay {
-          display: none;
           position: fixed;
           inset: 0;
           z-index: 98;
-          background: rgba(5,12,26,0.6);
-          backdrop-filter: blur(4px);
-          -webkit-backdrop-filter: blur(4px);
-        }
-        @media (max-width: 768px) {
-          .mobile-overlay { display: block; }
+          background: rgba(5,12,26,0.5);
         }
 
         /* Animated hamburger → X */
