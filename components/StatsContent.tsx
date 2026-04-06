@@ -76,7 +76,10 @@ const TAB_DEFAULTS: Record<Tab, string> = {
   fielding: 'total_dismissals',
 }
 
-export default function StatsContent({ category }: { category: 'senior' | 'junior' }) {
+type TeamCategory = 'senior' | 'junior'
+
+export default function StatsContent() {
+  const [category, setCategory]         = useState<TeamCategory>('senior')
   const [seasons, setSeasons]           = useState<Season[]>([])
   const [competitions, setCompetitions] = useState<Competition[]>([])
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | 'career'>('career')
@@ -193,12 +196,28 @@ export default function StatsContent({ category }: { category: 'senior' | 'junio
   }
 
   const cols = tab === 'batting' ? BATTING_COLS : tab === 'bowling' ? BOWLING_COLS : FIELDING_COLS
-  const label = category === 'junior' ? 'Junior' : 'Senior'
 
   return (
     <>
       <style>{`
         .stats-page { padding-top: var(--nav-h); min-height: 100vh; }
+
+        /* ── CATEGORY FILTER ── */
+        .cat-filter { display: flex; gap: 8px; margin-bottom: 28px; flex-wrap: wrap; }
+        .cat-btn {
+          padding: 8px 18px; border-radius: 20px;
+          border: 1px solid rgba(59,130,246,0.2);
+          background: transparent; color: rgba(147,197,253,0.55);
+          font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 600;
+          cursor: pointer; transition: all 0.15s; min-height: 38px;
+          touch-action: manipulation; display: flex; align-items: center; gap: 6px;
+        }
+        .cat-btn:hover { border-color: rgba(59,130,246,0.4); color: rgba(147,197,253,0.85); }
+        .cat-btn.active-senior { background: rgba(37,99,235,0.18); border-color: rgba(59,130,246,0.5); color: #93c5fd; }
+        .cat-btn.active-junior { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.4); color: #6ee7b7; }
+        .cat-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+        .cat-dot-senior { background: #3b82f6; }
+        .cat-dot-junior { background: #10b981; }
 
         /* ── TABS ── */
         .stats-tabs-scroll {
@@ -417,15 +436,29 @@ export default function StatsContent({ category }: { category: 'senior' | 'junio
       <div className="stats-page">
         <div className="page-hero">
           <div className="container">
-            <div className="section-label">{label} Statistics</div>
-            <h1>{label} Stats</h1>
+            <div className="section-label">Statistics</div>
+            <h1>Stats</h1>
             <p style={{ marginTop: 14, fontSize: 16, color: 'rgba(147,197,253,0.55)', fontFamily: 'Outfit, sans-serif' }}>
-              Batting, bowling, and fielding figures for all {label.toLowerCase()} players.
+              Batting, bowling, and fielding figures for all players.
             </p>
           </div>
         </div>
 
         <div className="container" style={{ paddingBottom: 80 }}>
+
+          {/* Category filter */}
+          <div className="cat-filter">
+            {(['senior', 'junior'] as TeamCategory[]).map(c => (
+              <button
+                key={c}
+                className={`cat-btn${category === c ? ` active-${c}` : ''}`}
+                onClick={() => setCategory(c)}
+              >
+                <span className={`cat-dot cat-dot-${c}`} />
+                {c === 'senior' ? 'Senior' : 'Junior'}
+              </button>
+            ))}
+          </div>
 
           {/* Tabs */}
           <div className="stats-tabs-scroll">

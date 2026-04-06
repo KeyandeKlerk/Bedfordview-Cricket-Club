@@ -1,7 +1,5 @@
-import ResultsContent from '@/components/ResultsContent'
-
-export const revalidate = 60
+import { redirect } from 'next/navigation'
 
 export default function JuniorResultsPage() {
-  return <ResultsContent category="junior" />
+  redirect('/results')
 }

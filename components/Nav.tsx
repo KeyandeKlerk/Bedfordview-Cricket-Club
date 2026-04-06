@@ -7,34 +7,13 @@ import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 
 const NAV_LINKS = [
+  { href: '/fixtures',   label: 'Fixtures' },
+  { href: '/results',    label: 'Results' },
+  { href: '/stats',      label: 'Stats' },
   { href: '/live',       label: 'Live' },
   { href: '/news',       label: 'News' },
   { href: '/shop',       label: 'Shop' },
   { href: '/membership', label: 'Membership' },
-]
-
-const NAV_DROPDOWNS = [
-  {
-    label: 'Fixtures',
-    items: [
-      { href: '/fixtures',        label: 'Senior Fixtures' },
-      { href: '/junior/fixtures', label: 'Junior Fixtures' },
-    ],
-  },
-  {
-    label: 'Results',
-    items: [
-      { href: '/results',        label: 'Senior Results' },
-      { href: '/junior/results', label: 'Junior Results' },
-    ],
-  },
-  {
-    label: 'Stats',
-    items: [
-      { href: '/stats',        label: 'Senior Stats' },
-      { href: '/junior/stats', label: 'Junior Stats' },
-    ],
-  },
 ]
 
 export default function Nav() {
@@ -437,31 +416,6 @@ export default function Nav() {
           </Link>
 
           <ul className="nav-links">
-            {/* Dropdown items: Fixtures, Results, Stats */}
-            {NAV_DROPDOWNS.map(d => {
-              const isActive = d.items.some(i => pathname.startsWith(i.href))
-              return (
-                <li key={d.label} className="nav-dropdown-wrap">
-                  <button className={`nav-dropdown-trigger${isActive ? ' active' : ''}`}>
-                    {d.label}
-                    <span className="nav-dropdown-arrow">▼</span>
-                  </button>
-                  <div className="nav-dropdown-menu">
-                    {d.items.map(item => (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={pathname.startsWith(item.href) ? 'active' : ''}
-                      >
-                        <span className={`dropdown-item-dot ${item.href.startsWith('/junior') ? 'junior' : 'senior'}`} />
-                        {item.label}
-                      </Link>
-                    ))}
-                  </div>
-                </li>
-              )
-            })}
-            {/* Regular flat links */}
             {NAV_LINKS.map(l => (
               <li key={l.href}>
                 <Link
@@ -510,21 +464,6 @@ export default function Nav() {
       {menuOpen && <div className="mobile-overlay" onClick={() => setMenuOpen(false)} />}
 
       <div className={`mobile-menu${menuOpen ? ' open' : ''}`}>
-        {/* Dropdown groups expanded inline */}
-        {NAV_DROPDOWNS.map(d => (
-          <div key={d.label} className="mobile-menu-group">
-            <div className="mobile-section-label">{d.label}</div>
-            <div className="mobile-menu-sub">
-              {d.items.map(item => (
-                <Link key={item.href} href={item.href} onClick={() => setMenuOpen(false)}>
-                  <span className={`dropdown-item-dot ${item.href.startsWith('/junior') ? 'junior' : 'senior'}`} />
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-        ))}
-        {/* Flat links */}
         {NAV_LINKS.map(l => (
           <Link key={l.href} href={l.href} onClick={() => setMenuOpen(false)}>{l.label}</Link>
         ))}

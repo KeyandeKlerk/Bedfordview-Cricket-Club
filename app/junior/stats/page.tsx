@@ -1,5 +1,5 @@
-import StatsContent from '@/components/StatsContent'
+import { redirect } from 'next/navigation'
 
 export default function JuniorStatsPage() {
-  return <StatsContent category="junior" />
+  redirect('/stats')
 }

@@ -1,7 +1,5 @@
-import FixturesContent from '@/components/FixturesContent'
-
-export const revalidate = 60
+import { redirect } from 'next/navigation'
 
 export default function JuniorFixturesPage() {
-  return <FixturesContent category="junior" />
+  redirect('/fixtures')
 }
