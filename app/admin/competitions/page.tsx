@@ -11,6 +11,7 @@ interface Competition {
   overs_per_innings: number
   match_format: string
   is_active: boolean
+  category: 'senior' | 'junior'
 }
 
 const FORMATS = ['t20', 'odi', 'test', 'hundred', 'club']
@@ -23,7 +24,7 @@ export default function AdminCompetitionsPage() {
   const [loading, setLoading]             = useState(true)
   const [editId, setEditId]               = useState<string | null>(null)
   const [form, setForm]                   = useState({
-    name: '', season_id: '', type: 'league', overs_per_innings: '20', match_format: 'club',
+    name: '', season_id: '', type: 'league', overs_per_innings: '20', match_format: 'club', category: 'senior',
   })
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState<string | null>(null)
@@ -48,12 +49,13 @@ export default function AdminCompetitionsPage() {
   function startEdit(c: Competition | null) {
     if (!c) {
       const active = seasons.find(s => s.is_active)
-      setForm({ name: '', season_id: active?.id ?? '', type: 'league', overs_per_innings: '20', match_format: 'club' })
+      setForm({ name: '', season_id: active?.id ?? '', type: 'league', overs_per_innings: '20', match_format: 'club', category: 'senior' })
       setEditId('new')
     } else {
       setForm({
         name: c.name, season_id: c.season_id, type: c.type,
         overs_per_innings: String(c.overs_per_innings), match_format: c.match_format,
+        category: c.category ?? 'senior',
       })
       setEditId(c.id)
     }
@@ -69,6 +71,7 @@ export default function AdminCompetitionsPage() {
       type: form.type,
       overs_per_innings: parseInt(form.overs_per_innings) || 20,
       match_format: form.match_format,
+      category: form.category,
     }
     if (editId === 'new') {
       const { data, error } = await supabase.from('competitions').insert({ ...payload, is_active: true }).select().single()
@@ -77,7 +80,7 @@ export default function AdminCompetitionsPage() {
     } else {
       const { error } = await supabase.from('competitions').update(payload).eq('id', editId!)
       if (error) { setError(error.message); setSaving(false); return }
-      setCompetitions(prev => prev.map(c => c.id === editId ? { ...c, ...payload } : c))
+      setCompetitions(prev => prev.map(c => c.id === editId ? { ...c, ...payload, category: payload.category as 'senior' | 'junior' } : c))
     }
     setSaving(false)
     setEditId(null)
@@ -134,6 +137,10 @@ export default function AdminCompetitionsPage() {
                 <option value="">Select season *</option>
                 {seasons.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
+              <select style={inputStyle} value={form.category} onChange={e => f('category', e.target.value)}>
+                <option value="senior">Senior</option>
+                <option value="junior">Junior</option>
+              </select>
               <select style={inputStyle} value={form.type} onChange={e => f('type', e.target.value)}>
                 {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -167,13 +174,18 @@ export default function AdminCompetitionsPage() {
           <div className="comp-table-scroll">
             <table className="table">
               <thead>
-                <tr><th>Competition</th><th>Season</th><th>Format</th><th>Overs</th><th>Status</th><th></th></tr>
+                <tr><th>Competition</th><th>Season</th><th>Team</th><th>Format</th><th>Overs</th><th>Status</th><th></th></tr>
               </thead>
               <tbody>
                 {visible.map(c => (
                   <tr key={c.id}>
                     <td style={{ fontWeight: 600 }}>{c.name}</td>
                     <td style={{ color: 'var(--muted)', fontSize: 13 }}>{seasonName(c.season_id)}</td>
+                    <td>
+                      <span className={`badge ${c.category === 'junior' ? 'badge-green' : 'badge-blue'}`} style={{ fontSize: 11 }}>
+                        {c.category === 'junior' ? 'Junior' : 'Senior'}
+                      </span>
+                    </td>
                     <td style={{ color: 'var(--muted)', fontSize: 13 }}>{c.match_format} · {c.type}</td>
                     <td style={{ color: 'var(--muted)' }}>{c.overs_per_innings}</td>
                     <td>
