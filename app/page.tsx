@@ -107,13 +107,13 @@ export default async function HomePage() {
 
         @media (max-width: 768px) {
           .hero-ring { display: none; }
-          .hero-content { padding: 48px 16px 64px; }
+          .hero-content { padding: 48px 20px 64px; }
           .hero-stat-num { font-size: 30px; }
           .hero-stat { padding-right: 28px; margin-right: 28px; }
           .hero-stats { margin-top: 52px; }
         }
         @media (max-width: 480px) {
-          .hero-content { padding: 32px 16px 48px; }
+          .hero-content { padding: 32px 20px 48px; }
           .hero-eyebrow { display: none; }
           .hero-title { margin-bottom: 20px; }
           .hero-sub { font-size: 15px; margin-bottom: 28px; }

@@ -42,6 +42,8 @@ interface AvailablePlayer {
   id: string
   first_name: string
   last_name: string
+  _preselected?: boolean  // true when pre-populated from coach's selections
+  _position?: number      // batting position from selections
 }
 
 // Phase type is imported from lib/cricket/phases
@@ -1224,8 +1226,18 @@ function SetupBccXi({ matchId, ourSide, availablePlayers, onComplete }: {
   availablePlayers: AvailablePlayer[]
   onComplete: (inserted: MatchPlayer[]) => void
 }) {
+  const isPrePopulated = availablePlayers.some(p => p._preselected)
+
+  // Pre-check all players tagged from the coach's selection, sorted by position
+  const initialSelected = new Set(
+    availablePlayers
+      .filter(p => p._preselected)
+      .sort((a, b) => (a._position ?? 99) - (b._position ?? 99))
+      .map(p => p.id)
+  )
+
   const [search, setSearch]     = useState('')
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [selected, setSelected] = useState<Set<string>>(initialSelected)
   const [saving, setSaving]     = useState(false)
   const [error, setError]       = useState<string | null>(null)
 
@@ -1244,13 +1256,29 @@ function SetupBccXi({ matchId, ourSide, availablePlayers, onComplete }: {
   async function handleConfirm() {
     if (selected.size < 11) { setError(`Select at least 11 players (${selected.size} selected).`); return }
     setSaving(true); setError(null)
-    const rows = Array.from(selected).map((playerId, i) => ({
+
+    // Preserve position order: pre-selected players keep their batting position;
+    // manually added replacements are appended at the end.
+    const orderedIds = [
+      ...availablePlayers
+        .filter(p => p._preselected && selected.has(p.id))
+        .sort((a, b) => (a._position ?? 99) - (b._position ?? 99))
+        .map(p => p.id),
+      ...Array.from(selected).filter(id => !availablePlayers.find(p => p.id === id && p._preselected)),
+    ]
+
+    const rows = orderedIds.map((playerId, i) => ({
       match_id: matchId,
       player_id: playerId,
       side: ourSide,
       batting_position: i + 1,
     }))
-    const { data, error } = await supabase.from('match_players').insert(rows).select()
+
+    // upsert with ignoreDuplicates for idempotency — safe on page refresh / retry
+    const { data, error } = await supabase
+      .from('match_players')
+      .upsert(rows, { onConflict: 'match_id,player_id', ignoreDuplicates: false })
+      .select()
     setSaving(false)
     if (error) { setError(error.message); return }
     onComplete(data as MatchPlayer[])
@@ -1258,7 +1286,7 @@ function SetupBccXi({ matchId, ourSide, availablePlayers, onComplete }: {
 
   return (
     <div style={{ paddingTop: 'var(--nav-h)', maxWidth: 560, margin: '0 auto', padding: '60px 24px' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: isPrePopulated ? 8 : 20 }}>
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 900, textTransform: 'uppercase', margin: 0 }}>
           BCC XI
         </h2>
@@ -1266,6 +1294,12 @@ function SetupBccXi({ matchId, ourSide, availablePlayers, onComplete }: {
           <span style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--lime)' }}>{selected.size}/11</span>
         )}
       </div>
+
+      {isPrePopulated && (
+        <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16, lineHeight: 1.5 }}>
+          Pre-selected from coach&apos;s XI. Uncheck a player to replace them.
+        </p>
+      )}
 
       <input
         className="input"

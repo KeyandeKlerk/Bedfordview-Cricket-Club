@@ -15,7 +15,7 @@ export type DismissalType =
   | 'retired_hurt'
   | 'retired_out'
 
-export type Role = 'scorer' | 'admin' | 'shop'
+export type Role = 'scorer' | 'admin' | 'shop' | 'player' | 'coach'
 
 export type MatchStatus = 'upcoming' | 'in_progress' | 'completed' | 'abandoned' | 'cancelled'
 export type InningsStatus = 'pending' | 'in_progress' | 'completed' | 'declared'
