@@ -422,10 +422,11 @@ export default function PlayerProfilePage() {
   const playerId = params.id as string
 
   const [tab, setTab] = useState<ProfileTab>('batting')
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'senior' | 'junior'>('all')
   const [player, setPlayer] = useState<PlayerInfo | null>(null)
-  const [careerBat, setCareerBat] = useState<CareerBatting | null>(null)
-  const [careerBowl, setCareerBowl] = useState<CareerBowling | null>(null)
-  const [careerField, setCareerField] = useState<CareerFielding | null>(null)
+  const [careerBatRows, setCareerBatRows] = useState<Array<CareerBatting & { team_category: string }>>([])
+  const [careerBowlRows, setCareerBowlRows] = useState<Array<CareerBowling & { team_category: string }>>([])
+  const [careerFieldRows, setCareerFieldRows] = useState<Array<CareerFielding & { team_category: string }>>([])
   const [seasonBat, setSeasonBat] = useState<SeasonBatting[]>([])
   const [seasonBowl, setSeasonBowl] = useState<SeasonBowling[]>([])
   const [seasonField, setSeasonField] = useState<SeasonFielding[]>([])
@@ -442,6 +443,7 @@ export default function PlayerProfilePage() {
   const [bowlBalls, setBowlBalls] = useState<any[]>([])
   const [matchResultMap, setMatchResultMap] = useState<Record<string, string>>({})
   const [matchOpponentMap, setMatchOpponentMap] = useState<Record<string, string>>({})
+  const [matchCategoryMap, setMatchCategoryMap] = useState<Record<string, string>>({})
   const [mpBatPosMap, setMpBatPosMap] = useState<Record<string, number>>({})
 
   useEffect(() => {
@@ -463,9 +465,9 @@ export default function PlayerProfilePage() {
         bowlingInningsRes,
       ] = await Promise.all([
         supabase.from('players').select('*').eq('id', playerId).maybeSingle(),
-        supabase.from('career_batting_stats').select('*').eq('player_id', playerId).maybeSingle(),
-        supabase.from('career_bowling_stats').select('*').eq('player_id', playerId).maybeSingle(),
-        supabase.from('career_fielding_stats').select('*').eq('player_id', playerId).maybeSingle(),
+        supabase.from('career_batting_stats').select('*').eq('player_id', playerId),
+        supabase.from('career_bowling_stats').select('*').eq('player_id', playerId),
+        supabase.from('career_fielding_stats').select('*').eq('player_id', playerId),
         supabase.from('season_batting_stats').select('*, seasons(name)').eq('player_id', playerId).order('season_id'),
         supabase.from('season_bowling_stats').select('*, seasons(name)').eq('player_id', playerId).order('season_id'),
         supabase.from('season_fielding_stats').select('*, seasons(name)').eq('player_id', playerId).order('season_id'),
@@ -484,9 +486,9 @@ export default function PlayerProfilePage() {
       }
 
       setPlayer(playerRes.data)
-      setCareerBat(careerBatRes.data ?? null)
-      setCareerBowl(careerBowlRes.data ?? null)
-      setCareerField(careerFieldRes.data ?? null)
+      setCareerBatRows((careerBatRes.data ?? []) as Array<CareerBatting & { team_category: string }>)
+      setCareerBowlRows((careerBowlRes.data ?? []) as Array<CareerBowling & { team_category: string }>)
+      setCareerFieldRows((careerFieldRes.data ?? []) as Array<CareerFielding & { team_category: string }>)
       setSeasonBat((seasonBatRes.data ?? []) as SeasonBatting[])
       setSeasonBowl((seasonBowlRes.data ?? []) as SeasonBowling[])
       setSeasonField((seasonFieldRes.data ?? []) as SeasonFielding[])
@@ -547,7 +549,7 @@ export default function PlayerProfilePage() {
               .in('bowler_id', mpIds)
           : Promise.resolve({ data: [] as any[] }),
         allMatchIds.length > 0
-          ? supabase.from('matches').select('id, result_text, opponent_id').in('id', allMatchIds)
+          ? supabase.from('matches').select('id, result_text, opponent_id, competitions(category)').in('id', allMatchIds)
           : Promise.resolve({ data: [] as any[] }),
         allMatchIds.length > 0
           ? supabase.from('match_players').select('id, actual_batting_position')
@@ -566,9 +568,11 @@ export default function PlayerProfilePage() {
 
       const resMap: Record<string, string> = {}
       const oppMatchMap: Record<string, string> = {}
+      const catMap: Record<string, string> = {}
       for (const m of (matchInfoRes.data ?? [])) {
         resMap[m.id] = m.result_text ?? ''
         oppMatchMap[m.id] = oppNameMap[m.opponent_id] ?? 'Unknown'
+        catMap[m.id] = (m.competitions as any)?.category ?? 'senior'
       }
 
       const bpMap: Record<string, number> = {}
@@ -580,6 +584,7 @@ export default function PlayerProfilePage() {
       setBowlBalls(bowlBallsRes.data ?? [])
       setMatchResultMap(resMap)
       setMatchOpponentMap(oppMatchMap)
+      setMatchCategoryMap(catMap)
       setMpBatPosMap(bpMap)
 
       setLoading(false)
@@ -587,6 +592,114 @@ export default function PlayerProfilePage() {
 
     load()
   }, [playerId])
+
+  // ── Derived career rows (category-aware) ────────────────────────────────
+
+  const availableCategories = useMemo(() => {
+    const cats = new Set([
+      ...careerBatRows.map(r => r.team_category),
+      ...careerBowlRows.map(r => r.team_category),
+      ...careerFieldRows.map(r => r.team_category),
+    ])
+    return [...cats].filter(Boolean) as string[]
+  }, [careerBatRows, careerBowlRows, careerFieldRows])
+
+  const hasMultipleCategories = availableCategories.length > 1
+
+  const careerBat = useMemo((): CareerBatting | null => {
+    const rows = categoryFilter === 'all'
+      ? careerBatRows
+      : careerBatRows.filter(r => r.team_category === categoryFilter)
+    if (!rows.length) return null
+    const dismissals = rows.reduce((s, r) => s + Number(r.dismissals ?? 0), 0)
+    const total_runs = rows.reduce((s, r) => s + Number(r.total_runs ?? 0), 0)
+    const balls_faced = rows.reduce((s, r) => s + Number(r.balls_faced ?? 0), 0)
+    return {
+      ...rows[0],
+      matches: rows.reduce((s, r) => s + Number(r.matches ?? 0), 0),
+      innings: rows.reduce((s, r) => s + Number(r.innings ?? 0), 0),
+      not_outs: rows.reduce((s, r) => s + Number(r.not_outs ?? 0), 0),
+      total_runs,
+      highest_score: Math.max(...rows.map(r => Number(r.highest_score ?? 0))),
+      fifties: rows.reduce((s, r) => s + Number(r.fifties ?? 0), 0),
+      hundreds: rows.reduce((s, r) => s + Number(r.hundreds ?? 0), 0),
+      ducks: rows.reduce((s, r) => s + Number(r.ducks ?? 0), 0),
+      fours: rows.reduce((s, r) => s + Number(r.fours ?? 0), 0),
+      sixes: rows.reduce((s, r) => s + Number(r.sixes ?? 0), 0),
+      balls_faced,
+      dismissals,
+      average: dismissals > 0 ? total_runs / dismissals : null,
+      strike_rate: balls_faced > 0 ? (total_runs / balls_faced) * 100 : null,
+    }
+  }, [careerBatRows, categoryFilter])
+
+  const careerBowl = useMemo((): CareerBowling | null => {
+    const rows = categoryFilter === 'all'
+      ? careerBowlRows
+      : careerBowlRows.filter(r => r.team_category === categoryFilter)
+    if (!rows.length) return null
+    const legal_balls = rows.reduce((s, r) => s + Number(r.legal_balls ?? 0), 0)
+    const runs_conceded = rows.reduce((s, r) => s + Number(r.runs_conceded ?? 0), 0)
+    const best = rows.reduce((b, r) => {
+      const bw = Number(b.best_bowling_wickets ?? 0)
+      const rw = Number(r.best_bowling_wickets ?? 0)
+      if (rw > bw) return r
+      if (rw === bw && Number(r.best_bowling_runs ?? 999) < Number(b.best_bowling_runs ?? 999)) return r
+      return b
+    })
+    return {
+      ...rows[0],
+      matches: rows.reduce((s, r) => s + Number(r.matches ?? 0), 0),
+      legal_balls,
+      runs_conceded,
+      wickets: rows.reduce((s, r) => s + Number(r.wickets ?? 0), 0),
+      maidens: rows.reduce((s, r) => s + Number(r.maidens ?? 0), 0),
+      wides: rows.reduce((s, r) => s + Number(r.wides ?? 0), 0),
+      no_balls: rows.reduce((s, r) => s + Number(r.no_balls ?? 0), 0),
+      best_bowling_wickets: best.best_bowling_wickets,
+      best_bowling_runs: best.best_bowling_runs,
+      economy: legal_balls > 0 ? (runs_conceded / (legal_balls / 6)) : null,
+    }
+  }, [careerBowlRows, categoryFilter])
+
+  const careerField = useMemo((): CareerFielding | null => {
+    const rows = categoryFilter === 'all'
+      ? careerFieldRows
+      : careerFieldRows.filter(r => r.team_category === categoryFilter)
+    if (!rows.length) return null
+    return {
+      ...rows[0],
+      matches: rows.reduce((s, r) => s + Number(r.matches ?? 0), 0),
+      catches: rows.reduce((s, r) => s + Number(r.catches ?? 0), 0),
+      caught_bowled: rows.reduce((s, r) => s + Number(r.caught_bowled ?? 0), 0),
+      stumpings: rows.reduce((s, r) => s + Number(r.stumpings ?? 0), 0),
+      run_outs: rows.reduce((s, r) => s + Number(r.run_outs ?? 0), 0),
+      total_dismissals: rows.reduce((s, r) => s + Number(r.total_dismissals ?? 0), 0),
+    }
+  }, [careerFieldRows, categoryFilter])
+
+  const filteredSeasonBat = useMemo(() =>
+    categoryFilter === 'all' ? seasonBat : seasonBat.filter(s => (s as any).team_category === categoryFilter),
+    [seasonBat, categoryFilter]
+  )
+  const filteredSeasonBowl = useMemo(() =>
+    categoryFilter === 'all' ? seasonBowl : seasonBowl.filter(s => (s as any).team_category === categoryFilter),
+    [seasonBowl, categoryFilter]
+  )
+  const filteredSeasonField = useMemo(() =>
+    categoryFilter === 'all' ? seasonField : seasonField.filter(s => (s as any).team_category === categoryFilter),
+    [seasonField, categoryFilter]
+  )
+
+  const filteredBattingLog = useMemo(() => {
+    if (categoryFilter === 'all') return battingLog
+    return battingLog.filter(inn => !inn.match_id || matchCategoryMap[inn.match_id] === categoryFilter)
+  }, [battingLog, categoryFilter, matchCategoryMap])
+
+  const filteredBowlingLog = useMemo(() => {
+    if (categoryFilter === 'all') return bowlingLog
+    return bowlingLog.filter(inn => !inn.match_id || matchCategoryMap[inn.match_id] === categoryFilter)
+  }, [bowlingLog, categoryFilter, matchCategoryMap])
 
   // Auto-switch tab if no batting data but has bowling
   useEffect(() => {
@@ -597,7 +710,7 @@ export default function PlayerProfilePage() {
 
   const dismissalCounts = useMemo(() => {
     const counts: Record<string, number> = {}
-    for (const inn of battingLog) {
+    for (const inn of filteredBattingLog) {
       const key = inn.dismissal_type ?? 'not_out'
       counts[key] = (counts[key] ?? 0) + 1
     }
@@ -613,7 +726,7 @@ export default function PlayerProfilePage() {
 
   const positionData = useMemo(() => {
     const posMap: Record<number, { total: number; count: number }> = {}
-    for (const inn of battingLog) {
+    for (const inn of filteredBattingLog) {
       if (inn.actual_batting_position == null || inn.runs == null) continue
       const pos = inn.actual_batting_position
       if (!posMap[pos]) posMap[pos] = { total: 0, count: 0 }
@@ -640,8 +753,8 @@ export default function PlayerProfilePage() {
       .sort((a, b) => b.count - a.count)
   }, [bowlingWickets])
 
-  const visibleBatLog = showAllBat ? battingLog : battingLog.slice(0, 30)
-  const visibleBowlLog = showAllBowl ? bowlingLog : bowlingLog.slice(0, 30)
+  const visibleBatLog = showAllBat ? filteredBattingLog : filteredBattingLog.slice(0, 30)
+  const visibleBowlLog = showAllBowl ? filteredBowlingLog : filteredBowlingLog.slice(0, 30)
 
   // ── Wave 3 computed stats ─────────────────────────────────────────────────
 
@@ -654,11 +767,11 @@ export default function PlayerProfilePage() {
 
   // 2. Consistency score (% of innings at/above own average)
   const consistencyScore = useMemo(() => {
-    if (!careerBat?.average || !battingLog.length) return null
+    if (!careerBat?.average || !filteredBattingLog.length) return null
     const avg = Number(careerBat.average)
-    const above = battingLog.filter(i => (i.runs ?? 0) >= avg).length
-    return Math.round((above / battingLog.length) * 100)
-  }, [careerBat, battingLog])
+    const above = filteredBattingLog.filter(i => (i.runs ?? 0) >= avg).length
+    return Math.round((above / filteredBattingLog.length) * 100)
+  }, [careerBat, filteredBattingLog])
 
   // 3. Conversion rate (50s converted to 100s)
   const conversionRate = useMemo(() => {
@@ -717,9 +830,9 @@ export default function PlayerProfilePage() {
 
   // 7. Performance vs opponent (batting)
   const oppPerformance = useMemo(() => {
-    if (!battingLog.length || !Object.keys(matchOpponentMap).length) return []
+    if (!filteredBattingLog.length || !Object.keys(matchOpponentMap).length) return []
     const map: Record<string, { runs: number; innings: number; dismissals: number }> = {}
-    for (const inn of battingLog) {
+    for (const inn of filteredBattingLog) {
       const opp = inn.match_id ? matchOpponentMap[inn.match_id] : null
       if (!opp) continue
       if (!map[opp]) map[opp] = { runs: 0, innings: 0, dismissals: 0 }
@@ -733,14 +846,14 @@ export default function PlayerProfilePage() {
         avg: dismissals > 0 ? (runs / dismissals).toFixed(1) : runs > 0 ? '∞' : '—',
       }))
       .sort((a, b) => b.runs - a.runs)
-  }, [battingLog, matchOpponentMap])
+  }, [filteredBattingLog, matchOpponentMap])
 
   // 8. Batting win/loss
   const batWinLoss = useMemo(() => {
     const isWin = (id: string | null) => id ? (matchResultMap[id] ?? '').toLowerCase().includes('won') : false
-    const wins = battingLog.filter(i => isWin(i.match_id))
-    const losses = battingLog.filter(i => !isWin(i.match_id) && i.match_id)
-    const calc = (arr: typeof battingLog) => {
+    const wins = filteredBattingLog.filter(i => isWin(i.match_id))
+    const losses = filteredBattingLog.filter(i => !isWin(i.match_id) && i.match_id)
+    const calc = (arr: typeof filteredBattingLog) => {
       const dismissed = arr.filter(i => i.dismissal_type).length
       const runs = arr.reduce((s, i) => s + (i.runs ?? 0), 0)
       const balls = arr.reduce((s, i) => s + (i.balls_faced ?? 0), 0)
@@ -754,7 +867,7 @@ export default function PlayerProfilePage() {
       { label: 'Wins',   color: '#4ade80', ...calc(wins) },
       { label: 'Losses', color: '#f87171', ...calc(losses) },
     ]
-  }, [battingLog, matchResultMap])
+  }, [filteredBattingLog, matchResultMap])
 
   // 9. Bowling phase
   const bowlingPhase = useMemo(() => {
@@ -816,9 +929,9 @@ export default function PlayerProfilePage() {
   // 13. Bowling win/loss
   const bowlWinLoss = useMemo(() => {
     const isWin = (id: string | null) => id ? (matchResultMap[id] ?? '').toLowerCase().includes('won') : false
-    const wins = bowlingLog.filter(i => isWin(i.match_id))
-    const losses = bowlingLog.filter(i => !isWin(i.match_id) && i.match_id)
-    const calc = (arr: typeof bowlingLog) => {
+    const wins = filteredBowlingLog.filter(i => isWin(i.match_id))
+    const losses = filteredBowlingLog.filter(i => !isWin(i.match_id) && i.match_id)
+    const calc = (arr: typeof filteredBowlingLog) => {
       const balls = arr.reduce((s, i) => s + (i.legal_balls ?? 0), 0)
       const runs = arr.reduce((s, i) => s + (i.runs_conceded ?? 0), 0)
       return {
@@ -831,7 +944,7 @@ export default function PlayerProfilePage() {
       { label: 'Wins',   color: '#4ade80', ...calc(wins) },
       { label: 'Losses', color: '#f87171', ...calc(losses) },
     ]
-  }, [bowlingLog, matchResultMap])
+  }, [filteredBowlingLog, matchResultMap])
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -1132,6 +1245,22 @@ export default function PlayerProfilePage() {
           color: rgba(147,197,253,0.45); font-size: 14px; margin-bottom: 24px;
         }
 
+        /* ── CATEGORY PILLS ── */
+        .category-pills {
+          display: flex; gap: 8px; margin: 0 0 24px;
+        }
+        .category-pill {
+          padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700;
+          font-family: 'Syne', sans-serif; letter-spacing: 0.06em; text-transform: uppercase;
+          border: 1px solid rgba(59,130,246,0.2); background: rgba(37,99,235,0.08);
+          color: rgba(147,197,253,0.5); cursor: pointer; transition: all 0.15s;
+        }
+        .category-pill:hover { background: rgba(37,99,235,0.18); color: rgba(147,197,253,0.8); }
+        .category-pill.active {
+          background: rgba(37,99,235,0.3); border-color: rgba(59,130,246,0.5);
+          color: #93c5fd;
+        }
+
         /* ── RESPONSIVE ── */
         @media (max-width: 768px) {
           .career-cards,
@@ -1223,6 +1352,28 @@ export default function PlayerProfilePage() {
               </button>
             </div>
 
+            {/* Category pills — only shown when player has both senior and junior data */}
+            {hasMultipleCategories && (
+              <div className="category-pills">
+                <button
+                  className={`category-pill${categoryFilter === 'all' ? ' active' : ''}`}
+                  onClick={() => setCategoryFilter('all')}
+                >All</button>
+                {availableCategories.includes('senior') && (
+                  <button
+                    className={`category-pill${categoryFilter === 'senior' ? ' active' : ''}`}
+                    onClick={() => setCategoryFilter('senior')}
+                  >Senior</button>
+                )}
+                {availableCategories.includes('junior') && (
+                  <button
+                    className={`category-pill${categoryFilter === 'junior' ? ' active' : ''}`}
+                    onClick={() => setCategoryFilter('junior')}
+                  >Junior</button>
+                )}
+              </div>
+            )}
+
             {/* ── BATTING TAB ── */}
             {tab === 'batting' && (
               <>
@@ -1302,15 +1453,15 @@ export default function PlayerProfilePage() {
                     </div>
 
                     {/* Recent Form */}
-                    {battingLog.length > 0 && (
+                    {filteredBattingLog.length > 0 && (
                       <div className="profile-panel">
                         <div className="panel-header"><div className="panel-title">Recent Form</div></div>
-                        <FormGuide innings={battingLog} average={careerBat?.average ?? null} />
+                        <FormGuide innings={filteredBattingLog} average={careerBat?.average ?? null} />
                       </div>
                     )}
 
                     {/* Season-by-season table */}
-                    {seasonBat.length > 0 && (
+                    {filteredSeasonBat.length > 0 && (
                       <div className="profile-panel">
                         <div className="panel-header">
                           <div className="panel-title">Season by Season</div>
@@ -1320,15 +1471,21 @@ export default function PlayerProfilePage() {
                             <thead>
                               <tr>
                                 <th>Season</th>
+                                {hasMultipleCategories && categoryFilter === 'all' && <th>Cat</th>}
                                 <th>M</th><th>Inn</th><th>NO</th>
                                 <th>Runs</th><th>HS</th><th>Avg</th><th>SR</th>
                                 <th>50s</th><th>100s</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {seasonBat.map(s => (
-                                <tr key={s.season_id}>
+                              {filteredSeasonBat.map(s => (
+                                <tr key={`${s.season_id}_${(s as any).team_category}`}>
                                   <td>{s.seasons?.name ?? s.season_id}</td>
+                                  {hasMultipleCategories && categoryFilter === 'all' && (
+                                    <td style={{ textTransform: 'capitalize', fontSize: 11, color: 'rgba(147,197,253,0.4)' }}>
+                                      {(s as any).team_category?.slice(0, 3) ?? '—'}
+                                    </td>
+                                  )}
                                   <td>{fmt(s.matches, 0)}</td>
                                   <td>{fmt(s.innings, 0)}</td>
                                   <td>{fmt(s.not_outs, 0)}</td>
@@ -1347,12 +1504,12 @@ export default function PlayerProfilePage() {
                     )}
 
                     {/* Runs progression chart */}
-                    {seasonBat.length >= 2 && (
+                    {filteredSeasonBat.length >= 2 && (
                       <div className="profile-panel">
                         <div className="panel-header">
                           <div className="panel-title">Runs Progression</div>
                         </div>
-                        <SVGLineChart data={seasonBat} valueKey="total_runs" label="Runs per season" />
+                        <SVGLineChart data={filteredSeasonBat} valueKey="total_runs" label="Runs per season" />
                       </div>
                     )}
 
@@ -1419,11 +1576,11 @@ export default function PlayerProfilePage() {
                     )}
 
                     {/* Innings profile scatter */}
-                    {battingLog.length >= 3 && (
+                    {filteredBattingLog.length >= 3 && (
                       <div className="profile-panel">
                         <div className="panel-header"><div className="panel-title">Innings Profile</div></div>
                         <div className="chart-wrap">
-                          <ScatterPlot innings={battingLog} />
+                          <ScatterPlot innings={filteredBattingLog} />
                         </div>
                       </div>
                     )}
@@ -1457,7 +1614,7 @@ export default function PlayerProfilePage() {
                     </div>
 
                     {/* Innings log */}
-                    {battingLog.length > 0 && (
+                    {filteredBattingLog.length > 0 && (
                       <div className="profile-panel">
                         <div className="panel-header">
                           <div className="panel-title">Innings Log</div>
@@ -1500,11 +1657,11 @@ export default function PlayerProfilePage() {
                             </tbody>
                           </table>
                         </div>
-                        {battingLog.length > 30 && (
+                        {filteredBattingLog.length > 30 && (
                           <button className="show-all-btn" onClick={() => setShowAllBat(v => !v)}>
                             {showAllBat
                               ? `Show less`
-                              : `Show all ${battingLog.length} innings`}
+                              : `Show all ${filteredBattingLog.length} innings`}
                           </button>
                         )}
                       </div>
@@ -1599,7 +1756,7 @@ export default function PlayerProfilePage() {
                     </div>
 
                     {/* Season table */}
-                    {seasonBowl.length > 0 && (
+                    {filteredSeasonBowl.length > 0 && (
                       <div className="profile-panel">
                         <div className="panel-header">
                           <div className="panel-title">Season by Season</div>
@@ -1609,15 +1766,21 @@ export default function PlayerProfilePage() {
                             <thead>
                               <tr>
                                 <th>Season</th>
+                                {hasMultipleCategories && categoryFilter === 'all' && <th>Cat</th>}
                                 <th>M</th><th>O</th><th>Mdns</th>
                                 <th>Wkts</th><th>Runs</th><th>Best</th>
                                 <th>Avg</th><th>Econ</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {seasonBowl.map(s => (
-                                <tr key={s.season_id}>
+                              {filteredSeasonBowl.map(s => (
+                                <tr key={`${s.season_id}_${(s as any).team_category}`}>
                                   <td>{s.seasons?.name ?? s.season_id}</td>
+                                  {hasMultipleCategories && categoryFilter === 'all' && (
+                                    <td style={{ textTransform: 'capitalize', fontSize: 11, color: 'rgba(147,197,253,0.4)' }}>
+                                      {(s as any).team_category?.slice(0, 3) ?? '—'}
+                                    </td>
+                                  )}
                                   <td>{fmt(s.matches, 0)}</td>
                                   <td>{overs(s.legal_balls)}</td>
                                   <td>{fmt(s.maidens, 0)}</td>
@@ -1696,7 +1859,7 @@ export default function PlayerProfilePage() {
                     </div>
 
                     {/* Bowling innings log */}
-                    {bowlingLog.length > 0 && (
+                    {filteredBowlingLog.length > 0 && (
                       <div className="profile-panel">
                         <div className="panel-header">
                           <div className="panel-title">Bowling Log</div>
@@ -1735,11 +1898,11 @@ export default function PlayerProfilePage() {
                             </tbody>
                           </table>
                         </div>
-                        {bowlingLog.length > 30 && (
+                        {filteredBowlingLog.length > 30 && (
                           <button className="show-all-btn" onClick={() => setShowAllBowl(v => !v)}>
                             {showAllBowl
                               ? `Show less`
-                              : `Show all ${bowlingLog.length} innings`}
+                              : `Show all ${filteredBowlingLog.length} innings`}
                           </button>
                         )}
                       </div>
@@ -1779,7 +1942,7 @@ export default function PlayerProfilePage() {
                     </div>
 
                     {/* Season table */}
-                    {seasonField.length > 0 && (
+                    {filteredSeasonField.length > 0 && (
                       <div className="profile-panel">
                         <div className="panel-header">
                           <div className="panel-title">Season by Season</div>
@@ -1789,6 +1952,7 @@ export default function PlayerProfilePage() {
                             <thead>
                               <tr>
                                 <th>Season</th>
+                                {hasMultipleCategories && categoryFilter === 'all' && <th>Cat</th>}
                                 <th>M</th>
                                 <th>Total</th>
                                 <th>Ct</th>
@@ -1798,9 +1962,14 @@ export default function PlayerProfilePage() {
                               </tr>
                             </thead>
                             <tbody>
-                              {seasonField.map(s => (
-                                <tr key={s.season_id}>
+                              {filteredSeasonField.map(s => (
+                                <tr key={`${s.season_id}_${(s as any).team_category}`}>
                                   <td>{s.seasons?.name ?? s.season_id}</td>
+                                  {hasMultipleCategories && categoryFilter === 'all' && (
+                                    <td style={{ textTransform: 'capitalize', fontSize: 11, color: 'rgba(147,197,253,0.4)' }}>
+                                      {(s as any).team_category?.slice(0, 3) ?? '—'}
+                                    </td>
+                                  )}
                                   <td>{fmt(s.matches, 0)}</td>
                                   <td><span className="key-val">{fmt(s.total_dismissals, 0)}</span></td>
                                   <td>{fmt(s.catches, 0)}</td>
