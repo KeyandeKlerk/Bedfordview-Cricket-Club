@@ -28,21 +28,35 @@ export default function RegisterPage() {
 
     setLoading(true)
     try {
-      const { error: authError } = await supabase.auth.signUp({
+      // Create user + player record + role via server route (uses service role,
+      // so email is auto-confirmed and sign-in works immediately after)
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: form.email,
+          password: form.password,
+          full_name: form.full_name,
+          batting_style: form.batting_style || undefined,
+          bowling_style: form.bowling_style || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || 'Registration failed. Please try again.'); return }
+
+      // Auto sign-in so the user lands on the dashboard immediately
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email: form.email,
         password: form.password,
-        options: {
-          data: {
-            full_name: form.full_name,
-            batting_style: form.batting_style || null,
-            bowling_style: form.bowling_style || null,
-          }
-        }
       })
-      if (authError) throw authError
-      setSuccess(true)
-    } catch (err: any) {
-      setError(err.message || 'Registration failed. Please try again.')
+      if (signInError) {
+        // Account created but sign-in failed — send to login
+        setSuccess(true)
+        return
+      }
+      router.push('/dashboard')
+    } catch {
+      setError('Registration failed. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -256,7 +270,7 @@ export default function RegisterPage() {
                 <div className="success-icon">🏏</div>
                 <div className="success-title">Welcome to BCC!</div>
                 <p className="success-sub">
-                  Check your email to verify your account, then sign in to access your dashboard.
+                  Your account has been created. Sign in to access your dashboard.
                 </p>
                 <Link href="/login" className="btn btn-primary" style={{ display: 'inline-flex' }}>
                   Sign In

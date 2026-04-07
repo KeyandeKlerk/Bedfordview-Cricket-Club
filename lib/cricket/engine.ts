@@ -173,6 +173,9 @@ function makeBatterStats(matchPlayerId: string, name: string): BatterStats {
     isOut: false,
     dismissalType: null,
     dismissalText: null,
+    dismissalBowlerId: null,
+    dismissalFielderId: null,
+    dismissalFielderSubName: null,
     battingPosition: null,
   }
 }
@@ -299,9 +302,12 @@ export function computeInningsState(
       if (!state.batterStats[dismissedId]) {
         state.batterStats[dismissedId] = makeBatterStats(dismissedId, name(dismissedId))
       }
-      state.batterStats[dismissedId].isOut          = true
-      state.batterStats[dismissedId].dismissalType  = ball.dismissal_type
-      state.batterStats[dismissedId].dismissalText  = ball.commentary
+      state.batterStats[dismissedId].isOut                   = true
+      state.batterStats[dismissedId].dismissalType           = ball.dismissal_type
+      state.batterStats[dismissedId].dismissalText           = ball.commentary
+      state.batterStats[dismissedId].dismissalBowlerId       = bowlerId
+      state.batterStats[dismissedId].dismissalFielderId      = ball.fielder_id
+      state.batterStats[dismissedId].dismissalFielderSubName = ball.fielder_substitute_name
 
       state.wickets++
       if (BOWLER_WICKET_TYPES.includes(ball.dismissal_type as DismissalType)) {

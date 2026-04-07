@@ -127,6 +127,8 @@ export default function AvailabilityWindowsPage() {
       return
     }
     setSaving(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setFormError('Not authenticated.'); setSaving(false); return }
     const { data, error } = await supabase
       .from('availability_windows')
       .insert({
@@ -135,6 +137,7 @@ export default function AvailabilityWindowsPage() {
         window_start: form.window_start,
         window_end: form.window_end,
         deadline: form.deadline,
+        created_by: user.id,
       })
       .select('*, season:seasons(name)')
       .single()
@@ -542,13 +545,6 @@ function WindowCard({ window: w }: { window: AvailabilityWindow }) {
           style={{ fontSize: 13, padding: '10px 18px', minHeight: 40 }}
         >
           View Responses &rarr;
-        </Link>
-        <Link
-          href={`/admin/availability/${w.id}`}
-          className="btn btn-ghost"
-          style={{ fontSize: 13, padding: '10px 18px', minHeight: 40 }}
-        >
-          Select XI &rarr;
         </Link>
       </div>
     </div>

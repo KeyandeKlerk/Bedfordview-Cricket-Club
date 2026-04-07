@@ -80,6 +80,9 @@ export type BatterStats = {
   isOut: boolean
   dismissalType: DismissalType | null
   dismissalText: string | null
+  dismissalBowlerId: string | null
+  dismissalFielderId: string | null
+  dismissalFielderSubName: string | null
   battingPosition: number | null
 }
 

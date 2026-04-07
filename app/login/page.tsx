@@ -20,7 +20,12 @@ export default function LoginPage() {
       if (authError) throw authError
       router.push('/dashboard')
     } catch (err: any) {
-      setError('Invalid email or password.')
+      const msg: string = err?.message ?? ''
+      if (msg.toLowerCase().includes('email not confirmed')) {
+        setError('Please confirm your email address before signing in.')
+      } else {
+        setError('Invalid email or password.')
+      }
     } finally {
       setLoading(false)
     }

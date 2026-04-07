@@ -9,7 +9,7 @@ const supabase = createClient(
 )
 
 interface Season      { id: string; name: string; is_active: boolean }
-interface Competition { id: string; name: string; season_id: string; type: string }
+interface Competition { id: string; name: string; season_id: string; type: string; category: string }
 
 type Tab     = 'batting' | 'bowling' | 'fielding'
 type SortDir = 'asc' | 'desc'
@@ -100,7 +100,7 @@ export default function StatsContent() {
     async function init() {
       const [{ data: sData }, { data: cData }] = await Promise.all([
         supabase.from('seasons').select('id, name, is_active').order('start_date', { ascending: false }),
-        supabase.from('competitions').select('id, name, season_id, type').order('name'),
+        supabase.from('competitions').select('id, name, season_id, type, category').order('name'),
       ])
       const sList = sData ?? []
       setSeasons(sList)
@@ -111,8 +111,8 @@ export default function StatsContent() {
     init()
   }, [])
 
-  // Reset competition when season changes
-  useEffect(() => { setSelectedCompId(null) }, [selectedSeasonId])
+  // Reset competition when season or category changes
+  useEffect(() => { setSelectedCompId(null) }, [selectedSeasonId, category])
 
   // Reset sort when tab changes
   useEffect(() => {
@@ -159,8 +159,8 @@ export default function StatsContent() {
 
   const visibleComps = useMemo(() => {
     if (selectedSeasonId === 'career') return []
-    return competitions.filter(c => c.season_id === selectedSeasonId)
-  }, [competitions, selectedSeasonId])
+    return competitions.filter(c => c.season_id === selectedSeasonId && c.category === category)
+  }, [competitions, selectedSeasonId, category])
 
   const rows = useMemo(() => {
     const rawMap: Record<Tab, any[]> = { batting, bowling, fielding }

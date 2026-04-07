@@ -8,7 +8,7 @@ interface Match {
   match_date: string
   venue: string | null
   competitions: { name: string; category: string | null } | null
-  opponents: { name: string } | null
+  opponents: { canonical_name: string } | null
 }
 
 interface Selection {
@@ -74,7 +74,7 @@ export default function SelectionConfirmPage() {
       const [matchRes, selectionRes, teamsRes] = await Promise.all([
         supabase
           .from('matches')
-          .select('id, match_date, venue, competitions(name, category), opponents(name)')
+          .select('id, match_date, venue, competitions(name, category), opponents(canonical_name)')
           .eq('id', matchId)
           .single(),
         supabase
@@ -272,7 +272,7 @@ export default function SelectionConfirmPage() {
           <div className="container">
             <div className="sel-eyebrow">Team Selection</div>
             <h1 className="sel-title">
-              BCC vs {match?.opponents?.name ?? '—'}
+              BCC vs {match?.opponents?.canonical_name ?? '—'}
             </h1>
             <div className="sel-sub">
               {match && `${formatDate(match.match_date)} · ${formatTime(match.match_date)}`}
