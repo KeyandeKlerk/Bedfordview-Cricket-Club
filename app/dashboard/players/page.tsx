@@ -114,9 +114,12 @@ export default function PlayersPage() {
     </div>
   )
 
-  const roleColor: Record<Role, string> = {
+  const roleColor: Record<string, string> = {
     admin: 'var(--lime)',
     scorer: 'var(--gold)',
+    coach: '#a78bfa',
+    player: '#38bdf8',
+    shop: '#fb923c',
     member: 'var(--muted)',
   }
 

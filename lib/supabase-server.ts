@@ -25,25 +25,39 @@ export async function getCurrentPlayerServer() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  // Look up role from user_roles table
-  const { data: roleData } = await supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', user.id)
-    .order('role')   // 'admin' < 'scorer' alphabetically
-    .limit(1)
-    .maybeSingle()
+  // Fetch all roles + linked player record in parallel
+  const [rolesRes, playerRes] = await Promise.all([
+    supabase.from('user_roles').select('role').eq('user_id', user.id),
+    supabase
+      .from('players')
+      .select('id, first_name, last_name, batting_style, bowling_style, is_captain_club, is_vice_captain, jersey_number')
+      .eq('user_id', user.id)
+      .maybeSingle(),
+  ])
 
-  const role = roleData?.role ?? 'member'
+  // Role hierarchy: highest-privilege role wins
+  const roles = (rolesRes.data ?? []).map((r: any) => r.role as string)
+  const HIERARCHY = ['admin', 'coach', 'scorer', 'shop', 'player'] as const
+  type AppRole = 'admin' | 'coach' | 'scorer' | 'shop' | 'player' | 'member'
+  const role: AppRole = (HIERARCHY.find(r => roles.includes(r)) ?? 'member') as AppRole
 
-  // Return a player-like object for dashboard compatibility
+  const player = playerRes.data
+
   return {
     id: user.id,
     email: user.email ?? '',
-    full_name: user.user_metadata?.full_name ?? user.email ?? 'User',
+    full_name: player
+      ? `${player.first_name} ${player.last_name}`
+      : (user.user_metadata?.full_name ?? user.email ?? 'User'),
     role,
-    batting_style: user.user_metadata?.batting_style ?? null,
-    bowling_style: user.user_metadata?.bowling_style ?? null,
+    // Linked player record (null if player hasn't claimed their profile yet)
+    player_id: player?.id ?? null,
+    batting_style: player?.batting_style ?? null,
+    bowling_style: player?.bowling_style ?? null,
+    is_captain_club: player?.is_captain_club ?? false,
+    is_vice_captain: player?.is_vice_captain ?? false,
+    jersey_number: player?.jersey_number ?? null,
+    is_linked: !!player,
     joined_date: user.created_at,
   }
 }

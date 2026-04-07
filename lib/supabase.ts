@@ -14,10 +14,16 @@ export type Player = {
   id: string
   email: string
   full_name: string
-  role: 'member' | 'scorer' | 'admin'
+  role: 'member' | 'scorer' | 'admin' | 'shop' | 'player' | 'coach'
   batting_style: string | null
   bowling_style: string | null
   joined_date: string
+  // Linked player record (null if not yet claimed)
+  player_id?: string | null
+  is_linked?: boolean
+  is_captain_club?: boolean
+  is_vice_captain?: boolean
+  jersey_number?: number | null
   active?: boolean
   avatar_url?: string | null
 }
