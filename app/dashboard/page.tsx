@@ -21,6 +21,7 @@ function isShop(role: string)   { return role === 'shop' || role === 'admin' }
 
 const ADMIN_LINKS = [
   { href: '/admin/matches',      icon: '⚡', label: 'Matches',      sub: 'Manage, score & create', },
+  { href: '/admin/availability', icon: '📅', label: 'Availability', sub: 'Windows & selection',    },
   { href: '/admin/news',         icon: '📰', label: 'News',         sub: 'Articles & match reports', },
   { href: '/admin/players',      icon: '👤', label: 'Players',      sub: 'Manage squad',           },
   { href: '/admin/seasons',      icon: '📆', label: 'Seasons',      sub: 'Manage seasons',         },
@@ -30,7 +31,8 @@ const ADMIN_LINKS = [
 ]
 
 const SCORER_LINKS = [
-  { href: '/admin/matches', icon: '⚡', label: 'Matches', sub: 'View & score matches', },
+  { href: '/admin/matches',      icon: '⚡', label: 'Matches',      sub: 'View & score matches', },
+  { href: '/admin/availability', icon: '📅', label: 'Availability', sub: 'Windows & selection',  },
 ]
 
 const SHOP_LINKS = [
@@ -80,6 +82,30 @@ export default async function DashboardPage() {
       .eq('status', 'pending_eft')
     pendingOrderCount = count || 0
   }
+
+  // Open availability windows + this player's responses
+  const now = new Date().toISOString()
+  const { data: openWindows } = await serverSupabase
+    .from('availability_windows')
+    .select('id, title, window_start, window_end, deadline')
+    .gt('deadline', now)
+    .order('deadline', { ascending: true })
+    .limit(5)
+
+  // Fetch player's existing responses for these windows (only if they have a linked player)
+  type AvailWindow = { id: string; title: string; window_start: string; window_end: string; deadline: string }
+  type AvailResponse = { window_id: string; status: string }
+  const windows: AvailWindow[] = openWindows ?? []
+  let myResponses: AvailResponse[] = []
+  if (player.player_id && windows.length > 0) {
+    const { data: resp } = await serverSupabase
+      .from('player_availability')
+      .select('window_id, status')
+      .eq('player_id', player.player_id)
+      .in('window_id', windows.map(w => w.id))
+    myResponses = resp ?? []
+  }
+  const responseMap = Object.fromEntries(myResponses.map(r => [r.window_id, r.status]))
 
   return (
     <>
@@ -810,6 +836,98 @@ export default async function DashboardPage() {
                         </Link>
                       )}
                     </div>
+                  </div>
+                )}
+
+                {/* AVAILABILITY WINDOWS */}
+                {windows.length > 0 && (
+                  <div className="db-section">
+                    <div className="db-section-head">
+                      <div className="db-section-title">Availability</div>
+                      <div className="db-section-line" />
+                      <div className="db-section-count">{windows.length} open</div>
+                    </div>
+
+                    {!player.player_id && (
+                      <div style={{
+                        padding: '14px 16px', borderRadius: 10, marginBottom: 12,
+                        background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.25)',
+                        fontSize: 13, color: '#fbbf24',
+                        display: 'flex', alignItems: 'center', gap: 10,
+                      }}>
+                        <span style={{ flexShrink: 0 }}>⚠️</span>
+                        <span>
+                          <Link href="/admin/profile/claim" style={{ color: '#fbbf24', fontWeight: 700 }}>Claim your player profile</Link>
+                          {' '}to submit availability.
+                        </span>
+                      </div>
+                    )}
+
+                    {windows.map(w => {
+                      const response = responseMap[w.id]
+                      const deadlineDate = new Date(w.deadline)
+                      const hoursLeft = Math.round((deadlineDate.getTime() - Date.now()) / 3600000)
+                      const isUrgent = hoursLeft < 24
+                      const STATUS_LABEL: Record<string, string> = {
+                        available: '✅ Available',
+                        unavailable: '❌ Unavailable',
+                        tentative: '❓ Tentative',
+                      }
+                      return (
+                        <Link
+                          key={w.id}
+                          href={`/availability/${w.id}`}
+                          style={{ textDecoration: 'none', display: 'block', marginBottom: 10 }}
+                        >
+                          <div style={{
+                            padding: '14px 16px', borderRadius: 12,
+                            background: response ? 'rgba(255,255,255,0.02)' : 'rgba(59,130,246,0.06)',
+                            border: `1px solid ${response ? 'var(--border)' : 'rgba(59,130,246,0.3)'}`,
+                            display: 'flex', alignItems: 'center', gap: 12,
+                            transition: 'border-color 0.15s',
+                          }}>
+                            <div style={{
+                              width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                              background: response ? 'rgba(255,255,255,0.04)' : 'rgba(59,130,246,0.15)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 16,
+                            }}>
+                              {response ? (response === 'available' ? '✅' : response === 'unavailable' ? '❌' : '❓') : '📅'}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)', marginBottom: 2 }}>
+                                {w.title}
+                              </div>
+                              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                                {new Date(w.window_start).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
+                                {' — '}
+                                {new Date(w.window_end).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
+                              </div>
+                            </div>
+                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                              {response ? (
+                                <span style={{
+                                  fontSize: 11, fontWeight: 700,
+                                  color: response === 'available' ? '#86efac' : response === 'unavailable' ? '#fca5a5' : '#fde68a',
+                                }}>
+                                  {STATUS_LABEL[response]}
+                                </span>
+                              ) : (
+                                <span style={{
+                                  fontSize: 11, fontWeight: 700,
+                                  color: isUrgent ? '#fca5a5' : '#93c5fd',
+                                }}>
+                                  {isUrgent ? `${hoursLeft}h left` : `${Math.floor(hoursLeft / 24)}d left`}
+                                </span>
+                              )}
+                              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                                {response ? 'Tap to change' : 'Respond →'}
+                              </div>
+                            </div>
+                          </div>
+                        </Link>
+                      )
+                    })}
                   </div>
                 )}
 

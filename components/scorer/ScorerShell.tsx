@@ -1274,10 +1274,21 @@ function SetupBccXi({ matchId, ourSide, availablePlayers, onComplete }: {
       batting_position: i + 1,
     }))
 
-    // upsert with ignoreDuplicates for idempotency — safe on page refresh / retry
+    // Delete any existing BCC-side rows for this match that haven't been scored yet
+    // (safe: ball_events reference match_players.id; if scoring has started those rows
+    // won't be here anyway). This avoids the partial-index upsert limitation.
+    const { error: delError } = await supabase
+      .from('match_players')
+      .delete()
+      .eq('match_id', matchId)
+      .eq('side', ourSide)
+      .not('player_id', 'is', null)
+
+    if (delError) { setSaving(false); setError(delError.message); return }
+
     const { data, error } = await supabase
       .from('match_players')
-      .upsert(rows, { onConflict: 'match_id,player_id', ignoreDuplicates: false })
+      .insert(rows)
       .select()
     setSaving(false)
     if (error) { setError(error.message); return }
