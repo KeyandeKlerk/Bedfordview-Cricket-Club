@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { InfoTooltip } from '@/components/InfoTooltip'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -146,6 +147,13 @@ function labelDismissal(type: string | null): string {
     obstructing_field: 'Obstruction',
   }
   return map[type] ?? type
+}
+
+function getPhaseLabel(overNumber: number, totalOvers: number): 'early' | 'middle' | 'death' {
+  const pct = overNumber / Math.max(totalOvers, 1)
+  if (pct < 0.3) return 'early'
+  if (pct < 0.8) return 'middle'
+  return 'death'
 }
 
 function bowlingAvgFmt(runs: number | null, wickets: number | null): string {
@@ -415,6 +423,67 @@ function WinLossPanel({ rows, statCols }: {
   )
 }
 
+// Rolling form — 8-innings moving average
+function RollingFormChart({ innings }: { innings: BattingInning[] }) {
+  const WINDOW = 8
+  const chrono = [...innings].reverse() // oldest → newest
+  if (chrono.length < WINDOW) return null
+  const points = chrono.slice(WINDOW - 1).map((_, i) => {
+    const slice = chrono.slice(i, i + WINDOW)
+    const avg = slice.reduce((s, inn) => s + (inn.runs ?? 0), 0) / WINDOW
+    return {
+      avg: Math.round(avg),
+      label: chrono[i + WINDOW - 1].match_date
+        ? new Date(chrono[i + WINDOW - 1].match_date!).toLocaleDateString('en-ZA', { month: 'short', year: '2-digit' })
+        : '',
+    }
+  })
+  const maxVal = Math.max(...points.map(p => p.avg), 1)
+  const W = 480, H = 130
+  const PAD = { top: 18, bottom: 28, left: 8, right: 8 }
+  const innerW = W - PAD.left - PAD.right
+  const innerH = H - PAD.top - PAD.bottom
+  const pts = points.map((p, i) => ({
+    x: PAD.left + (points.length === 1 ? 0 : (i / (points.length - 1)) * innerW),
+    y: PAD.top + (1 - p.avg / maxVal) * innerH,
+    ...p,
+  }))
+  const polyline = pts.map(p => `${p.x},${p.y}`).join(' ')
+  return (
+    <div className="chart-wrap">
+      <div className="chart-label-top">8-Innings Rolling Average</div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', overflow: 'visible' }}>
+        <defs>
+          <linearGradient id="grad-rolling" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#38bdf8" />
+            <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {[0, 0.5, 1].map(pct => (
+          <line key={pct}
+            x1={PAD.left} y1={PAD.top + (1 - pct) * innerH}
+            x2={W - PAD.right} y2={PAD.top + (1 - pct) * innerH}
+            stroke="rgba(56,189,248,0.1)" strokeWidth="1" />
+        ))}
+        <polygon
+          points={`${PAD.left},${PAD.top + innerH} ${polyline} ${W - PAD.right},${PAD.top + innerH}`}
+          fill="url(#grad-rolling)" opacity="0.18" />
+        <polyline points={polyline} fill="none" stroke="#38bdf8" strokeWidth="2"
+          strokeLinejoin="round" strokeLinecap="round" />
+        {pts.map((p, i) => (
+          <g key={i}>
+            <circle cx={p.x} cy={p.y} r="4" fill="#38bdf8" stroke="#050c1a" strokeWidth="2" />
+            <text x={p.x} y={p.y - 9} textAnchor="middle" fill="#7dd3fc" fontSize="9"
+              fontFamily="Syne, sans-serif" fontWeight="700">{p.avg}</text>
+            <text x={p.x} y={H - 4} textAnchor="middle" fill="rgba(147,197,253,0.35)"
+              fontSize="8" fontFamily="Outfit, sans-serif">{p.label}</text>
+          </g>
+        ))}
+      </svg>
+    </div>
+  )
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function PlayerProfilePage() {
@@ -444,6 +513,9 @@ export default function PlayerProfilePage() {
   const [matchResultMap, setMatchResultMap] = useState<Record<string, string>>({})
   const [matchOpponentMap, setMatchOpponentMap] = useState<Record<string, string>>({})
   const [matchCategoryMap, setMatchCategoryMap] = useState<Record<string, string>>({})
+  const [matchOversMap, setMatchOversMap] = useState<Record<string, number>>({})
+  const [reliabilityData, setReliabilityData] = useState<any[] | null>(null)
+  const [fieldingEventMatchIds, setFieldingEventMatchIds] = useState<string[]>([])
   const [mpBatPosMap, setMpBatPosMap] = useState<Record<string, number>>({})
 
   useEffect(() => {
@@ -463,6 +535,7 @@ export default function PlayerProfilePage() {
         seasonFieldRes,
         battingInningsRes,
         bowlingInningsRes,
+        reliabilityRes,
       ] = await Promise.all([
         supabase.from('players').select('*').eq('id', playerId).maybeSingle(),
         supabase.from('career_batting_stats').select('*').eq('player_id', playerId),
@@ -477,6 +550,7 @@ export default function PlayerProfilePage() {
         supabase.from('bowling_scorecard')
           .select('legal_balls, runs_conceded, wickets, wides, no_balls, maidens, economy, opposition_name, match_id')
           .eq('player_id', playerId),
+        supabase.from('player_reliability').select('*').eq('player_id', playerId),
       ])
 
       if (!playerRes.data) {
@@ -492,6 +566,7 @@ export default function PlayerProfilePage() {
       setSeasonBat((seasonBatRes.data ?? []) as SeasonBatting[])
       setSeasonBowl((seasonBowlRes.data ?? []) as SeasonBowling[])
       setSeasonField((seasonFieldRes.data ?? []) as SeasonFielding[])
+      setReliabilityData(reliabilityRes.data ?? null)
 
       const rawBatLog = battingInningsRes.data ?? []
       const rawBowlLog = bowlingInningsRes.data ?? []
@@ -537,23 +612,26 @@ export default function PlayerProfilePage() {
       }
 
       // Wave 3 — ball-level analytics + match context
-      const [batBallsRes, bowlBallsRes, matchInfoRes, matchPlayersForImpactRes] = await Promise.all([
+      const [batBallsRes, bowlBallsRes, matchInfoRes, matchPlayersForImpactRes, fieldingEventsRes] = await Promise.all([
         mpIds.length > 0
           ? supabase.from('ball_events')
-              .select('over_number, runs_off_bat, extras_type, dismissed_player_id, match_id')
+              .select('over_number, runs_off_bat, extras_type, dismissed_player_id, match_id, is_boundary_four, is_boundary_six')
               .in('batter_id', mpIds)
           : Promise.resolve({ data: [] as any[] }),
         mpIds.length > 0
           ? supabase.from('ball_events')
-              .select('over_number, runs_off_bat, extras_type, extras_runs, dismissal_type, dismissed_player_id, match_id')
+              .select('over_number, runs_off_bat, extras_type, extras_runs, dismissal_type, dismissed_player_id, match_id, is_boundary_four, is_boundary_six')
               .in('bowler_id', mpIds)
           : Promise.resolve({ data: [] as any[] }),
         allMatchIds.length > 0
-          ? supabase.from('matches').select('id, result_text, opponent_id, competitions(category)').in('id', allMatchIds)
+          ? supabase.from('matches').select('id, result_text, opponent_id, overs_per_innings, competitions(category)').in('id', allMatchIds)
           : Promise.resolve({ data: [] as any[] }),
         allMatchIds.length > 0
           ? supabase.from('match_players').select('id, actual_batting_position')
               .in('match_id', allMatchIds).not('player_id', 'is', null)
+          : Promise.resolve({ data: [] as any[] }),
+        mpIds.length > 0
+          ? supabase.from('ball_events').select('match_id').in('fielder_id', mpIds).not('dismissal_type', 'is', null)
           : Promise.resolve({ data: [] as any[] }),
       ])
 
@@ -569,10 +647,12 @@ export default function PlayerProfilePage() {
       const resMap: Record<string, string> = {}
       const oppMatchMap: Record<string, string> = {}
       const catMap: Record<string, string> = {}
+      const ovsMap: Record<string, number> = {}
       for (const m of (matchInfoRes.data ?? [])) {
         resMap[m.id] = m.result_text ?? ''
         oppMatchMap[m.id] = oppNameMap[m.opponent_id] ?? 'Unknown'
         catMap[m.id] = (m.competitions as any)?.category ?? 'senior'
+        ovsMap[m.id] = m.overs_per_innings ?? 20
       }
 
       const bpMap: Record<string, number> = {}
@@ -585,6 +665,8 @@ export default function PlayerProfilePage() {
       setMatchResultMap(resMap)
       setMatchOpponentMap(oppMatchMap)
       setMatchCategoryMap(catMap)
+      setMatchOversMap(ovsMap)
+      setFieldingEventMatchIds([...new Set((fieldingEventsRes.data ?? []).map((b: any) => b.match_id).filter(Boolean))])
       setMpBatPosMap(bpMap)
 
       setLoading(false)
@@ -789,22 +871,26 @@ export default function PlayerProfilePage() {
     return Math.round((dots / legal.length) * 100)
   }, [batBalls])
 
-  // 5. Batting phase analysis
+  // 5. Batting phase analysis (% of overs, format-agnostic)
   const battingPhase = useMemo(() => {
     if (!batBalls.length) return []
-    return [
-      { label: 'Powerplay (1-6)', min: 0, max: 5 },
-      { label: 'Middle (7-15)', min: 6, max: 14 },
-      { label: 'Death (16+)', min: 15, max: 99 },
-    ].map(ph => {
-      const balls = batBalls.filter(b => b.over_number >= ph.min && b.over_number <= ph.max)
+    const PHASES = [
+      { label: 'Early (0–30%)', key: 'early' as const },
+      { label: 'Middle (30–80%)', key: 'middle' as const },
+      { label: 'Death (80–100%)', key: 'death' as const },
+    ]
+    return PHASES.map(ph => {
+      const balls = batBalls.filter(b => {
+        const total = b.match_id ? (matchOversMap[b.match_id] ?? 20) : 20
+        return getPhaseLabel(b.over_number ?? 0, total) === ph.key
+      })
       const legal = balls.filter(b => b.extras_type !== 'wide')
       const runs = balls.reduce((s: number, b: any) => s + (b.runs_off_bat ?? 0), 0)
       const wkts = balls.filter((b: any) => b.dismissed_player_id).length
       const sr = legal.length > 0 ? ((runs / legal.length) * 100).toFixed(1) : '—'
       return { label: ph.label, balls: legal.length, runs, wickets: wkts, sr }
     }).filter(ph => ph.balls > 0)
-  }, [batBalls])
+  }, [batBalls, matchOversMap])
 
   // 6. Scoring breakdown
   const scoringBreakdown = useMemo(() => {
@@ -873,12 +959,16 @@ export default function PlayerProfilePage() {
   const bowlingPhase = useMemo(() => {
     if (!bowlBalls.length) return []
     const BOWLER_WKTS = ['run_out', 'retired_hurt', 'retired_out', 'timed_out', 'handled_ball', 'obstructing_field']
-    return [
-      { label: 'Powerplay (1-6)', min: 0, max: 5 },
-      { label: 'Middle (7-15)',   min: 6, max: 14 },
-      { label: 'Death (16+)',     min: 15, max: 99 },
-    ].map(ph => {
-      const balls = bowlBalls.filter((b: any) => b.over_number >= ph.min && b.over_number <= ph.max)
+    const PHASES = [
+      { label: 'Early (0–30%)', key: 'early' as const },
+      { label: 'Middle (30–80%)', key: 'middle' as const },
+      { label: 'Death (80–100%)', key: 'death' as const },
+    ]
+    return PHASES.map(ph => {
+      const balls = bowlBalls.filter((b: any) => {
+        const total = b.match_id ? (matchOversMap[b.match_id] ?? 20) : 20
+        return getPhaseLabel(b.over_number ?? 0, total) === ph.key
+      })
       const legal = balls.filter((b: any) => b.extras_type !== 'wide' && b.extras_type !== 'no_ball')
       const runs = balls.reduce((s: number, b: any) =>
         s + (b.runs_off_bat ?? 0) + (['wide', 'no_ball'].includes(b.extras_type ?? '') ? (b.extras_runs ?? 0) : 0), 0)
@@ -886,7 +976,7 @@ export default function PlayerProfilePage() {
       const econ = legal.length > 0 ? (runs / (legal.length / 6)).toFixed(2) : '—'
       return { label: ph.label, legalBalls: legal.length, runs, wickets: wkts, economy: econ }
     }).filter(ph => ph.legalBalls > 0)
-  }, [bowlBalls])
+  }, [bowlBalls, matchOversMap])
 
   // 10. Bowling dot ball %
   const bowlDotPct = useMemo(() => {
@@ -945,6 +1035,130 @@ export default function PlayerProfilePage() {
       { label: 'Losses', color: '#f87171', ...calc(losses) },
     ]
   }, [filteredBowlingLog, matchResultMap])
+
+  // ── New batting metrics ───────────────────────────────────────────────────
+
+  const strikeRotationRate = useMemo(() => {
+    const legal = batBalls.filter((b: any) => b.extras_type !== 'wide')
+    if (!legal.length) return null
+    const rotated = legal.filter((b: any) => b.runs_off_bat === 1 || b.runs_off_bat === 2).length
+    return Math.round((rotated / legal.length) * 100)
+  }, [batBalls])
+
+  const scoringFrequency = useMemo(() => {
+    const legal = batBalls.filter((b: any) => b.extras_type !== 'wide')
+    if (!legal.length) return null
+    const scoring = legal.filter((b: any) => (b.runs_off_bat ?? 0) > 0).length
+    return Math.round((scoring / legal.length) * 100)
+  }, [batBalls])
+
+  const clutchScoringIndex = useMemo(() => {
+    const deathBalls = batBalls.filter((b: any) => {
+      if (b.extras_type === 'wide') return false
+      const total = b.match_id ? (matchOversMap[b.match_id] ?? 20) : 20
+      return (b.over_number ?? 0) >= total * 0.75
+    })
+    if (!deathBalls.length) return null
+    const runs = deathBalls.reduce((s: number, b: any) => s + (b.runs_off_bat ?? 0), 0)
+    return ((runs / deathBalls.length) * 100).toFixed(1)
+  }, [batBalls, matchOversMap])
+
+  // ── New bowling metrics ───────────────────────────────────────────────────
+
+  const wicketImpactScore = useMemo(() => {
+    const BOWLER_EXCL = ['run_out','retired_hurt','retired_out','timed_out','handled_ball','obstructing_field']
+    const wktBalls = bowlBalls.filter((b: any) => b.dismissal_type && !BOWLER_EXCL.includes(b.dismissal_type))
+    if (!wktBalls.length) return null
+    const score = wktBalls.reduce((s: number, b: any) => {
+      const total = b.match_id ? (matchOversMap[b.match_id] ?? 20) : 20
+      const phase = getPhaseLabel(b.over_number ?? 0, total)
+      const weight = phase === 'early' ? 1.0 : phase === 'middle' ? 1.2 : 1.5
+      return s + weight
+    }, 0)
+    return score.toFixed(1)
+  }, [bowlBalls, matchOversMap])
+
+  const overConsistencyScore = useMemo(() => {
+    const EXCL = ['wide', 'no_ball']
+    const overMap: Record<string, number> = {}
+    for (const b of bowlBalls as any[]) {
+      const key = `${b.match_id}_${b.over_number}`
+      const runs = (b.runs_off_bat ?? 0) + (EXCL.includes(b.extras_type ?? '') ? (b.extras_runs ?? 0) : 0)
+      overMap[key] = (overMap[key] ?? 0) + runs
+    }
+    const vals = Object.values(overMap)
+    if (vals.length < 2) return null
+    const mean = vals.reduce((s, v) => s + v, 0) / vals.length
+    if (mean === 0) return null
+    const variance = vals.reduce((s, v) => s + (v - mean) ** 2, 0) / vals.length
+    return Math.round(Math.max(0, 1 - Math.sqrt(variance) / mean) * 100)
+  }, [bowlBalls])
+
+  const dotToBoundaryRatio = useMemo(() => {
+    const legal = bowlBalls.filter((b: any) => b.extras_type !== 'wide' && b.extras_type !== 'no_ball')
+    const dots = legal.filter((b: any) => (b.runs_off_bat ?? 0) === 0).length
+    const boundaries = bowlBalls.filter((b: any) => b.is_boundary_four || b.is_boundary_six).length
+    if (!boundaries) return null
+    return (dots / boundaries).toFixed(1)
+  }, [bowlBalls])
+
+  // ── New fielding metrics ──────────────────────────────────────────────────
+
+  const fieldingPerMatch = useMemo(() => {
+    const m = careerField?.matches
+    if (!m || m === 0) return null
+    return ((careerField.total_dismissals ?? 0) / m).toFixed(2)
+  }, [careerField])
+
+  const matchImpactFrequency = useMemo(() => {
+    if (!careerField?.matches || careerField.matches === 0) return null
+    const unique = new Set(fieldingEventMatchIds).size
+    return Math.round((unique / careerField.matches) * 100)
+  }, [careerField, fieldingEventMatchIds])
+
+  // ── General Insights metrics ──────────────────────────────────────────────
+
+  const playerImpactScore = useMemo(() => {
+    const m = Math.max(
+      Number(careerBat?.matches ?? 0),
+      Number(careerBowl?.matches ?? 0),
+      Number(careerField?.matches ?? 0),
+      1,
+    )
+    const bat = Number(careerBat?.total_runs ?? 0) / m
+    const bowl = (Number(careerBowl?.wickets ?? 0) * 10) / m
+    const field = (Number(careerField?.total_dismissals ?? 0) * 5) / m
+    const score = bat * 0.4 + bowl * 0.4 + field * 0.2
+    return score > 0 ? score.toFixed(1) : null
+  }, [careerBat, careerBowl, careerField])
+
+  const reliabilityIndex = useMemo(() => {
+    if (!reliabilityData?.length) return null
+    const totalSel = reliabilityData.reduce((s: number, r: any) => s + Number(r.times_selected ?? 0), 0)
+    const w = (r: any) => Number(r.times_selected ?? 0) || 1
+    const sumW = totalSel || reliabilityData.length
+    const avgAvail = reliabilityData.reduce((s: number, r: any) => s + Number(r.availability_rate ?? 0) * w(r), 0) / sumW
+    const avgCommit = reliabilityData.reduce((s: number, r: any) => s + Math.max(0, Number(r.commitment_rate ?? 0)) * w(r), 0) / sumW
+    if (!filteredBattingLog.length) return null
+    const runs = filteredBattingLog.map(i => i.runs ?? 0)
+    const mean = runs.reduce((s, r) => s + r, 0) / runs.length
+    if (mean === 0) return null
+    const stdDev = Math.sqrt(runs.reduce((s, r) => s + (r - mean) ** 2, 0) / runs.length)
+    const consistency = Math.max(0, 1 - stdDev / mean)
+    return ((avgAvail / 100) * (avgCommit / 100) * consistency * 100).toFixed(1)
+  }, [reliabilityData, filteredBattingLog])
+
+  const matchInfluenceScore = useMemo(() => {
+    const m = Math.max(Number(careerBat?.matches ?? 0), Number(careerBowl?.matches ?? 0), 1)
+    const deathRuns = (batBalls as any[]).filter(b => {
+      if (b.extras_type === 'wide') return false
+      const total = b.match_id ? (matchOversMap[b.match_id] ?? 20) : 20
+      return (b.over_number ?? 0) >= total * 0.75
+    }).reduce((s: number, b: any) => s + (b.runs_off_bat ?? 0), 0)
+    const wkts = Number(careerBowl?.wickets ?? 0)
+    const score = (wkts + deathRuns) / m
+    return score > 0 ? score.toFixed(2) : null
+  }, [batBalls, matchOversMap, careerBat, careerBowl])
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -1245,6 +1459,80 @@ export default function PlayerProfilePage() {
           color: rgba(147,197,253,0.45); font-size: 14px; margin-bottom: 24px;
         }
 
+        /* ── INFO TOOLTIP ── */
+        .info-tip-wrap {
+          position: relative; display: inline-flex; align-items: center; margin-left: 5px;
+          vertical-align: middle;
+        }
+        .info-tip-icon {
+          font-size: 11px; color: rgba(147,197,253,0.35); cursor: help; line-height: 1;
+          transition: color 0.15s;
+        }
+        .info-tip-wrap:hover .info-tip-icon { color: rgba(147,197,253,0.7); }
+        .info-tip-box {
+          display: none; position: absolute; bottom: calc(100% + 8px); left: 50%;
+          transform: translateX(-50%); width: 210px; padding: 8px 12px;
+          background: rgba(5,18,42,0.97); border: 1px solid rgba(59,130,246,0.3);
+          border-radius: 8px; font-size: 11px; font-family: 'Outfit', sans-serif;
+          color: rgba(147,197,253,0.65); font-weight: 400; line-height: 1.5;
+          white-space: normal; z-index: 300; pointer-events: none;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+        .info-tip-wrap:hover .info-tip-box { display: block; }
+
+        /* ── INSIGHTS PANEL ── */
+        .insights-panel {
+          background: rgba(5,18,42,0.7); border: 1px solid rgba(59,130,246,0.15);
+          border-radius: 14px; overflow: hidden; position: relative; margin-bottom: 28px;
+        }
+        .insights-panel::before {
+          content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(56,189,248,0.4), transparent);
+        }
+        .insights-header {
+          padding: 14px 22px 12px; border-bottom: 1px solid rgba(59,130,246,0.1);
+          display: flex; align-items: center; justify-content: space-between;
+        }
+        .insights-title {
+          font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 800;
+          color: #38bdf8; letter-spacing: 0.05em; text-transform: uppercase;
+        }
+        .insights-metrics {
+          display: grid; grid-template-columns: repeat(3, 1fr);
+          gap: 0; padding: 0;
+        }
+        .insights-metric {
+          padding: 18px 22px; border-right: 1px solid rgba(59,130,246,0.08);
+        }
+        .insights-metric:last-child { border-right: none; }
+        .insights-metric-label {
+          font-family: 'Outfit', sans-serif; font-size: 9px; font-weight: 700;
+          letter-spacing: 0.16em; text-transform: uppercase;
+          color: rgba(147,197,253,0.35); display: flex; align-items: center; gap: 4px;
+          margin-bottom: 8px;
+        }
+        .insights-metric-val {
+          font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800;
+          color: #38bdf8; line-height: 1; margin-bottom: 6px;
+        }
+        .insights-metric-val.blue { color: #60a5fa; }
+        .insights-metric-val.green { color: #4ade80; }
+        .insights-sub-chips {
+          display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px;
+        }
+        .insights-sub-chip {
+          display: flex; align-items: center; gap: 5px;
+          padding: 3px 9px; border-radius: 6px;
+          background: rgba(37,99,235,0.1); border: 1px solid rgba(59,130,246,0.15);
+          font-family: 'Outfit', sans-serif; font-size: 10px; color: rgba(147,197,253,0.55);
+        }
+        .insights-sub-chip-val { font-weight: 700; color: rgba(147,197,253,0.8); }
+        @media (max-width: 768px) {
+          .insights-metrics { grid-template-columns: 1fr; }
+          .insights-metric { border-right: none; border-bottom: 1px solid rgba(59,130,246,0.08); }
+          .insights-metric:last-child { border-bottom: none; }
+        }
+
         /* ── CATEGORY PILLS ── */
         .category-pills {
           display: flex; gap: 8px; margin: 0 0 24px;
@@ -1330,6 +1618,92 @@ export default function PlayerProfilePage() {
         ) : (
           <div className="container" style={{ paddingBottom: 80 }}>
 
+            {/* ── GENERAL INSIGHTS (always visible) ── */}
+            {(playerImpactScore || reliabilityIndex || matchInfluenceScore) && (
+              <div className="insights-panel">
+                <div className="insights-header">
+                  <span className="insights-title">Player Insights</span>
+                </div>
+                <div className="insights-metrics">
+                  {/* Player Impact Score */}
+                  <div className="insights-metric">
+                    <div className="insights-metric-label">
+                      Player Impact Score
+                      <InfoTooltip text="Per-match composite: batting runs × 0.4 + wickets×10 × 0.4 + dismissals×5 × 0.2." />
+                    </div>
+                    <div className="insights-metric-val">{playerImpactScore ?? '—'}</div>
+                    <div className="insights-sub-chips">
+                      {careerBat && (
+                        <span className="insights-sub-chip">
+                          <span>Bat</span>
+                          <span className="insights-sub-chip-val">
+                            {(Number(careerBat.total_runs) / Math.max(Number(careerBat.matches), 1)).toFixed(1)}
+                          </span>
+                        </span>
+                      )}
+                      {careerBowl && (
+                        <span className="insights-sub-chip">
+                          <span>Bowl</span>
+                          <span className="insights-sub-chip-val">
+                            {((Number(careerBowl.wickets) * 10) / Math.max(Number(careerBowl.matches), 1)).toFixed(1)}
+                          </span>
+                        </span>
+                      )}
+                      {careerField && (
+                        <span className="insights-sub-chip">
+                          <span>Field</span>
+                          <span className="insights-sub-chip-val">
+                            {((Number(careerField.total_dismissals) * 5) / Math.max(Number(careerField.matches), 1)).toFixed(1)}
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {/* Reliability Index */}
+                  <div className="insights-metric">
+                    <div className="insights-metric-label">
+                      Reliability Index
+                      <InfoTooltip text="Availability rate × commitment rate × batting consistency (1 − σ/μ)." />
+                    </div>
+                    <div className={`insights-metric-val${reliabilityIndex != null ? ' blue' : ''}`}>
+                      {reliabilityIndex != null ? `${reliabilityIndex}%` : '—'}
+                    </div>
+                    {reliabilityData?.length ? (() => {
+                      const totalSel = reliabilityData.reduce((s: number, r: any) => s + Number(r.times_selected ?? 0), 0)
+                      const wFn = (r: any) => Number(r.times_selected ?? 0) || 1
+                      const sumW = totalSel || reliabilityData.length
+                      const avgAvail = reliabilityData.reduce((s: number, r: any) => s + Number(r.availability_rate ?? 0) * wFn(r), 0) / sumW
+                      const avgCommit = reliabilityData.reduce((s: number, r: any) => s + Math.max(0, Number(r.commitment_rate ?? 0)) * wFn(r), 0) / sumW
+                      return (
+                        <div className="insights-sub-chips">
+                          <span className="insights-sub-chip">
+                            <span>Avail</span>
+                            <span className="insights-sub-chip-val">{avgAvail.toFixed(0)}%</span>
+                          </span>
+                          <span className="insights-sub-chip">
+                            <span>Commit</span>
+                            <span className="insights-sub-chip-val">{Math.max(0, avgCommit).toFixed(0)}%</span>
+                          </span>
+                        </div>
+                      )
+                    })() : (
+                      <div style={{ fontSize: 10, color: 'rgba(147,197,253,0.3)', marginTop: 6, fontFamily: 'Outfit,sans-serif' }}>
+                        No availability data
+                      </div>
+                    )}
+                  </div>
+                  {/* Match Influence Score */}
+                  <div className="insights-metric">
+                    <div className="insights-metric-label">
+                      Match Influence Score
+                      <InfoTooltip text="(Career wickets + runs in final 25% of overs) ÷ matches played." />
+                    </div>
+                    <div className="insights-metric-val green">{matchInfluenceScore ?? '—'}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Tabs */}
             <div className="profile-tabs">
               <button
@@ -1385,15 +1759,15 @@ export default function PlayerProfilePage() {
                     <div className="career-cards">
                       <div className="career-card highlight-card">
                         <div className="career-card-val sky">{fmt(careerBat.total_runs, 0)}</div>
-                        <div className="career-card-lbl">Career Runs</div>
+                        <div className="career-card-lbl">Career Runs<InfoTooltip text="Total runs scored across all innings." /></div>
                       </div>
                       <div className="career-card">
                         <div className="career-card-val">{fmt(careerBat.average)}</div>
-                        <div className="career-card-lbl">Average</div>
+                        <div className="career-card-lbl">Average<InfoTooltip text="Runs per dismissal. Not Out innings are excluded from the denominator." /></div>
                       </div>
                       <div className="career-card">
                         <div className="career-card-val">{fmt(careerBat.strike_rate)}</div>
-                        <div className="career-card-lbl">Strike Rate</div>
+                        <div className="career-card-lbl">Strike Rate<InfoTooltip text="Runs scored per 100 balls faced." /></div>
                       </div>
                       <div className="career-card">
                         <div className="career-card-val">{fmt(careerBat.highest_score, 0)}</div>
@@ -1428,25 +1802,43 @@ export default function PlayerProfilePage() {
                         {boundaryRate != null && (
                           <div className="stat-chip">
                             <div className="stat-chip-val sky">{boundaryRate}%</div>
-                            <div className="stat-chip-lbl">Boundary Rate</div>
+                            <div className="stat-chip-lbl">Boundary Rate<InfoTooltip text="Percentage of total runs scored from fours and sixes." /></div>
                           </div>
                         )}
                         {consistencyScore != null && (
                           <div className="stat-chip">
                             <div className="stat-chip-val green">{consistencyScore}%</div>
-                            <div className="stat-chip-lbl">Consistency</div>
+                            <div className="stat-chip-lbl">Consistency<InfoTooltip text="Percentage of innings where runs scored ≥ your career average." /></div>
                           </div>
                         )}
                         {conversionRate != null && (
                           <div className="stat-chip">
                             <div className="stat-chip-val amber">{conversionRate}%</div>
-                            <div className="stat-chip-lbl">50→100 Conv.</div>
+                            <div className="stat-chip-lbl">50→100 Conv.<InfoTooltip text="Percentage of half-centuries converted into centuries." /></div>
                           </div>
                         )}
                         {batDotPct != null && (
                           <div className="stat-chip">
                             <div className={`stat-chip-val${batDotPct > 50 ? ' red' : ''}`}>{batDotPct}%</div>
-                            <div className="stat-chip-lbl">Dot Ball %</div>
+                            <div className="stat-chip-lbl">Dot Ball %<InfoTooltip text="Percentage of legal balls faced where no runs were scored." /></div>
+                          </div>
+                        )}
+                        {strikeRotationRate != null && (
+                          <div className="stat-chip">
+                            <div className="stat-chip-val">{strikeRotationRate}%</div>
+                            <div className="stat-chip-lbl">Strike Rotation<InfoTooltip text="Percentage of balls where 1 or 2 runs were scored — measures intent to rotate strike." /></div>
+                          </div>
+                        )}
+                        {scoringFrequency != null && (
+                          <div className="stat-chip">
+                            <div className="stat-chip-val sky">{scoringFrequency}%</div>
+                            <div className="stat-chip-lbl">Scoring Freq<InfoTooltip text="Percentage of legal balls where at least 1 run was scored off the bat." /></div>
+                          </div>
+                        )}
+                        {clutchScoringIndex != null && (
+                          <div className="stat-chip">
+                            <div className="stat-chip-val amber">{clutchScoringIndex}</div>
+                            <div className="stat-chip-lbl">Clutch SR<InfoTooltip text="Strike rate in the final 25% of each innings — measures impact at the death." /></div>
                           </div>
                         )}
                       </div>
@@ -1457,6 +1849,14 @@ export default function PlayerProfilePage() {
                       <div className="profile-panel">
                         <div className="panel-header"><div className="panel-title">Recent Form</div></div>
                         <FormGuide innings={filteredBattingLog} average={careerBat?.average ?? null} />
+                      </div>
+                    )}
+
+                    {/* Rolling Form (8-innings moving average) */}
+                    {filteredBattingLog.length >= 8 && (
+                      <div className="profile-panel">
+                        <div className="panel-header"><div className="panel-title">Rolling Form</div></div>
+                        <RollingFormChart innings={filteredBattingLog} />
                       </div>
                     )}
 
@@ -1752,6 +2152,24 @@ export default function PlayerProfilePage() {
                           </div>
                           <div className="stat-chip-lbl">Extras / Over</div>
                         </div>
+                        {wicketImpactScore != null && (
+                          <div className="stat-chip">
+                            <div className="stat-chip-val amber">{wicketImpactScore}</div>
+                            <div className="stat-chip-lbl">Wicket Impact<InfoTooltip text="Wickets weighted by phase: Early ×1.0, Middle ×1.2, Death ×1.5." /></div>
+                          </div>
+                        )}
+                        {overConsistencyScore != null && (
+                          <div className="stat-chip">
+                            <div className={`stat-chip-val${overConsistencyScore >= 60 ? ' green' : ''}`}>{overConsistencyScore}%</div>
+                            <div className="stat-chip-lbl">Over Consistency<InfoTooltip text="1 − (σ/μ) of runs per over, as a percentage. Higher = more consistent economy." /></div>
+                          </div>
+                        )}
+                        {dotToBoundaryRatio != null && (
+                          <div className="stat-chip">
+                            <div className="stat-chip-val sky">{dotToBoundaryRatio}</div>
+                            <div className="stat-chip-lbl">Dot:Boundary<InfoTooltip text="Ratio of dot balls bowled to boundaries conceded. Higher is better." /></div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1940,6 +2358,27 @@ export default function PlayerProfilePage() {
                         <div className="career-card-lbl">Run Outs</div>
                       </div>
                     </div>
+
+                    {/* Fielding Metrics */}
+                    {(fieldingPerMatch != null || matchImpactFrequency != null) && (
+                      <div className="profile-panel">
+                        <div className="panel-header"><div className="panel-title">Fielding Metrics</div></div>
+                        <div className="stat-chips">
+                          {fieldingPerMatch != null && (
+                            <div className="stat-chip">
+                              <div className="stat-chip-val sky">{fieldingPerMatch}</div>
+                              <div className="stat-chip-lbl">Fielding / Match<InfoTooltip text="Average fielding dismissals per match played." /></div>
+                            </div>
+                          )}
+                          {matchImpactFrequency != null && (
+                            <div className="stat-chip">
+                              <div className={`stat-chip-val${matchImpactFrequency >= 50 ? ' green' : ''}`}>{matchImpactFrequency}%</div>
+                              <div className="stat-chip-lbl">Match Impact %<InfoTooltip text="Percentage of matches with at least one fielding contribution." /></div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Season table */}
                     {filteredSeasonField.length > 0 && (
