@@ -2,144 +2,14 @@
 import { createClient } from '@supabase/supabase-js'
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
+import RunRateChart from '@/components/analytics/charts/RunRateChart'
+import ResultsTrajectory from '@/components/analytics/charts/ResultsTrajectory'
+import AnalyticsBarChart from '@/components/analytics/charts/AnalyticsBarChart'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function RunRateChart({ data }: { data: Array<{ over: number; avgRuns: number }> }) {
-  if (!data.length) return null
-  const maxVal = Math.max(...data.map(d => d.avgRuns), 1)
-  const W = 500, H = 160
-  const PAD = { top: 20, bottom: 36, left: 32, right: 8 }
-  const innerW = W - PAD.left - PAD.right
-  const innerH = H - PAD.top - PAD.bottom
-  const barW = Math.max(innerW / data.length - 3, 4)
-
-  return (
-    <div className="chart-wrap">
-      <div className="chart-label-top">Average runs scored per over (BCC batting)</div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', overflow: 'visible' }}>
-        {[0, 0.5, 1].map(pct => {
-          const y = PAD.top + (1 - pct) * innerH
-          return (
-            <g key={pct}>
-              <line x1={PAD.left} y1={y} x2={PAD.left + innerW} y2={y} stroke="rgba(59,130,246,0.08)" strokeWidth="1" />
-              <text x={PAD.left - 4} y={y + 3} fill="rgba(147,197,253,0.3)" fontSize="8" fontFamily="Outfit,sans-serif" textAnchor="end">
-                {(pct * maxVal).toFixed(1)}
-              </text>
-            </g>
-          )
-        })}
-        {data.map((d, i) => {
-          const x = PAD.left + (i / data.length) * innerW + 1.5
-          const barH = maxVal > 0 ? (d.avgRuns / maxVal) * innerH : 0
-          const y = PAD.top + innerH - barH
-          const isPP = d.over <= 6
-          const isDeath = d.over >= 16
-          const fill = isPP ? '#38bdf8' : isDeath ? '#60a5fa' : '#3b82f6'
-          return (
-            <g key={d.over}>
-              <rect x={x} y={y} width={barW} height={barH} fill={fill} opacity="0.8" rx="2" />
-              <text x={x + barW / 2} y={H - 22} fill="rgba(147,197,253,0.35)" fontSize="7" fontFamily="Outfit,sans-serif" textAnchor="middle">
-                {d.over}
-              </text>
-              {barH > 16 && (
-                <text x={x + barW / 2} y={y + 11} fill="white" fontSize="7" fontFamily="Syne,sans-serif" fontWeight="700" textAnchor="middle">
-                  {d.avgRuns}
-                </text>
-              )}
-            </g>
-          )
-        })}
-        <text x={PAD.left + (3 / 20) * innerW} y={H - 8} fill="rgba(56,189,248,0.5)" fontSize="8" fontFamily="Outfit,sans-serif" textAnchor="middle">Powerplay</text>
-        <text x={PAD.left + (10.5 / 20) * innerW} y={H - 8} fill="rgba(59,130,246,0.5)" fontSize="8" fontFamily="Outfit,sans-serif" textAnchor="middle">Middle Overs</text>
-        <text x={PAD.left + (17.5 / 20) * innerW} y={H - 8} fill="rgba(96,165,250,0.5)" fontSize="8" fontFamily="Outfit,sans-serif" textAnchor="middle">Death</text>
-      </svg>
-    </div>
-  )
-}
-
-function ResultsTrajectory({ results }: { results: Array<{ isWin: boolean; isTie: boolean }> }) {
-  if (results.length < 2) return null
-  const W = 480, H = 100
-  const PAD = { top: 10, bottom: 10, left: 10, right: 10 }
-  const innerW = W - PAD.left - PAD.right
-  const innerH = H - PAD.top - PAD.bottom
-
-  let cumWins = 0
-  const points = results.map((r, i) => {
-    if (r.isWin) cumWins++
-    return {
-      x: PAD.left + (results.length === 1 ? 0 : (i / (results.length - 1)) * innerW),
-      y: PAD.top + (1 - cumWins / results.length) * innerH,
-      cumWins,
-      isWin: r.isWin,
-    }
-  })
-
-  const poly = points.map(p => `${p.x},${p.y}`).join(' ')
-
-  return (
-    <div className="chart-wrap">
-      <div className="chart-label-top">Cumulative win rate over the season</div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%' }}>
-        <defs>
-          <linearGradient id="trajGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#4ade80" />
-            <stop offset="100%" stopColor="#4ade80" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <polygon
-          points={`${PAD.left},${PAD.top + innerH} ${poly} ${PAD.left + innerW},${PAD.top + innerH}`}
-          fill="url(#trajGrad)"
-          opacity="0.15"
-        />
-        <polyline points={poly} fill="none" stroke="#4ade80" strokeWidth="2" strokeLinejoin="round" />
-        {points.map((p, i) => (
-          <circle
-            key={i}
-            cx={p.x}
-            cy={p.y}
-            r="3"
-            fill={results[i].isWin ? '#4ade80' : results[i].isTie ? '#fbbf24' : '#f87171'}
-            stroke="#050c1a"
-            strokeWidth="1.5"
-          />
-        ))}
-      </svg>
-    </div>
-  )
-}
-
-function BarChart({ items, maxVal }: { items: Array<{ label: string; value: number; color?: string; sublabel?: string }>; maxVal: number }) {
-  return (
-    <div className="bar-chart">
-      {items.map(item => (
-        <div key={item.label} className="bar-row">
-          <div className="bar-label">{item.label}</div>
-          <div className="bar-track">
-            <div
-              className="bar-fill"
-              style={{
-                width: maxVal > 0 ? `${(item.value / maxVal) * 100}%` : '0%',
-                background: item.color
-                  ? `linear-gradient(90deg, ${item.color}bb, ${item.color})`
-                  : 'linear-gradient(90deg, #2563eb, #38bdf8)',
-              }}
-            />
-          </div>
-          <div className="bar-value">
-            {item.value}{item.sublabel ? ` ${item.sublabel}` : ''}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
@@ -864,7 +734,7 @@ export default function AnalyticsPage() {
                     <div className="panel-header">
                       <div className="panel-title">Appearances</div>
                     </div>
-                    <BarChart
+                    <AnalyticsBarChart
                       items={playerUtilisation.map(p => ({
                         label: p.name,
                         value: p.count,

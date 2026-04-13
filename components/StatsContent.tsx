@@ -2,6 +2,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
+import { overs, fmt, bestFigures, BATTING_COLS, BOWLING_COLS, FIELDING_COLS } from '@/lib/stats/formatters'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,62 +14,6 @@ interface Competition { id: string; name: string; season_id: string; type: strin
 
 type Tab     = 'batting' | 'bowling' | 'fielding'
 type SortDir = 'asc' | 'desc'
-
-const BATTING_COLS = [
-  { key: 'matches',       label: 'M',    title: 'Matches' },
-  { key: 'innings',       label: 'Inn',  title: 'Innings batted' },
-  { key: 'not_outs',      label: 'NO',   title: 'Not outs' },
-  { key: 'total_runs',    label: 'Runs', title: 'Total runs', primary: true },
-  { key: 'highest_score', label: 'HS',   title: 'Highest score' },
-  { key: 'average',       label: 'Avg',  title: 'Batting average (runs per dismissal)' },
-  { key: 'strike_rate',   label: 'SR',   title: 'Strike rate (runs per 100 balls)' },
-  { key: 'fifties',       label: '50s',  title: 'Half centuries' },
-  { key: 'hundreds',      label: '100s', title: 'Centuries' },
-  { key: 'ducks',         label: '0s',   title: 'Dismissed for a duck' },
-  { key: 'fours',         label: '4s',   title: 'Fours hit' },
-  { key: 'sixes',         label: '6s',   title: 'Sixes hit' },
-  { key: 'balls_faced',   label: 'BF',   title: 'Balls faced' },
-]
-
-const BOWLING_COLS = [
-  { key: 'matches',              label: 'M',    title: 'Matches' },
-  { key: 'legal_balls',          label: 'O',    title: 'Overs bowled' },
-  { key: 'maidens',              label: 'Mdns', title: 'Maiden overs' },
-  { key: 'wickets',              label: 'Wkts', title: 'Wickets', primary: true },
-  { key: 'runs_conceded',        label: 'Runs', title: 'Runs conceded' },
-  { key: 'best_bowling',         label: 'Best', title: 'Best bowling figures in an innings' },
-  { key: 'bowling_avg',          label: 'Avg',  title: 'Bowling average (runs per wicket)' },
-  { key: 'economy',              label: 'Econ', title: 'Economy rate (runs per over)' },
-  { key: 'wides',                label: 'Wd',   title: 'Wides bowled' },
-  { key: 'no_balls',             label: 'NB',   title: 'No balls bowled' },
-]
-
-const FIELDING_COLS = [
-  { key: 'matches',          label: 'M',     title: 'Matches' },
-  { key: 'total_dismissals', label: 'Total', title: 'Total dismissals (catches + stumpings + run outs)', primary: true },
-  { key: 'catches',          label: 'Ct',    title: 'Catches taken' },
-  { key: 'caught_bowled',    label: 'C&B',   title: 'Caught and bowled (bowler takes own catch)' },
-  { key: 'stumpings',        label: 'St',    title: 'Stumpings (keeper)' },
-  { key: 'run_outs',         label: 'RO',    title: 'Run outs' },
-]
-
-function overs(legalBalls: number | null) {
-  if (legalBalls == null) return '—'
-  return `${Math.floor(legalBalls / 6)}.${legalBalls % 6}`
-}
-
-function fmt(val: any, dp = 2): string {
-  if (val == null || val === '') return '—'
-  const n = Number(val)
-  if (isNaN(n)) return '—'
-  return n % 1 === 0 ? String(n) : n.toFixed(dp)
-}
-
-function bestFigures(wkts: any, runs: any): string {
-  if (wkts == null || Number(wkts) === 0) return '—'
-  if (runs == null) return `${wkts}/—`
-  return `${wkts}/${runs}`
-}
 
 const TAB_DEFAULTS: Record<Tab, string> = {
   batting:  'total_runs',
