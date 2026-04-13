@@ -38,7 +38,16 @@ export default function UndoButton({ lastBall, playerName, onUndo, disabled }: P
         className="btn btn-ghost"
         disabled={disabled}
         onClick={() => setConfirming(true)}
-        style={{ fontSize: 13, color: 'var(--red)', borderColor: 'rgba(224,60,46,0.4)', minHeight: 44, width: '100%', justifyContent: 'center' }}
+        style={{
+          fontSize: 12,
+          color: 'var(--red)',
+          borderColor: 'rgba(224,60,46,0.4)',
+          minHeight: 40,
+          width: '100%',
+          justifyContent: 'center',
+          opacity: 0.75,
+          WebkitTapHighlightColor: 'transparent',
+        }}
       >
         Undo last ball
       </button>

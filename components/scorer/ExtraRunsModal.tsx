@@ -12,8 +12,7 @@ export default function ExtraRunsModal({ extrasType, onConfirm, onClose }: Props
   const isWide   = extrasType === 'wide'
   const isNoBall = extrasType === 'no_ball'
 
-  // Wides: bat runs locked to 0 (batter can't hit a wide)
-  const [extraRuns, setExtraRuns] = useState(isNoBall ? 1 : 1)
+  const [extraRuns, setExtraRuns] = useState(1)
   const [batRuns, setBatRuns]     = useState(0)
 
   const title: Record<ExtrasType, string> = {
@@ -24,24 +23,12 @@ export default function ExtraRunsModal({ extrasType, onConfirm, onClose }: Props
     penalty: 'Penalty Runs',
   }
 
-  function handleConfirm() {
-    onConfirm(extraRuns + (isNoBall && !isWide ? 0 : 0), isWide ? 0 : batRuns)
-    // Wide: extra is the penalty+runs, bat=0
-    // NB: extra=1 (penalty), bat=runs batter scored
-    // Bye/LB: extra=runs, bat=0
-    onClose()
-  }
-
-  // Recalculate what to pass on confirm
   function submit() {
     if (isWide) {
-      // extras_runs = total (including any overthrow runs off the wide)
       onConfirm(extraRuns, 0)
     } else if (isNoBall) {
-      // extras_runs = 1 (no-ball penalty), bat_runs = bat runs batter scored
       onConfirm(1, batRuns)
     } else {
-      // bye / leg-bye / penalty: extras_runs = runs, bat_runs = 0
       onConfirm(extraRuns, 0)
     }
     onClose()
@@ -50,7 +37,7 @@ export default function ExtraRunsModal({ extrasType, onConfirm, onClose }: Props
   const runOptions = [1, 2, 3, 4, 5, 6]
 
   // For bye/leg-bye/penalty: tapping a run count confirms immediately — no separate Confirm button.
-  // For wide/no-ball: still need explicit confirm (NB needs bat runs too; wide is opened only for extra runs)
+  // For wide/no-ball: still need explicit confirm (NB needs bat runs too; wide for extra runs)
   const autoConfirm = !isWide && !isNoBall
 
   return (
@@ -76,7 +63,7 @@ export default function ExtraRunsModal({ extrasType, onConfirm, onClose }: Props
       <div className="extras-overlay" onClick={onClose}>
         <div className="extras-sheet" onClick={e => e.stopPropagation()}>
           {/* Drag handle */}
-          <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 16px' }} />
+          <div style={{ width: 40, height: 5, borderRadius: 3, background: 'rgba(147,197,253,0.2)', margin: '0 auto 16px' }} />
 
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 900, textTransform: 'uppercase', marginBottom: autoConfirm ? 6 : 20 }}>
             {title[extrasType]}
@@ -97,24 +84,28 @@ export default function ExtraRunsModal({ extrasType, onConfirm, onClose }: Props
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700, color: 'var(--muted)', padding: '8px 0' }}>1</div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
-                {runOptions.map(n => (
-                  <button
-                    key={n}
-                    onClick={() => {
-                      if (autoConfirm) {
-                        // Tap = immediate confirm for bye/leg-bye/penalty
-                        onConfirm(n, 0)
-                        onClose()
-                      } else {
-                        setExtraRuns(n)
-                      }
-                    }}
-                    className={!autoConfirm && extraRuns === n ? 'btn btn-primary' : 'btn btn-ghost'}
-                    style={{ height: 56, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 18, padding: '0', justifyContent: 'center' }}
-                  >
-                    {n}
-                  </button>
-                ))}
+                {runOptions.map(n => {
+                  // For wide: pre-highlight 1 as the default (most common case)
+                  const isSelected = !autoConfirm && extraRuns === n
+                  const isWideDefault = isWide && n === 1 && extraRuns === 1
+                  return (
+                    <button
+                      key={n}
+                      onClick={() => {
+                        if (autoConfirm) {
+                          onConfirm(n, 0)
+                          onClose()
+                        } else {
+                          setExtraRuns(n)
+                        }
+                      }}
+                      className={isSelected || isWideDefault ? 'btn btn-primary' : 'btn btn-ghost'}
+                      style={{ height: 56, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 18, padding: '0', justifyContent: 'center' }}
+                    >
+                      {n}
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>

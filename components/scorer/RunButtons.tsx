@@ -8,14 +8,15 @@ interface Props {
 
 function RunBtn({ r, disabled, onClick }: { r: number; disabled?: boolean; onClick: () => void }) {
   const isFour = r === 4
-  const isSix = r === 6
+  const isSix  = r === 6
+  const isFive = r === 5
 
   return (
     <button
       disabled={disabled}
       onClick={onClick}
       style={{
-        height: 'clamp(56px, 10vw, 80px)',
+        height: 'clamp(64px, 12vw, 88px)',
         borderRadius: 10,
         border: isFour
           ? '2px solid var(--lime)'
@@ -27,12 +28,18 @@ function RunBtn({ r, disabled, onClick }: { r: number; disabled?: boolean; onCli
           : isSix
           ? 'rgba(255,200,0,0.15)'
           : 'var(--surface)',
-        color: isFour ? 'var(--lime)' : isSix ? 'var(--gold)' : 'var(--text)',
+        color: isFive
+          ? 'var(--muted)'
+          : isFour
+          ? 'var(--lime)'
+          : isSix
+          ? 'var(--gold)'
+          : 'var(--text)',
         fontFamily: 'var(--font-display)',
-        fontSize: r === 0 ? 26 : 30,
+        fontSize: isFive ? 18 : r === 0 ? 26 : 30,
         fontWeight: 900,
         cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.5 : 1,
+        opacity: disabled ? 0.5 : isFive ? 0.55 : 1,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -58,15 +65,15 @@ export default function RunButtons({ onRun, disabled }: Props) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {/* Top row: 0–3 (most common, equal width) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
         {[0, 1, 2, 3].map(r => (
           <RunBtn key={r} r={r} disabled={disabled} onClick={() => handleClick(r)} />
         ))}
       </div>
       {/* Bottom row: 4 and 6 take 2/5 each, 5 takes 1/5 (visually de-prioritised) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr', gap: 8 }}>
         {[4, 5, 6].map(r => (
           <RunBtn key={r} r={r} disabled={disabled} onClick={() => handleClick(r)} />
         ))}

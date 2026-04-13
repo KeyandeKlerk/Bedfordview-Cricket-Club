@@ -124,6 +124,7 @@ function ScorerShellInner({
   const [showEndInningsConfirm, setShowEndInningsConfirm] = useState(false)
   const [showDeclareConfirm, setShowDeclareConfirm] = useState(false)
   const [showAbandonFlow, setShowAbandonFlow]       = useState(false)
+  const [showMatchOptions, setShowMatchOptions]     = useState(false)
   const [abandonReason, setAbandonReason]           = useState<string>('')
   const [endInningsBallId, setEndInningsBallId] = useState<string | null>(null)
   const [correctingBall, setCorrectingBall] = useState<BallEvent | null>(null)
@@ -775,34 +776,42 @@ function ScorerShellInner({
       .scorer-header { flex-shrink: 0; background: var(--panel); border-bottom: 1px solid var(--border); }
       .scorer-info { flex-shrink: 0; max-width: 640px; margin: 0 auto; width: 100%; }
       .scorer-mid { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
-      .scorer-controls { flex-shrink: 0; padding: 8px 16px 12px; max-width: 640px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+      .scorer-secondary { flex-shrink: 0; padding: 8px 16px 0; max-width: 640px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+      .scorer-primary { flex-shrink: 0; padding: 10px 16px 0; max-width: 640px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+      .scorer-danger-row { flex-shrink: 0; padding: 6px 16px 12px; max-width: 640px; margin: 0 auto; width: 100%; box-sizing: border-box; }
       .scorer-batter-grid {
         display: grid;
-        grid-template-columns: 1fr 40px 40px 34px 34px;
-        gap: 0 8px;
+        grid-template-columns: 1fr 38px 34px 28px 28px;
+        gap: 0 6px;
         padding: 8px 16px;
         border-bottom: 1px solid var(--border);
       }
       .scorer-batter-col { text-align: center; align-self: center; }
       .scorer-wicket-btn {
-        flex: 1; padding: 14px 16px; border-radius: 10px;
-        background: rgba(224,60,46,0.12); border: 1px solid var(--red);
+        width: 100%; padding: 0; border-radius: 10px;
+        background: rgba(224,60,46,0.18); border: 1px solid var(--red);
         color: var(--red); font-family: var(--font-display); font-weight: 900;
         font-size: 17px; cursor: pointer; letter-spacing: 0.08em; text-transform: uppercase;
         display: flex; align-items: center; justify-content: center; gap: 8px;
-        min-height: 52px; touch-action: manipulation;
+        min-height: 60px; touch-action: manipulation;
+        box-shadow: 0 0 0 1px rgba(224,60,46,0.3), 0 4px 16px rgba(224,60,46,0.12);
+        margin-bottom: 10px;
       }
-      .scorer-wicket-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+      .scorer-wicket-btn:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
       .scorer-block-btn {
-        width: 100%; justify-content: center; min-height: 56px;
-        font-size: 16px; margin-bottom: 8px;
+        width: 100%; justify-content: center; min-height: 64px;
+        font-size: 17px; margin-bottom: 8px;
       }
       .scorer-saving-badge {
         text-align: center; padding: 4px 0 6px;
         font-size: 12px; color: var(--blue-mid); font-weight: 600; letter-spacing: 0.02em;
       }
+      .scorer-match-options {
+        overflow: hidden; max-height: 0; transition: max-height 0.2s ease;
+      }
+      .scorer-match-options.open { max-height: 200px; }
       @media (max-width: 400px) {
-        .scorer-batter-grid { grid-template-columns: 1fr 36px 36px 30px 30px; gap: 0 4px; padding: 7px 10px; }
+        .scorer-batter-grid { grid-template-columns: 1fr 34px 30px 26px 26px; gap: 0 4px; padding: 7px 10px; }
       }
     `}</style>
     <div className="scorer-shell">
@@ -823,56 +832,47 @@ function ScorerShellInner({
         </div>
       )}
       {freeHit && (
-        <div style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(251,191,36,0.2))', borderBottom: '2px solid #f59e0b', padding: '13px 20px', textAlign: 'center', fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 20, color: '#fbbf24', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+        <div style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(251,191,36,0.2))', borderBottom: '2px solid #f59e0b', padding: '6px 20px', textAlign: 'center', fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 15, color: '#fbbf24', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
           ⚡ FREE HIT
         </div>
       )}
 
 
-      {/* Score header */}
-      <div className="scorer-header" style={{ padding: '10px 16px 10px' }}>
+      {/* Score header — compact, info only */}
+      <div className="scorer-header" style={{ padding: '8px 16px' }}>
         <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <div>
-            {match.opponentName && (
-              <div style={{ fontSize: 10, color: 'var(--dim)', letterSpacing: '0.06em', marginBottom: 2, textTransform: 'uppercase' }}>
-                BCC vs {match.opponentName}{match.competitionName ? ` · ${match.competitionName}` : ''}
-              </div>
-            )}
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(44px, 10vw, 60px)', fontWeight: 900, lineHeight: 1, letterSpacing: '-0.02em' }}>
+          {/* Score + overs inline */}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', minWidth: 0 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(44px, 10vw, 60px)', fontWeight: 900, lineHeight: 1, letterSpacing: '-0.02em', flexShrink: 0 }}>
               <span style={{ color: 'var(--lime)' }}>{state.totalRuns}</span>
               <span style={{ color: 'var(--muted)', fontSize: 'clamp(32px, 7vw, 44px)' }}>/{state.wickets}</span>
             </div>
-            <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span>
-                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>{state.oversDisplay}</span>
-                {' '}ov
-              </span>
+            <div style={{ color: 'var(--muted)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--text)', fontSize: 13 }}>{state.oversDisplay} ov</span>
               {state.legalBalls > 0 && (
-                <span>RR <strong style={{ color: 'var(--text)' }}>{((state.totalRuns / state.legalBalls) * 6).toFixed(2)}</strong></span>
+                <span style={{ color: 'var(--dim)' }}>RR <strong style={{ color: 'var(--text)' }}>{((state.totalRuns / state.legalBalls) * 6).toFixed(2)}</strong></span>
               )}
               {(() => {
                 const remaining = match.overs_per_innings * 6 - state.legalBalls
-                if (remaining <= 0) return null
-                if (remaining <= 6) return <span style={{ color: 'var(--red)', fontWeight: 600 }}>Last over</span>
-                return null
+                if (remaining <= 0 || remaining > 6) return null
+                return <span style={{ color: 'var(--red)', fontWeight: 600, fontSize: 12 }}>Last over</span>
               })()}
             </div>
           </div>
-          <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          {/* Right: nav + target */}
+          <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
             <div style={{ fontSize: 10, color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 8 }}>
               <Link href="/admin/matches" style={{ color: 'var(--dim)', textDecoration: 'none', fontSize: 12 }}>← Matches</Link>
               <span style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>Inn {innings.innings_number}</span>
             </div>
             {innings.target ? (
               state.totalRuns >= innings.target ? (
-                <div style={{ background: 'rgba(184,240,0,0.12)', border: '1px solid var(--lime)', borderRadius: 7, padding: '5px 10px', textAlign: 'center' }}>
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 900, color: 'var(--lime)', fontSize: 15 }}>
-                    Target!
-                  </div>
+                <div style={{ background: 'rgba(184,240,0,0.12)', border: '1px solid var(--lime)', borderRadius: 7, padding: '4px 8px', textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 900, color: 'var(--lime)', fontSize: 14 }}>Target!</div>
                 </div>
               ) : (
-                <div style={{ background: 'rgba(255,200,0,0.1)', border: '1px solid rgba(255,200,0,0.35)', borderRadius: 7, padding: '5px 10px', textAlign: 'center' }}>
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 900, color: 'var(--gold)', fontSize: 22, lineHeight: 1 }}>
+                <div style={{ background: 'rgba(255,200,0,0.1)', border: '1px solid rgba(255,200,0,0.35)', borderRadius: 7, padding: '4px 8px', textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 900, color: 'var(--gold)', fontSize: 20, lineHeight: 1 }}>
                     {innings.target - state.totalRuns}
                   </div>
                   <div style={{ color: 'var(--muted)', fontSize: 10, marginTop: 1 }}>to win</div>
@@ -905,7 +905,7 @@ function ScorerShellInner({
                   {mp?.is_captain && <span style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 700, flexShrink: 0 }}>(C)</span>}
                   {mp?.is_keeper && <span style={{ fontSize: 12, color: 'var(--muted)', flexShrink: 0 }}>†</span>}
                 </span>
-                <span className="scorer-batter-col" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 18, color: isStriker ? 'var(--lime)' : 'var(--text)' }}>
+                <span className="scorer-batter-col" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16, color: isStriker ? 'var(--lime)' : 'var(--text)' }}>
                   {b?.runs ?? 0}
                 </span>
                 <span className="scorer-batter-col" style={{ color: 'var(--muted)', fontSize: 14 }}>{b?.balls ?? 0}</span>
@@ -922,7 +922,7 @@ function ScorerShellInner({
             const bs = state.bowlerStats[effectiveBowlerId]
             const bowlerMp = matchPlayers.find(p => p.id === effectiveBowlerId)
             return (
-              <div style={{ flex: 1, padding: '7px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, borderRight: '1px solid var(--border)', minWidth: 0 }}>
+              <div style={{ flex: 1, padding: '5px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, borderRight: '1px solid var(--border)', minWidth: 0 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 1 }}>Bowling</div>
                   <div style={{ fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
@@ -946,7 +946,7 @@ function ScorerShellInner({
             )
           })()}
           {/* This over */}
-          <div style={{ padding: '7px 12px', flexShrink: 0 }}>
+          <div style={{ padding: '5px 12px', flexShrink: 0 }}>
             <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>
               This over{state.currentOverBalls.length > 0 && <span style={{ color: 'rgba(147,197,253,0.25)', marginLeft: 4, textTransform: 'none', letterSpacing: 0 }}>·tap</span>}
             </div>
@@ -965,10 +965,24 @@ function ScorerShellInner({
         )}
       </div>
 
-      {/* Controls — always visible, never scrolls off screen */}
-      <div className="scorer-controls">
+      {/* Zone C — Secondary actions (extras + undo) */}
+      <div className="scorer-secondary">
         {submitting && <div className="scorer-saving-badge">Saving…</div>}
 
+        {!needsNewBatter && !needsNewBowler && !isNaturalEnd(state, match.overs_per_innings, innings.target) && (
+          <>
+            <div style={{ opacity: submitting ? 0.3 : 1, pointerEvents: submitting ? 'none' : 'auto', marginBottom: 8 }}>
+              <ExtrasRow onExtra={(type, extrasRuns, batRuns) => submitBall({ extras_type: type, extras_runs: extrasRuns, runs_off_bat: batRuns })} />
+            </div>
+            <div style={{ marginBottom: 4 }}>
+              <UndoButton lastBall={lastBall} playerName={playerName} onUndo={undoLastBall} disabled={submitting} />
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Zone D — Primary actions (wicket + run buttons) */}
+      <div className="scorer-primary">
         {needsNewBatter ? (
           <button className="btn btn-primary scorer-block-btn" onClick={() => setShowNewBatter(true)}>
             Wicket — Choose next batter →
@@ -977,74 +991,73 @@ function ScorerShellInner({
           <button className="btn btn-primary scorer-block-btn" onClick={() => setShowChangeBowler(true)}>
             Over complete — Choose bowler →
           </button>
+        ) : isNaturalEnd(state, match.overs_per_innings, innings.target) ? (
+          <button className="btn btn-primary" onClick={handleEndInnings}
+            style={{ fontSize: 17, width: '100%', justifyContent: 'center', minHeight: 64 }}>
+            End Innings →
+          </button>
         ) : (
-          <>
-            {/* Natural end CTA */}
-            {isNaturalEnd(state, match.overs_per_innings, innings.target) ? (
-              <button className="btn btn-primary" onClick={handleEndInnings}
-                style={{ fontSize: 16, width: '100%', justifyContent: 'center', marginBottom: 8 }}>
-                End Innings →
-              </button>
-            ) : (
-              <>
-                <div style={{ marginBottom: 8, opacity: submitting ? 0.3 : 1, pointerEvents: submitting ? 'none' : 'auto' }}>
-                  <RunButtons onRun={(runs, isFour, isSix) => submitBall({ runs_off_bat: runs, is_boundary_four: isFour, is_boundary_six: isSix })} />
-                </div>
-
-                <div style={{ marginBottom: 8, opacity: submitting ? 0.3 : 1, pointerEvents: submitting ? 'none' : 'auto' }}>
-                  <ExtrasRow onExtra={(type, extrasRuns, batRuns) => submitBall({ extras_type: type, extras_runs: extrasRuns, runs_off_bat: batRuns })} />
-                </div>
-
-                <div style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'stretch' }}>
-                  <button onClick={() => setShowWicketModal(true)} disabled={submitting} className="scorer-wicket-btn">
-                    <span style={{ fontSize: 18, fontWeight: 900 }}>W</span> Wicket
-                  </button>
-                  <div style={{ flex: 1 }}>
-                    <UndoButton lastBall={lastBall} playerName={playerName} onUndo={undoLastBall} disabled={submitting} />
-                  </div>
-                </div>
-
-                {/* Manual end / declare / abandon */}
-                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 6 }}>
-                  {!showEndInningsConfirm ? (
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button onClick={() => setShowEndInningsConfirm(true)}
-                        style={{ flex: 1, padding: '8px 6px', minHeight: 36, borderRadius: 7, background: 'transparent', border: '1px solid var(--border)', color: 'var(--dim)', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
-                        End early
-                      </button>
-                      <button onClick={() => setShowDeclareConfirm(true)}
-                        style={{ flex: 1, padding: '8px 6px', minHeight: 36, borderRadius: 7, background: 'transparent', border: '1px solid rgba(59,130,246,0.3)', color: 'var(--blue-mid)', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
-                        Declare
-                      </button>
-                      <button onClick={() => setShowAbandonFlow(true)}
-                        style={{ flex: 1, padding: '8px 6px', minHeight: 36, borderRadius: 7, background: 'transparent', border: '1px solid transparent', color: 'var(--dim)', cursor: 'pointer', fontSize: 11, opacity: 0.45 }}>
-                        Abandon
-                      </button>
-                    </div>
-                  ) : (
-                    <div style={{ background: 'rgba(255,200,0,0.08)', border: '1px solid rgba(255,200,0,0.35)', borderRadius: 7, padding: '10px 12px' }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--gold)', marginBottom: 4 }}>End innings early?</div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
-                        {state.oversDisplay} ov · {state.wickets} wkts · {state.totalRuns} runs
-                      </div>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button onClick={() => setShowEndInningsConfirm(false)}
-                          style={{ flex: 1, padding: '10px', minHeight: 40, borderRadius: 7, background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                          Cancel
-                        </button>
-                        <button onClick={handleEndInnings}
-                          style={{ flex: 2, padding: '10px', minHeight: 40, borderRadius: 7, background: 'rgba(255,200,0,0.15)', border: '1px solid var(--gold)', color: 'var(--gold)', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
-                          Confirm End
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </>
+          <div style={{ opacity: submitting ? 0.3 : 1, pointerEvents: submitting ? 'none' : 'auto' }}>
+            {/* Wicket — full width, above run buttons, in the hot zone */}
+            <button onClick={() => setShowWicketModal(true)} disabled={submitting} className="scorer-wicket-btn">
+              <span style={{ fontSize: 22, fontWeight: 900 }}>W</span>
+              {freeHit ? 'WICKET (RO only)' : 'WICKET'}
+            </button>
+            <RunButtons onRun={(runs, isFour, isSix) => submitBall({ runs_off_bat: runs, is_boundary_four: isFour, is_boundary_six: isSix })} />
+          </div>
         )}
       </div>
+
+      {/* Zone E — Danger row (match options hidden behind toggle) */}
+      {!needsNewBatter && !needsNewBowler && !isNaturalEnd(state, match.overs_per_innings, innings.target) && (
+        <div className="scorer-danger-row">
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 6 }}>
+            {!showEndInningsConfirm ? (
+              <>
+                <button
+                  onClick={() => setShowMatchOptions(v => !v)}
+                  style={{ width: '100%', padding: '6px 8px', minHeight: 34, borderRadius: 7, background: 'transparent', border: 'none', color: 'var(--dim)', cursor: 'pointer', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+                >
+                  <span style={{ fontSize: 16, lineHeight: 1 }}>⋯</span> Match options
+                </button>
+                <div className={`scorer-match-options${showMatchOptions ? ' open' : ''}`}>
+                  <div style={{ display: 'flex', gap: 6, paddingTop: 6 }}>
+                    <button onClick={() => { setShowEndInningsConfirm(true); setShowMatchOptions(false) }}
+                      style={{ flex: 1, padding: '8px 6px', minHeight: 36, borderRadius: 7, background: 'transparent', border: '1px solid var(--border)', color: 'var(--dim)', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+                      End early
+                    </button>
+                    <button onClick={() => { setShowDeclareConfirm(true); setShowMatchOptions(false) }}
+                      style={{ flex: 1, padding: '8px 6px', minHeight: 36, borderRadius: 7, background: 'transparent', border: '1px solid rgba(59,130,246,0.3)', color: 'var(--blue-mid)', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+                      Declare
+                    </button>
+                    <button onClick={() => { setShowAbandonFlow(true); setShowMatchOptions(false) }}
+                      style={{ flex: 1, padding: '8px 6px', minHeight: 36, borderRadius: 7, background: 'transparent', border: '1px solid transparent', color: 'var(--dim)', cursor: 'pointer', fontSize: 11, opacity: 0.55 }}>
+                      Abandon
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div style={{ background: 'rgba(255,200,0,0.08)', border: '1px solid rgba(255,200,0,0.35)', borderRadius: 7, padding: '10px 12px' }}>
+                <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--gold)', marginBottom: 4 }}>End innings early?</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
+                  {state.oversDisplay} ov · {state.wickets} wkts · {state.totalRuns} runs
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={() => setShowEndInningsConfirm(false)}
+                    style={{ flex: 1, padding: '10px', minHeight: 40, borderRadius: 7, background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                    Cancel
+                  </button>
+                  <button onClick={handleEndInnings}
+                    style={{ flex: 2, padding: '10px', minHeight: 40, borderRadius: 7, background: 'rgba(255,200,0,0.15)', border: '1px solid var(--gold)', color: 'var(--gold)', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                    Confirm End
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Declare confirmation modal */}
       {showDeclareConfirm && (
