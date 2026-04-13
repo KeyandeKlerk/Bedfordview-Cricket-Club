@@ -571,10 +571,13 @@ export default function AnalyticsPage() {
           .section-title { font-size: 18px; }
         }
         @media (max-width: 480px) {
-          .an-cards { gap: 8px; }
+          .an-cards { gap: 8px; grid-template-columns: 1fr 1fr; }
           .an-val { font-size: 26px; }
           .result-strip { gap: 6px; }
           .result-chip { min-width: 48px; padding: 6px 8px; }
+        }
+        @media (max-width: 360px) {
+          .an-cards { grid-template-columns: 1fr; }
         }
       `}</style>
 
@@ -761,31 +764,33 @@ export default function AnalyticsPage() {
                       ))}
                     </div>
                     {/* Table */}
-                    <table className="season-table" style={{ fontSize: 12 }}>
-                      <thead>
-                        <tr>
-                          <th style={{ textAlign: 'left' }}>Tier</th>
-                          <th>Inn</th>
-                          <th>Runs</th>
-                          <th>% of Total</th>
-                          <th>Avg</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {battingOrderContrib.map(t => (
-                          <tr key={t.label}>
-                            <td style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ width: 8, height: 8, borderRadius: '50%', background: t.color, display: 'inline-block', flexShrink: 0 }} />
-                              {t.label}
-                            </td>
-                            <td>{t.innings}</td>
-                            <td><span className="key-val">{t.runs}</span></td>
-                            <td>{t.pct}%</td>
-                            <td>{t.avg}</td>
+                    <div className="table-scroll">
+                      <table className="season-table" style={{ fontSize: 12 }}>
+                        <thead>
+                          <tr>
+                            <th style={{ textAlign: 'left' }}>Tier</th>
+                            <th>Inn</th>
+                            <th>Runs</th>
+                            <th>% of Total</th>
+                            <th>Avg</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {battingOrderContrib.map(t => (
+                            <tr key={t.label}>
+                              <td style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: t.color, display: 'inline-block', flexShrink: 0 }} />
+                                {t.label}
+                              </td>
+                              <td>{t.innings}</td>
+                              <td><span className="key-val">{t.runs}</span></td>
+                              <td>{t.pct}%</td>
+                              <td>{t.avg}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </div>

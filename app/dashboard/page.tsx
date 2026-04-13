@@ -253,9 +253,14 @@ export default async function DashboardPage() {
         .db-body { padding: 28px 0 80px; }
         .db-grid {
           display: grid;
-          grid-template-columns: 1fr 280px;
+          grid-template-columns: 1fr;
           gap: 20px;
           align-items: start;
+        }
+        @media (min-width: 900px) {
+          .db-grid {
+            grid-template-columns: 1fr 280px;
+          }
         }
 
         /* ── LIVE CARD ── */
@@ -559,8 +564,6 @@ export default async function DashboardPage() {
 
         /* ── RESPONSIVE ── */
         @media (max-width: 900px) {
-          .db-grid { grid-template-columns: 1fr; }
-          /* On mobile, sidebar comes AFTER main content but admin panel floats up */
           .db-sidebar { order: -1; }
           .db-main { order: 2; }
           .admin-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -628,8 +631,8 @@ export default async function DashboardPage() {
             <div className="db-grid">
 
               {/* ── SIDEBAR ── (reordered above main on mobile via order) */}
-              <div className="db-sidebar" style={{ display: 'contents' }}>
-                <div style={{ gridColumn: '2', gridRow: '1 / span 3' }}>
+              <div className="db-sidebar">
+                <div>
 
                   {/* ADMIN / SCORER PANEL */}
                   {adminLinks.length > 0 && (
@@ -726,7 +729,7 @@ export default async function DashboardPage() {
               </div>
 
               {/* ── MAIN COLUMN ── */}
-              <div className="db-main" style={{ gridColumn: '1', gridRow: '1 / span 3' }}>
+              <div className="db-main">
 
                 {/* MEMBERSHIP STATUS */}
                 {membership?.status === 'active' ? (

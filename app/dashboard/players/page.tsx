@@ -261,7 +261,8 @@ export default function PlayersPage() {
           background: var(--panel);
           border: 1px solid var(--border);
           border-radius: 4px;
-          overflow: hidden;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
         }
         .pl-table { width: 100%; border-collapse: collapse; }
         .pl-table th {

@@ -206,6 +206,7 @@ export default function PublicMatchPage() {
           margin-bottom: 20px;
           position: relative;
         }
+        .sc-tbl-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .sc-block::before {
           content: '';
           position: absolute; top: 0; left: 0; right: 0;
@@ -299,47 +300,51 @@ export default function PublicMatchPage() {
           {Object.values(state.batterStats).filter(b => !b.isOut).length > 0 && (
             <div className="sc-block">
               <div className="sc-block-header">At the crease</div>
-              <table className="sc-table">
-                <thead><tr><th>Batter</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th className="sc-hide">SR</th></tr></thead>
-                <tbody>
-                  {Object.values(state.batterStats)
-                    .filter(b => !b.isOut && (b.matchPlayerId === state.currentStrikerId || b.matchPlayerId === state.currentNonStrikerId))
-                    .map(b => (
-                      <tr key={b.matchPlayerId}>
-                        <td>{b.name}{b.matchPlayerId === state.currentStrikerId ? ' *' : ''}</td>
-                        <td><span className="big-num">{b.runs}</span></td>
-                        <td>{b.balls}</td>
-                        <td>{b.fours}</td>
-                        <td>{b.sixes}</td>
-                        <td className="sc-hide">{b.strikeRate}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
+              <div className="sc-tbl-scroll">
+                <table className="sc-table">
+                  <thead><tr><th>Batter</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th className="sc-hide">SR</th></tr></thead>
+                  <tbody>
+                    {Object.values(state.batterStats)
+                      .filter(b => !b.isOut && (b.matchPlayerId === state.currentStrikerId || b.matchPlayerId === state.currentNonStrikerId))
+                      .map(b => (
+                        <tr key={b.matchPlayerId}>
+                          <td>{b.name}{b.matchPlayerId === state.currentStrikerId ? ' *' : ''}</td>
+                          <td><span className="big-num">{b.runs}</span></td>
+                          <td>{b.balls}</td>
+                          <td>{b.fours}</td>
+                          <td>{b.sixes}</td>
+                          <td className="sc-hide">{b.strikeRate}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
           {/* Batting scorecard */}
           <div className="sc-block">
             <div className="sc-block-header">Batting</div>
-            <table className="sc-table">
-              <thead><tr><th>Batter</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th className="sc-hide">SR</th></tr></thead>
-              <tbody>
-                {Object.values(state.batterStats).map(b => (
-                  <tr key={b.matchPlayerId}>
-                    <td>
-                      <div>{b.name}</div>
-                      <div style={{ fontSize: 10, color: 'rgba(147,197,253,0.3)', marginTop: 2 }}>{b.isOut ? (b.dismissalType ?? 'out') : 'not out'}</div>
-                    </td>
-                    <td><span className="big-num">{b.runs}</span></td>
-                    <td>{b.balls}</td>
-                    <td>{b.fours}</td>
-                    <td>{b.sixes}</td>
-                    <td className="sc-hide">{b.strikeRate}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="sc-tbl-scroll">
+              <table className="sc-table">
+                <thead><tr><th>Batter</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th className="sc-hide">SR</th></tr></thead>
+                <tbody>
+                  {Object.values(state.batterStats).map(b => (
+                    <tr key={b.matchPlayerId}>
+                      <td>
+                        <div>{b.name}</div>
+                        <div style={{ fontSize: 10, color: 'rgba(147,197,253,0.3)', marginTop: 2 }}>{b.isOut ? (b.dismissalType ?? 'out') : 'not out'}</div>
+                      </td>
+                      <td><span className="big-num">{b.runs}</span></td>
+                      <td>{b.balls}</td>
+                      <td>{b.fours}</td>
+                      <td>{b.sixes}</td>
+                      <td className="sc-hide">{b.strikeRate}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             <div style={{ padding: '10px 16px', borderTop: '1px solid rgba(59,130,246,0.08)', fontSize: 12, fontFamily: 'Outfit, sans-serif', display: 'flex', justifyContent: 'space-between', background: 'rgba(10,22,40,0.3)' }}>
               <span style={{ color: 'rgba(147,197,253,0.4)' }}>Extras</span>
               <span style={{ color: '#93c5fd', fontWeight: 600 }}>
@@ -351,22 +356,24 @@ export default function PublicMatchPage() {
           {/* Bowling scorecard */}
           <div className="sc-block">
             <div className="sc-block-header">Bowling</div>
-            <table className="sc-table">
-              <thead><tr><th>Bowler</th><th>O</th><th>R</th><th>W</th><th className="sc-hide">Wd</th><th className="sc-hide">NB</th><th>Econ</th></tr></thead>
-              <tbody>
-                {Object.values(state.bowlerStats).map(b => (
-                  <tr key={b.matchPlayerId}>
-                    <td>{b.name}</td>
-                    <td>{b.overs}</td>
-                    <td>{b.runs}</td>
-                    <td><span className="big-num" style={{ color: '#fca5a5' }}>{b.wickets}</span></td>
-                    <td className="sc-hide">{b.wides}</td>
-                    <td className="sc-hide">{b.noBalls}</td>
-                    <td>{b.economy}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="sc-tbl-scroll">
+              <table className="sc-table">
+                <thead><tr><th>Bowler</th><th>O</th><th>R</th><th>W</th><th className="sc-hide">Wd</th><th className="sc-hide">NB</th><th>Econ</th></tr></thead>
+                <tbody>
+                  {Object.values(state.bowlerStats).map(b => (
+                    <tr key={b.matchPlayerId}>
+                      <td>{b.name}</td>
+                      <td>{b.overs}</td>
+                      <td>{b.runs}</td>
+                      <td><span className="big-num" style={{ color: '#fca5a5' }}>{b.wickets}</span></td>
+                      <td className="sc-hide">{b.wides}</td>
+                      <td className="sc-hide">{b.noBalls}</td>
+                      <td>{b.economy}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Fall of wickets */}

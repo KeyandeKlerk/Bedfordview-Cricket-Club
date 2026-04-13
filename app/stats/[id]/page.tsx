@@ -1233,12 +1233,15 @@ export default function PlayerProfilePage() {
 
         /* ── CAREER CARDS ── */
         .career-cards {
-          display: grid; grid-template-columns: repeat(4, 1fr);
+          display: grid; grid-template-columns: repeat(2, 1fr);
           gap: 12px; margin-bottom: 14px;
         }
         .career-cards-secondary {
-          display: grid; grid-template-columns: repeat(4, 1fr);
+          display: grid; grid-template-columns: repeat(2, 1fr);
           gap: 12px; margin-bottom: 28px;
+        }
+        @media (min-width: 640px) {
+          .career-cards, .career-cards-secondary { grid-template-columns: repeat(4, 1fr); }
         }
         .career-card {
           background: rgba(5,18,42,0.6); border: 1px solid rgba(59,130,246,0.1);
@@ -1535,7 +1538,7 @@ export default function PlayerProfilePage() {
 
         /* ── CATEGORY PILLS ── */
         .category-pills {
-          display: flex; gap: 8px; margin: 0 0 24px;
+          display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 24px;
         }
         .category-pill {
           padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700;
@@ -1551,8 +1554,6 @@ export default function PlayerProfilePage() {
 
         /* ── RESPONSIVE ── */
         @media (max-width: 768px) {
-          .career-cards,
-          .career-cards-secondary { grid-template-columns: repeat(2, 1fr); }
           .profile-tab { padding: 12px 16px; font-size: 14px; }
           .career-card-val { font-size: 24px; }
           .career-card-val.sm { font-size: 18px; }
