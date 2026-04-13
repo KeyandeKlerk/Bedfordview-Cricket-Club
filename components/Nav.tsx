@@ -382,7 +382,7 @@ export default function Nav() {
           padding: 12px 8px 4px;
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 1100px) {
           .nav-links, .nav-right { display: none; }
           .nav-hamburger { display: flex; }
           .nav-inner { padding: 0 16px; gap: 12px; }

@@ -155,7 +155,7 @@ export default async function HomePage() {
 
         .hero-title {
           font-family: 'Syne', sans-serif;
-          font-size: clamp(38px, 10vw, 108px);
+          font-size: clamp(16px, 8vw, 108px);
           font-weight: 800;
           line-height: 0.92;
           letter-spacing: -0.03em;
