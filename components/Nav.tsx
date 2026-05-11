@@ -7,13 +7,13 @@ import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 
 const NAV_LINKS = [
-  { href: '/fixtures',   label: 'Fixtures' },
-  { href: '/results',    label: 'Results' },
-  { href: '/stats',      label: 'Stats' },
-  { href: '/live',       label: 'Live' },
-  { href: '/news',       label: 'News' },
-  { href: '/shop',       label: 'Shop' },
-  { href: '/membership', label: 'Membership' },
+  { href: '/fixtures', label: 'Fixtures' },
+  { href: '/results',  label: 'Results' },
+  { href: '/stats',    label: 'Stats' },
+  { href: '/records',  label: 'Records' },
+  { href: '/live',     label: 'Live' },
+  { href: '/news',     label: 'News' },
+  { href: '/shop',     label: 'Shop' },
 ]
 
 export default function Nav() {

@@ -10,6 +10,14 @@ interface Product {
   image_url: string | null
   price_zar: number
   sizes: string[]
+  category: string
+  benefits?: string[]
+}
+
+interface Membership {
+  status: string
+  tier: string
+  valid_until: string | null
 }
 
 type CartItem = {
@@ -57,7 +65,14 @@ export default function ShopPage() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [authToken, setAuthToken] = useState<string | null>(null)
 
-  // Checkout form state
+  // Membership state
+  const [membership, setMembership] = useState<Membership | null | undefined>(undefined)
+  const [activeMembershipForm, setActiveMembershipForm] = useState<string | null>(null)
+  const [memForm, setMemForm] = useState({ customerName: '', customerEmail: '' })
+  const [memSubmitting, setMemSubmitting] = useState(false)
+  const [memSubmitError, setMemSubmitError] = useState<string | null>(null)
+
+  // Kit checkout form state
   const [form, setForm] = useState({
     customerName: '',
     customerEmail: '',
@@ -69,7 +84,7 @@ export default function ShopPage() {
   })
 
   useEffect(() => {
-    fetch('/api/products?category=kit')
+    fetch('/api/products')
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data)) setProducts(data)
@@ -77,17 +92,67 @@ export default function ShopPage() {
       })
       .catch(() => setLoading(false))
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
         setAuthToken(session.access_token)
-        setForm(prev => ({
-          ...prev,
-          customerEmail: session.user.email || '',
-          customerName: session.user.user_metadata?.full_name || '',
-        }))
+        const name = session.user.user_metadata?.full_name || ''
+        const email = session.user.email || ''
+        setForm(prev => ({ ...prev, customerEmail: email, customerName: name }))
+        setMemForm({ customerName: name, customerEmail: email })
+
+        const { data } = await supabase
+          .from('memberships')
+          .select('status, tier, valid_until')
+          .eq('user_id', session.user.id)
+          .maybeSingle()
+        setMembership(data as Membership | null)
+      } else {
+        setMembership(null)
       }
     })
   }, [])
+
+  const kitProducts = products.filter(p => p.category === 'kit')
+  const membershipProducts = products.filter(p => p.category === 'membership')
+
+  async function handleMembershipJoin(product: Product, e: React.FormEvent) {
+    e.preventDefault()
+    setMemSubmitting(true)
+    setMemSubmitError(null)
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`
+
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          orderType: 'membership',
+          lineItems: [{
+            productId: product.id,
+            name: product.name,
+            size: '',
+            qty: 1,
+            unitPrice: product.price_zar,
+            tier: product.name.toLowerCase().includes('family') ? 'family' : 'standard',
+          }],
+          customerName: memForm.customerName,
+          customerEmail: memForm.customerEmail,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setMemSubmitError(data.error || 'Failed to submit')
+        setMemSubmitting(false)
+        return
+      }
+      router.push(`/membership/order/${data.orderId}`)
+    } catch {
+      setMemSubmitError('Network error — please try again')
+      setMemSubmitting(false)
+    }
+  }
 
   function selectSize(productId: string, size: string) {
     setSelectedSizes(prev => ({ ...prev, [productId]: size }))
@@ -199,6 +264,84 @@ export default function ShopPage() {
         .shop-hero-sub {
           font-size: 15px; color: var(--muted); max-width: 480px; margin: 0 auto;
         }
+        /* Membership section */
+        .mem-section {
+          padding: 40px 0 0;
+          border-bottom: 1px solid rgba(59,130,246,0.1);
+          margin-bottom: 0;
+        }
+        .section-heading {
+          font-family: var(--font-display);
+          font-size: 11px; font-weight: 700;
+          letter-spacing: 0.25em; text-transform: uppercase;
+          color: var(--sky); margin-bottom: 6px;
+        }
+        .section-title {
+          font-family: var(--font-display);
+          font-size: clamp(22px, 4vw, 30px); font-weight: 800;
+          color: var(--text); letter-spacing: -0.02em;
+          margin-bottom: 8px;
+        }
+        .section-sub {
+          font-size: 14px; color: var(--muted); margin-bottom: 28px;
+        }
+        .active-mem-banner {
+          background: linear-gradient(135deg, rgba(34,197,94,0.1) 0%, rgba(16,185,129,0.06) 100%);
+          border: 1px solid rgba(34,197,94,0.3);
+          border-radius: 12px;
+          padding: 16px 20px;
+          margin-bottom: 28px;
+          display: flex; align-items: center; gap: 14px;
+        }
+        .tier-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 20px;
+          margin-bottom: 40px;
+        }
+        @media (min-width: 680px) {
+          .tier-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+        }
+        .tier-card {
+          background: rgba(5,18,42,0.7);
+          border: 1px solid var(--border);
+          border-radius: 18px; padding: 24px;
+          display: flex; flex-direction: column;
+          position: relative; overflow: hidden;
+          transition: border-color 0.2s, transform 0.2s;
+        }
+        .tier-card::before {
+          content: '';
+          position: absolute; top: 0; left: 0; right: 0; height: 3px;
+          background: linear-gradient(90deg, #2563eb, #38bdf8, transparent);
+        }
+        .tier-card:hover { border-color: rgba(96,165,250,0.35); transform: translateY(-2px); }
+        .tier-name {
+          font-family: var(--font-display);
+          font-size: 10px; font-weight: 700;
+          letter-spacing: 0.2em; text-transform: uppercase;
+          color: var(--sky); margin-bottom: 8px;
+        }
+        .tier-price {
+          font-family: var(--font-display);
+          font-size: clamp(28px, 4vw, 34px); font-weight: 800;
+          color: var(--text); letter-spacing: -0.02em; margin-bottom: 2px;
+        }
+        .tier-price-sub { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+        .tier-desc { font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.6; }
+        .tier-benefits { list-style: none; margin-bottom: 20px; flex: 1; }
+        .tier-benefit {
+          display: flex; align-items: flex-start; gap: 9px;
+          font-size: 13px; color: var(--text);
+          margin-bottom: 9px; line-height: 1.5;
+        }
+        .tier-benefit::before { content: '✓'; color: #22c55e; font-weight: 700; font-size: 11px; margin-top: 2px; flex-shrink: 0; }
+        .mem-join-form {
+          background: rgba(37,99,235,0.06);
+          border: 1px solid rgba(59,130,246,0.2);
+          border-radius: 10px; padding: 16px; margin-top: 8px;
+        }
+        .kit-section { padding-top: 40px; }
         .shop-layout {
           display: grid;
           grid-template-columns: 1fr;
@@ -496,12 +639,96 @@ export default function ShopPage() {
             <div className="shop-hero-eyebrow">Bedfordview Cricket Club</div>
             <div className="shop-hero-title">Club Shop</div>
             <p className="shop-hero-sub">
-              Official BCC playing kit — order online, pay by EFT.
+              Membership, playing kit &amp; more — order online, pay by EFT.
             </p>
           </div>
         </div>
 
+        {/* Membership section */}
+        {(loading || membershipProducts.length > 0) && (
+          <div className="mem-section">
+            <div className="container">
+              <div className="section-heading">Bedfordview Cricket Club</div>
+              <div className="section-title">Membership</div>
+              <p className="section-sub">Join BCC and be part of our cricket family. Season membership includes access to all home matches and club events.</p>
+
+              {membership?.status === 'active' && (
+                <div className="active-mem-banner">
+                  <span style={{ fontSize: 20 }}>✓</span>
+                  <div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: '#86efac', marginBottom: 2 }}>
+                      Active Member — {membership.tier.charAt(0).toUpperCase() + membership.tier.slice(1)} Membership
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+                      {membership.valid_until
+                        ? `Valid until ${new Date(membership.valid_until).toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })}`
+                        : 'Season membership active'}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {membership?.status === 'pending' && (
+                <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.28)', borderRadius: 12, padding: '14px 18px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontSize: 20 }}>⏳</span>
+                  <div style={{ fontSize: 13, color: '#fbbf24' }}>Payment pending — your membership will be activated within 1 business day of payment clearing.</div>
+                </div>
+              )}
+
+              <div className="tier-grid">
+                {loading ? (
+                  <>
+                    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: 18, padding: 28, height: 220 }} />
+                    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: 18, padding: 28, height: 220 }} />
+                  </>
+                ) : membershipProducts.map(product => (
+                  <div key={product.id} className="tier-card">
+                    <div className="tier-name">{product.name}</div>
+                    <div className="tier-price">{formatPrice(product.price_zar)}</div>
+                    <div className="tier-price-sub">per season</div>
+                    {product.description && <div className="tier-desc">{product.description}</div>}
+                    {product.benefits && product.benefits.length > 0 && (
+                      <ul className="tier-benefits">
+                        {product.benefits.map((b, i) => <li key={i} className="tier-benefit">{b}</li>)}
+                      </ul>
+                    )}
+                    {membership?.status === 'active' ? (
+                      <div style={{ padding: '10px 0', fontSize: 13, color: '#86efac', textAlign: 'center' }}>You have an active membership</div>
+                    ) : activeMembershipForm === product.id ? (
+                      <form className="mem-join-form" onSubmit={e => handleMembershipJoin(product, e)}>
+                        <div style={{ fontFamily: 'var(--font-display)', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 12 }}>Your Details</div>
+                        <div style={{ marginBottom: 10 }}>
+                          <label>Full Name</label>
+                          <input className="input" required value={memForm.customerName} onChange={e => setMemForm(p => ({ ...p, customerName: e.target.value }))} placeholder="Your full name" />
+                        </div>
+                        <div style={{ marginBottom: 12 }}>
+                          <label>Email Address</label>
+                          <input className="input" type="email" required value={memForm.customerEmail} onChange={e => setMemForm(p => ({ ...p, customerEmail: e.target.value }))} placeholder="your@email.com" />
+                        </div>
+                        {memSubmitError && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.28)', color: '#fca5a5', padding: '9px 12px', borderRadius: 7, fontSize: 13, marginBottom: 10 }}>{memSubmitError}</div>}
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button type="button" onClick={() => setActiveMembershipForm(null)} style={{ flex: 1, padding: 11, borderRadius: 8, border: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)', color: 'var(--muted)', cursor: 'pointer', fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 700, minHeight: 44 }}>Cancel</button>
+                          <button type="submit" className="btn btn-primary" disabled={memSubmitting} style={{ flex: 2, justifyContent: 'center', fontSize: 13 }}>{memSubmitting ? 'Processing...' : `Proceed — ${formatPrice(product.price_zar)}`}</button>
+                        </div>
+                      </form>
+                    ) : (
+                      <button className="btn btn-primary" onClick={() => { setActiveMembershipForm(product.id); setMemSubmitError(null) }} style={{ width: '100%', justifyContent: 'center' }}>Join Now →</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Kit section */}
+        <div className="kit-section">
         <div className="container">
+          <div style={{ marginBottom: 24 }}>
+            <div className="section-heading">Club Kit</div>
+            <div className="section-title">Official Playing Kit</div>
+            <p className="section-sub">Official BCC playing kit — order online, pay by EFT.</p>
+          </div>
           <div className="shop-layout">
             {/* Products */}
             <div>
@@ -512,11 +739,11 @@ export default function ShopPage() {
                     <ProductCardSkeleton />
                     <ProductCardSkeleton />
                   </>
-                ) : products.length === 0 ? (
+                ) : kitProducts.length === 0 ? (
                   <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '48px 24px', color: 'var(--muted)', fontSize: 14 }}>
-                    No products available right now. Check back soon.
+                    No kit products available right now. Check back soon.
                   </div>
-                ) : products.map(product => {
+                ) : kitProducts.map(product => {
                   const selectedSize = selectedSizes[product.id]
                   const needsSize = product.sizes.length > 0
                   const canAdd = !needsSize || !!selectedSize
@@ -602,7 +829,8 @@ export default function ShopPage() {
             Checkout →
           </button>
         </div>
-      </div>
+        </div>{/* kit-section */}
+      </div>{/* shop-page */}
 
       {/* Checkout sheet */}
       {checkoutOpen && (
