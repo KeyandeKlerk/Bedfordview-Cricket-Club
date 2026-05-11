@@ -1,11 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
 export const revalidate = 300
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -54,32 +49,47 @@ function overs(balls: number): string {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default async function RecordsPage() {
+export default async function RecordsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>
+}) {
+  const { category } = await searchParams
+  const cat = category === 'senior' || category === 'junior' ? category : null
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function withCat(q: any) { return cat ? q.eq('team_category', cat) : q }
+
   const [
     { data: runScorers },
     { data: highestScores },
     { data: wicketTakers },
     { data: bestBowling },
   ] = await Promise.all([
-    supabase
+    withCat(supabase
       .from('career_batting_stats')
-      .select('player_id, player_name, total_runs, average, highest_score, hundreds, fifties, innings')
+      .select('player_id, player_name, total_runs, average, highest_score, hundreds, fifties, innings'))
       .order('total_runs', { ascending: false })
       .limit(10),
-    supabase
+    withCat(supabase
       .from('career_batting_stats')
-      .select('player_id, player_name, total_runs, average, highest_score, hundreds, fifties, innings')
+      .select('player_id, player_name, total_runs, average, highest_score, hundreds, fifties, innings'))
       .order('highest_score', { ascending: false, nullsFirst: false })
       .limit(5),
-    supabase
+    withCat(supabase
       .from('career_bowling_stats')
-      .select('player_id, player_name, wickets, average, economy, legal_balls')
+      .select('player_id, player_name, wickets, average, economy, legal_balls'))
       .order('wickets', { ascending: false })
       .limit(10),
-    supabase
+    withCat(supabase
       .from('bowling_scorecard')
       .select('player_id, player_name, wickets, runs_conceded, legal_balls, innings_id')
-      .not('player_id', 'is', null)
+      .not('player_id', 'is', null))
       .order('wickets', { ascending: false })
       .order('runs_conceded', { ascending: true })
       .limit(10),
@@ -151,6 +161,36 @@ export default async function RecordsPage() {
           font-size: 15px;
           color: rgba(147,197,253,0.5);
           max-width: 480px;
+          margin-bottom: 28px;
+        }
+        .cat-tabs {
+          display: inline-flex;
+          gap: 6px;
+          background: rgba(6,15,34,0.6);
+          border: 1px solid rgba(59,130,246,0.18);
+          border-radius: 10px;
+          padding: 4px;
+        }
+        .cat-tab {
+          padding: 7px 18px;
+          border-radius: 7px;
+          font-family: var(--font-display);
+          font-size: 13px; font-weight: 700;
+          letter-spacing: 0.02em;
+          text-decoration: none;
+          color: rgba(147,197,253,0.5);
+          transition: color 0.15s, background 0.15s;
+        }
+        .cat-tab:hover { color: #e2eeff; background: rgba(37,99,235,0.1); }
+        .cat-tab.active {
+          background: rgba(37,99,235,0.25);
+          color: #93c5fd;
+          border: 1px solid rgba(59,130,246,0.3);
+        }
+        .cat-tab.active-junior {
+          background: rgba(16,185,129,0.18);
+          color: #6ee7b7;
+          border: 1px solid rgba(16,185,129,0.3);
         }
 
         /* ── BODY ── */
@@ -462,6 +502,11 @@ export default async function RecordsPage() {
               <div className="records-eyebrow">Records</div>
               <h1 className="records-hero-title">Club Records</h1>
               <p className="records-hero-sub">All-time bests for Bedfordview Cricket Club</p>
+              <div className="cat-tabs">
+                <Link href="/records" className={`cat-tab${!cat ? ' active' : ''}`}>All</Link>
+                <Link href="/records?category=senior" className={`cat-tab${cat === 'senior' ? ' active' : ''}`}>Senior</Link>
+                <Link href="/records?category=junior" className={`cat-tab${cat === 'junior' ? ' active-junior' : ''}`}>Junior</Link>
+              </div>
             </div>
           </div>
         </div>
