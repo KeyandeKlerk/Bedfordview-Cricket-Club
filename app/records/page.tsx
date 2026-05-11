@@ -163,35 +163,24 @@ export default async function RecordsPage({
           max-width: 480px;
           margin-bottom: 28px;
         }
-        .cat-tabs {
-          display: inline-flex;
-          gap: 6px;
-          background: rgba(6,15,34,0.6);
-          border: 1px solid rgba(59,130,246,0.18);
-          border-radius: 10px;
-          padding: 4px;
-        }
-        .cat-tab {
-          padding: 7px 18px;
-          border-radius: 7px;
-          font-family: var(--font-display);
-          font-size: 13px; font-weight: 700;
-          letter-spacing: 0.02em;
+        .cat-filter { display: flex; gap: 8px; flex-wrap: wrap; }
+        .cat-btn {
+          padding: 8px 18px; border-radius: 20px;
+          border: 1px solid rgba(59,130,246,0.2);
+          background: transparent; color: rgba(147,197,253,0.55);
+          font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 600;
           text-decoration: none;
-          color: rgba(147,197,253,0.5);
-          transition: color 0.15s, background 0.15s;
+          transition: all 0.15s; min-height: 38px;
+          display: inline-flex; align-items: center; gap: 6px;
         }
-        .cat-tab:hover { color: #e2eeff; background: rgba(37,99,235,0.1); }
-        .cat-tab.active {
-          background: rgba(37,99,235,0.25);
-          color: #93c5fd;
-          border: 1px solid rgba(59,130,246,0.3);
-        }
-        .cat-tab.active-junior {
-          background: rgba(16,185,129,0.18);
-          color: #6ee7b7;
-          border: 1px solid rgba(16,185,129,0.3);
-        }
+        .cat-btn:hover { border-color: rgba(59,130,246,0.4); color: rgba(147,197,253,0.85); }
+        .cat-btn.active-all { background: rgba(37,99,235,0.18); border-color: rgba(59,130,246,0.5); color: #93c5fd; }
+        .cat-btn.active-senior { background: rgba(37,99,235,0.18); border-color: rgba(59,130,246,0.5); color: #93c5fd; }
+        .cat-btn.active-junior { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.4); color: #6ee7b7; }
+        .cat-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+        .cat-dot-senior { background: #3b82f6; }
+        .cat-dot-junior { background: #10b981; }
+        .cat-dot-all { background: rgba(147,197,253,0.5); }
 
         /* ── BODY ── */
         .records-body { padding: 52px 0; }
@@ -502,10 +491,19 @@ export default async function RecordsPage({
               <div className="records-eyebrow">Records</div>
               <h1 className="records-hero-title">Club Records</h1>
               <p className="records-hero-sub">All-time bests for Bedfordview Cricket Club</p>
-              <div className="cat-tabs">
-                <Link href="/records" className={`cat-tab${!cat ? ' active' : ''}`}>All</Link>
-                <Link href="/records?category=senior" className={`cat-tab${cat === 'senior' ? ' active' : ''}`}>Senior</Link>
-                <Link href="/records?category=junior" className={`cat-tab${cat === 'junior' ? ' active-junior' : ''}`}>Junior</Link>
+              <div className="cat-filter">
+                <Link href="/records" className={`cat-btn${!cat ? ' active-all' : ''}`}>
+                  <span className="cat-dot cat-dot-all" />
+                  All
+                </Link>
+                <Link href="/records?category=senior" className={`cat-btn${cat === 'senior' ? ' active-senior' : ''}`}>
+                  <span className="cat-dot cat-dot-senior" />
+                  Senior
+                </Link>
+                <Link href="/records?category=junior" className={`cat-btn${cat === 'junior' ? ' active-junior' : ''}`}>
+                  <span className="cat-dot cat-dot-junior" />
+                  Junior
+                </Link>
               </div>
             </div>
           </div>
