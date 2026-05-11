@@ -112,16 +112,32 @@ export default function StatsContent() {
     const raw = rawMap[tab]
 
     const augmented = tab === 'bowling'
-      ? raw.map(r => ({
-          ...r,
-          bowling_avg:  r.wickets > 0 && r.runs_conceded != null
-            ? +(r.runs_conceded / r.wickets).toFixed(2)
-            : null,
-          best_bowling: Number(r.best_bowling_wickets) > 0
-            ? r.best_bowling_wickets * 10000 - (r.best_bowling_runs ?? 9999)
-            : -1,
-        }))
-      : raw
+      ? raw.map(r => {
+          const ovsFloat = r.legal_balls > 0 ? r.legal_balls / 6 : null
+          return {
+            ...r,
+            bowling_avg:  r.wickets > 0 && r.runs_conceded != null
+              ? +(r.runs_conceded / r.wickets).toFixed(2)
+              : null,
+            best_bowling: Number(r.best_bowling_wickets) > 0
+              ? r.best_bowling_wickets * 10000 - (r.best_bowling_runs ?? 9999)
+              : -1,
+            wd_po:   ovsFloat ? +(r.wides   / ovsFloat).toFixed(2) : null,
+            nb_po:   ovsFloat ? +(r.no_balls / ovsFloat).toFixed(2) : null,
+            bdry_po: ovsFloat && r.boundaries != null ? +(r.boundaries / ovsFloat).toFixed(2) : null,
+          }
+        })
+      : tab === 'batting'
+        ? raw.map(r => {
+            const bdries = (Number(r.fours) || 0) + (Number(r.sixes) || 0)
+            return {
+              ...r,
+              balls_per_boundary: bdries > 0 && r.balls_faced > 0
+                ? +(r.balls_faced / bdries).toFixed(1)
+                : null,
+            }
+          })
+        : raw
 
     const q = search.trim().toLowerCase()
     const filtered = q
@@ -617,6 +633,7 @@ export default function StatsContent() {
                               <td>{fmt(p.fours, 0)}</td>
                               <td>{fmt(p.sixes, 0)}</td>
                               <td>{fmt(p.balls_faced, 0)}</td>
+                              <td>{fmt(p.balls_per_boundary, 1)}</td>
                             </>}
 
                             {tab === 'bowling' && <>
@@ -628,8 +645,9 @@ export default function StatsContent() {
                               <td><span className="best-figures">{bestFigures(p.best_bowling_wickets, p.best_bowling_runs)}</span></td>
                               <td>{fmt(p.bowling_avg)}</td>
                               <td>{fmt(p.economy)}</td>
-                              <td>{fmt(p.wides, 0)}</td>
-                              <td>{fmt(p.no_balls, 0)}</td>
+                              <td>{fmt(p.wd_po)}</td>
+                              <td>{fmt(p.nb_po)}</td>
+                              <td>{fmt(p.bdry_po)}</td>
                             </>}
 
                             {tab === 'fielding' && <>

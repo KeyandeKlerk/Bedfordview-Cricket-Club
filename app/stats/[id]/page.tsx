@@ -61,6 +61,7 @@ interface CareerBowling {
   best_bowling_runs: number | null
   wides: number
   no_balls: number
+  boundaries: number
   economy: number | null
 }
 
@@ -372,6 +373,7 @@ export default function PlayerProfilePage() {
       maidens: rows.reduce((s, r) => s + Number(r.maidens ?? 0), 0),
       wides: rows.reduce((s, r) => s + Number(r.wides ?? 0), 0),
       no_balls: rows.reduce((s, r) => s + Number(r.no_balls ?? 0), 0),
+      boundaries: rows.reduce((s, r) => s + Number((r as any).boundaries ?? 0), 0),
       best_bowling_wickets: best.best_bowling_wickets,
       best_bowling_runs: best.best_bowling_runs,
       economy: legal_balls > 0 ? (runs_conceded / (legal_balls / 6)) : null,
@@ -1440,6 +1442,18 @@ export default function PlayerProfilePage() {
                             <div className="stat-chip-lbl">Boundary Rate<InfoTooltip text="Percentage of total runs scored from fours and sixes." /></div>
                           </div>
                         )}
+                        {careerBat && (() => {
+                          const bdries = (Number(careerBat.fours) || 0) + (Number(careerBat.sixes) || 0)
+                          const bpb = bdries > 0 && careerBat.balls_faced > 0
+                            ? (careerBat.balls_faced / bdries).toFixed(1)
+                            : null
+                          return bpb ? (
+                            <div className="stat-chip">
+                              <div className="stat-chip-val">{bpb}</div>
+                              <div className="stat-chip-lbl">Balls / Bdry<InfoTooltip text="Balls faced per boundary hit. Lower = more attacking." /></div>
+                            </div>
+                          ) : null
+                        })()}
                         {consistencyScore != null && (
                           <div className="stat-chip">
                             <div className="stat-chip-val green">{consistencyScore}%</div>
@@ -1755,6 +1769,10 @@ export default function PlayerProfilePage() {
                         <div className="career-card-val sm">{fmt(careerBowl.no_balls, 0)}</div>
                         <div className="career-card-lbl">No Balls</div>
                       </div>
+                      <div className="career-card">
+                        <div className="career-card-val sm">{fmt(careerBowl.boundaries, 0)}</div>
+                        <div className="career-card-lbl">Boundaries</div>
+                      </div>
                     </div>
 
                     {/* Bowling Metrics chips */}
@@ -1779,14 +1797,23 @@ export default function PlayerProfilePage() {
                             <div className="stat-chip-lbl">Dot Ball %</div>
                           </div>
                         )}
-                        <div className="stat-chip">
-                          <div className="stat-chip-val">
-                            {careerBowl.legal_balls > 0
-                              ? ((Number(careerBowl.wides) + Number(careerBowl.no_balls)) / (Number(careerBowl.legal_balls) / 6)).toFixed(2)
-                              : '—'}
-                          </div>
-                          <div className="stat-chip-lbl">Extras / Over</div>
-                        </div>
+                        {careerBowl.legal_balls > 0 && (() => {
+                          const ovsFloat = Number(careerBowl.legal_balls) / 6
+                          return <>
+                            <div className="stat-chip">
+                              <div className="stat-chip-val">{(Number(careerBowl.wides) / ovsFloat).toFixed(2)}</div>
+                              <div className="stat-chip-lbl">Wd / Over</div>
+                            </div>
+                            <div className="stat-chip">
+                              <div className="stat-chip-val">{(Number(careerBowl.no_balls) / ovsFloat).toFixed(2)}</div>
+                              <div className="stat-chip-lbl">NB / Over</div>
+                            </div>
+                            <div className="stat-chip">
+                              <div className="stat-chip-val">{(Number(careerBowl.boundaries) / ovsFloat).toFixed(2)}</div>
+                              <div className="stat-chip-lbl">Bdry / Over</div>
+                            </div>
+                          </>
+                        })()}
                         {wicketImpactScore != null && (
                           <div className="stat-chip">
                             <div className="stat-chip-val amber">{wicketImpactScore}</div>
@@ -1823,6 +1850,7 @@ export default function PlayerProfilePage() {
                                 <th>M</th><th>O</th><th>Mdns</th>
                                 <th>Wkts</th><th>Runs</th><th>Best</th>
                                 <th>Avg</th><th>Econ</th>
+                                <th>Wd</th><th>NB</th><th>Bdry</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -1842,6 +1870,9 @@ export default function PlayerProfilePage() {
                                   <td>{bestFigures(s.best_bowling_wickets, s.best_bowling_runs)}</td>
                                   <td>{bowlingAvgFmt(s.runs_conceded, s.wickets)}</td>
                                   <td>{fmt(s.economy)}</td>
+                                  <td>{fmt(s.wides, 0)}</td>
+                                  <td>{fmt(s.no_balls, 0)}</td>
+                                  <td>{fmt((s as any).boundaries, 0)}</td>
                                 </tr>
                               ))}
                             </tbody>
