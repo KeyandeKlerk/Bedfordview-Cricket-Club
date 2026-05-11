@@ -76,19 +76,19 @@ export default async function RecordsPage({
     { data: wicketTakers },
     { data: bestBowlingRaw },
   ] = await Promise.all([
-    supabase
+    withCat(supabase
       .from(battingView)
-      .select('player_id, player_name, total_runs, average, highest_score, hundreds, fifties, innings')
+      .select('player_id, player_name, total_runs, average, highest_score, hundreds, fifties, innings'))
       .order('total_runs', { ascending: false })
       .limit(10),
-    supabase
+    withCat(supabase
       .from(battingView)
-      .select('player_id, player_name, total_runs, average, highest_score, hundreds, fifties, innings')
+      .select('player_id, player_name, total_runs, average, highest_score, hundreds, fifties, innings'))
       .order('highest_score', { ascending: false, nullsFirst: false })
       .limit(5),
-    supabase
+    withCat(supabase
       .from(bowlingView)
-      .select('player_id, player_name, wickets, average, economy, legal_balls')
+      .select('player_id, player_name, wickets, average, economy, legal_balls'))
       .order('wickets', { ascending: false })
       .limit(10),
     withCat(supabase
