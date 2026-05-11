@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import { computeInningsState, oversDisplay, deriveResultText } from '@/lib/cricket/engine'
 import type { BallEvent } from '@/lib/cricket/types'
+import ShareButton from '@/components/ShareButton'
 
 export const revalidate = 30
 
@@ -57,6 +58,69 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+interface Partnership {
+  wicket: number    // 0 = unbroken current partnership
+  runs: number
+  balls: number
+  batter1: string   // dismissed (or current striker if unbroken)
+  batter2: string   // surviving partner (or current non-striker)
+}
+
+function computePartnerships(balls: BallEvent[], playerNameMap: Map<string, string>): Partnership[] {
+  const ps: Partnership[] = []
+  let start = 0
+
+  for (let i = 0; i < balls.length; i++) {
+    const b = balls[i]
+    if (!b.dismissal_type) continue
+
+    const seg = balls.slice(start, i + 1)
+    const runs = seg.reduce((s, x) => s + x.runs_off_bat + x.extras_runs, 0)
+    const legalBalls = seg.filter(x => x.extras_type !== 'wide' && x.extras_type !== 'no_ball').length
+
+    ps.push({
+      wicket: ps.length + 1,
+      runs, balls: legalBalls,
+      batter1: playerNameMap.get(b.batter_id) ?? '?',
+      batter2: playerNameMap.get(b.non_striker_id) ?? '?',
+    })
+    start = i + 1
+  }
+
+  // Unbroken current partnership
+  if (start < balls.length) {
+    const seg = balls.slice(start)
+    const runs = seg.reduce((s, x) => s + x.runs_off_bat + x.extras_runs, 0)
+    const legalBalls = seg.filter(x => x.extras_type !== 'wide' && x.extras_type !== 'no_ball').length
+    const last = seg[seg.length - 1]
+    ps.push({
+      wicket: 0, runs, balls: legalBalls,
+      batter1: playerNameMap.get(last.batter_id) ?? '?',
+      batter2: playerNameMap.get(last.non_striker_id) ?? '?',
+    })
+  }
+
+  return ps
+}
+
+// Returns set of match_player_ids who took a hat-trick in this innings
+function detectHatTricks(balls: BallEvent[]): Set<string> {
+  const bowlerWicketBalls = balls.filter(b =>
+    b.dismissal_type &&
+    !['run_out', 'retired_hurt', 'retired_out', 'timed_out', 'handled_ball', 'obstructing_field'].includes(b.dismissal_type)
+  )
+  const ht = new Set<string>()
+  for (let i = 0; i + 2 < bowlerWicketBalls.length; i++) {
+    const [a, b, c] = [bowlerWicketBalls[i], bowlerWicketBalls[i + 1], bowlerWicketBalls[i + 2]]
+    if (a.bowler_id === b.bowler_id && b.bowler_id === c.bowler_id) {
+      ht.add(a.bowler_id)
+    }
+  }
+  return ht
+}
+
 async function getScorecard(matchId: string) {
   const [matchRes, inningsRes, playersRes, registeredRes] = await Promise.all([
     supabase.from('matches').select('*, opponent:opponents(canonical_name), ground:grounds(name), competition:competitions(name,match_format,overs_per_innings)').eq('id', matchId).single(),
@@ -96,8 +160,11 @@ async function getScorecard(matchId: string) {
       .eq('innings_id', inn.id)
       .order('sequence_number')
 
-    const state = computeInningsState((balls ?? []) as BallEvent[], playerNameMap)
-    inningsWithState.push({ inn, state })
+    const typedBalls = (balls ?? []) as BallEvent[]
+    const state = computeInningsState(typedBalls, playerNameMap)
+    const partnerships = computePartnerships(typedBalls, playerNameMap)
+    const hatTrickBowlers = detectHatTricks(typedBalls)
+    inningsWithState.push({ inn, state, partnerships, hatTrickBowlers })
   }
 
   // Derive result text from innings data if not already stored (covers historical matches)
@@ -358,6 +425,46 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
           .result-meta { gap: 10px; font-size: 12px; }
         }
 
+        /* Milestones */
+        .milestone {
+          display: inline-block;
+          font-size: 9px; font-weight: 800; letter-spacing: 0.05em;
+          padding: 1px 5px; border-radius: 4px; margin-left: 5px;
+          vertical-align: middle; line-height: 1.6;
+        }
+        .milestone-100 { background: rgba(251,191,36,0.2); color: #fbbf24; border: 1px solid rgba(251,191,36,0.35); }
+        .milestone-50  { background: rgba(148,163,184,0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.25); }
+        .milestone-5w  { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.25); }
+        .milestone-ht  { background: rgba(168,85,247,0.15); color: #d8b4fe; border: 1px solid rgba(168,85,247,0.25); }
+
+        /* Partnerships */
+        .ps-row {
+          padding: 10px 16px;
+          border-top: 1px solid rgba(59,130,246,0.08);
+          font-family: 'Outfit', sans-serif; font-size: 12px;
+          background: rgba(10,22,40,0.2);
+        }
+        .ps-label {
+          font-size: 9px; font-weight: 700;
+          letter-spacing: 0.18em; text-transform: uppercase;
+          color: rgba(147,197,253,0.3);
+          margin-bottom: 8px;
+        }
+        .ps-grid {
+          display: flex; flex-wrap: wrap; gap: 6px;
+        }
+        .ps-chip {
+          display: inline-flex; flex-direction: column;
+          padding: 5px 10px; border-radius: 7px; min-width: 60px;
+          background: rgba(37,99,235,0.06); border: 1px solid rgba(59,130,246,0.12);
+          text-align: center;
+        }
+        .ps-chip-runs { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 800; color: #60a5fa; line-height: 1.2; }
+        .ps-chip-balls { font-size: 10px; color: rgba(147,197,253,0.35); }
+        .ps-chip-names { font-size: 10px; color: rgba(147,197,253,0.45); margin-top: 1px; }
+        .ps-chip-unbroken { border-color: rgba(34,197,94,0.2); background: rgba(34,197,94,0.05); }
+        .ps-chip-unbroken .ps-chip-runs { color: #86efac; }
+
         /* Match report article */
         .match-report {
           margin-top: 36px;
@@ -441,7 +548,13 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
                 {match.status}
               </span>
             </div>
-            {match.result_text && <div className="result-outcome">{match.result_text}</div>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>
+              {match.result_text && <div className="result-outcome">{match.result_text}</div>}
+              <ShareButton
+                title={`BCC vs ${match.opponent?.canonical_name}`}
+                text={match.result_text ?? undefined}
+              />
+            </div>
           </div>
         </div>
 
@@ -460,7 +573,7 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
             </div>
           ) : (
             <div className="innings-blocks">
-              {inningsWithState.map(({ inn, state }: any) => (
+              {inningsWithState.map(({ inn, state, partnerships, hatTrickBowlers }: any) => (
                 <div key={inn.id} className="innings-block">
                   <details className="innings-details" open>
                   <summary>
@@ -506,7 +619,11 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
                                   : 'not out'}
                               </div>
                             </td>
-                            <td><span className="big-num">{b.runs}</span></td>
+                            <td>
+                              <span className="big-num">{b.runs}</span>
+                              {b.runs >= 100 && <span className="milestone milestone-100">100</span>}
+                              {b.runs >= 50 && b.runs < 100 && <span className="milestone milestone-50">50</span>}
+                            </td>
                             <td>{b.balls}</td>
                             <td>{b.fours}</td>
                             <td>{b.sixes}</td>
@@ -535,6 +652,22 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
                     )}
                   </div>
 
+                  {/* Partnerships */}
+                  {partnerships.length > 0 && (
+                    <div className="ps-row">
+                      <div className="ps-label">Partnerships</div>
+                      <div className="ps-grid">
+                        {partnerships.map((p: Partnership) => (
+                          <div key={p.wicket} className={`ps-chip${p.wicket === 0 ? ' ps-chip-unbroken' : ''}`}>
+                            <span className="ps-chip-runs">{p.runs}</span>
+                            <span className="ps-chip-balls">({p.balls}b)</span>
+                            <span className="ps-chip-names">{shortName(p.batter1)} &amp; {shortName(p.batter2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Bowling */}
                   <div className="sc-section" style={{ borderTop: '1px solid var(--border)' }}>
                     <div className="sc-section-title">Bowling</div>
@@ -545,10 +678,16 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
                       <tbody>
                         {Object.values(state.bowlerStats).map((b: any) => (
                           <tr key={b.matchPlayerId}>
-                            <td><div className="player-name">{b.name}</div></td>
+                            <td>
+                              <div className="player-name">{b.name}</div>
+                              {hatTrickBowlers.has(b.matchPlayerId) && <span className="milestone milestone-ht">HT</span>}
+                            </td>
                             <td>{b.overs}</td>
                             <td>{b.runs}</td>
-                            <td><span className="big-num wickets-num">{b.wickets}</span></td>
+                            <td>
+                              <span className="big-num wickets-num">{b.wickets}</span>
+                              {b.wickets >= 5 && <span className="milestone milestone-5w">5W</span>}
+                            </td>
                             <td>{b.wides}</td>
                             <td>{b.noBalls}</td>
                             <td>{b.economy || '—'}</td>

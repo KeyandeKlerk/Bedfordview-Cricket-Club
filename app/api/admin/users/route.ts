@@ -1,15 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 
-const adminClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-)
+function getAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
 
 async function requireAdmin(req: NextRequest) {
   const token = req.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return null
+  const adminClient = getAdminClient()
   const { data: { user }, error } = await adminClient.auth.getUser(token)
   if (error || !user) return null
   const { data: roles } = await adminClient
@@ -22,6 +25,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  const adminClient = getAdminClient()
   const [{ data: authData }, { data: userRoles }, { data: players }] = await Promise.all([
     adminClient.auth.admin.listUsers({ perPage: 1000 }),
     adminClient.from('user_roles').select('id, user_id, role, assigned_at'),

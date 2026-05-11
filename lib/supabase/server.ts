@@ -6,14 +6,17 @@ import { createClient } from '@supabase/supabase-js'
  */
 export function createServerClient() {
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'http://localhost:54321',
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'placeholder',
     { auth: { persistSession: false } }
   )
 }
 
-/** Convenience — single shared instance for server components / route handlers */
-export const serverSupabase = createServerClient()
+/** Lazy singleton — deferred so module evaluation doesn't throw when env vars are absent at build time */
+let _serverSupabase: ReturnType<typeof createServerClient> | undefined
+export const serverSupabase = new Proxy({} as ReturnType<typeof createServerClient>, {
+  get(_, prop) { return (_serverSupabase ??= createServerClient())[prop as keyof ReturnType<typeof createServerClient>] },
+})
 
 export async function getCurrentUserRole(userId: string): Promise<string | null> {
   const { data } = await serverSupabase
