@@ -23,9 +23,8 @@ const ADMIN_LINKS = [
   { href: '/admin/matches',      icon: '⚡', label: 'Matches',      sub: 'Manage, score & create', },
   { href: '/admin/availability', icon: '📅', label: 'Availability', sub: 'Windows & selection',    },
   { href: '/admin/news',         icon: '📰', label: 'News',         sub: 'Articles & match reports', },
-  { href: '/admin/players',      icon: '👤', label: 'Players',      sub: 'Manage squad',           },
+  { href: '/admin/players',      icon: '👤', label: 'Players',      sub: 'Squad, accounts & roles', },
   { href: '/admin/seasons',      icon: '📆', label: 'Seasons',      sub: 'Manage seasons',         },
-  { href: '/admin/users',        icon: '🔑', label: 'Users',        sub: 'Assign roles',           },
   { href: '/admin/opponents',    icon: '🏏', label: 'Opponents',    sub: 'Opposition clubs',       },
   { href: '/admin/competitions', icon: '🏆', label: 'Competitions', sub: 'Leagues & cups',         },
 ]
