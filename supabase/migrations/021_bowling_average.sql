@@ -1,8 +1,11 @@
 -- 021_bowling_average.sql
 -- Add average column to career_bowling_stats view.
 -- The 019 migration omitted it, causing the records page query to fail silently.
+-- Must DROP + CREATE (not OR REPLACE) because we're adding a column.
 
-CREATE OR REPLACE VIEW career_bowling_stats AS
+DROP VIEW IF EXISTS career_bowling_stats;
+
+CREATE VIEW career_bowling_stats AS
 WITH totals AS (
   SELECT
     player_id, player_name, team_category,
@@ -29,11 +32,11 @@ SELECT
   COALESCE(cb.best_bowling_wickets, 0) AS best_bowling_wickets,
   cb.best_bowling_runs                 AS best_bowling_runs,
   t.wides, t.no_balls, t.boundaries,
-  CASE WHEN t.wickets > 0
-       THEN ROUND(t.runs_conceded::numeric / t.wickets::numeric, 2)
-       ELSE NULL END                   AS average,
   CASE WHEN t.legal_balls > 0
        THEN ROUND(t.runs_conceded::numeric / (t.legal_balls::numeric / 6), 2)
-       ELSE NULL END                   AS economy
+       ELSE NULL END                   AS economy,
+  CASE WHEN t.wickets > 0
+       THEN ROUND(t.runs_conceded::numeric / t.wickets::numeric, 2)
+       ELSE NULL END                   AS average
 FROM totals t
 LEFT JOIN career_best cb ON cb.player_id = t.player_id AND cb.team_category = t.team_category;
