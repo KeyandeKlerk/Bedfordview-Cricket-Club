@@ -62,6 +62,11 @@ export default async function RecordsPage({
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
+  // When no category selected, use the totals views (one row per player, all categories combined).
+  // When a category is selected, use the category-scoped views with a team_category filter.
+  const battingView  = cat ? 'career_batting_stats'  : 'career_batting_totals'
+  const bowlingView  = cat ? 'career_bowling_stats'  : 'career_bowling_totals'
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function withCat(q: any) { return cat ? q.eq('team_category', cat) : q }
 
@@ -69,21 +74,21 @@ export default async function RecordsPage({
     { data: runScorers },
     { data: highestScores },
     { data: wicketTakers },
-    { data: bestBowling },
+    { data: bestBowlingRaw },
   ] = await Promise.all([
-    withCat(supabase
-      .from('career_batting_stats')
-      .select('player_id, player_name, total_runs, average, highest_score, hundreds, fifties, innings'))
+    supabase
+      .from(battingView)
+      .select('player_id, player_name, total_runs, average, highest_score, hundreds, fifties, innings')
       .order('total_runs', { ascending: false })
       .limit(10),
-    withCat(supabase
-      .from('career_batting_stats')
-      .select('player_id, player_name, total_runs, average, highest_score, hundreds, fifties, innings'))
+    supabase
+      .from(battingView)
+      .select('player_id, player_name, total_runs, average, highest_score, hundreds, fifties, innings')
       .order('highest_score', { ascending: false, nullsFirst: false })
       .limit(5),
-    withCat(supabase
-      .from('career_bowling_stats')
-      .select('player_id, player_name, wickets, average, economy, legal_balls'))
+    supabase
+      .from(bowlingView)
+      .select('player_id, player_name, wickets, average, economy, legal_balls')
       .order('wickets', { ascending: false })
       .limit(10),
     withCat(supabase
@@ -98,7 +103,7 @@ export default async function RecordsPage({
   const rs = (runScorers ?? []) as BattingRecord[]
   const hs = (highestScores ?? []) as BattingRecord[]
   const wt = (wicketTakers ?? []) as BowlingRecord[]
-  const bb = (bestBowling ?? []) as BowlingInningsRecord[]
+  const bb = (bestBowlingRaw ?? []) as BowlingInningsRecord[]
 
   return (
     <>
