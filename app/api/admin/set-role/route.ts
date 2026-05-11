@@ -28,8 +28,8 @@ export async function POST(req: NextRequest) {
   }
 
   const { userId, role } = await req.json()
-  if (!userId || !['scorer', 'admin'].includes(role)) {
-    return NextResponse.json({ error: 'Invalid request — role must be scorer or admin' }, { status: 400 })
+  if (!userId || !['player', 'shop', 'scorer', 'coach', 'admin'].includes(role)) {
+    return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
   }
 
   const { data, error } = await adminClient

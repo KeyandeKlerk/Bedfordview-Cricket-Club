@@ -1,161 +1,308 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase/client'
 
-interface UserRole {
+const ALL_ROLES = ['player', 'shop', 'scorer', 'coach', 'admin'] as const
+type Role = (typeof ALL_ROLES)[number]
+
+const ROLE_BADGE: Record<Role, string> = {
+  player:  'badge-blue',
+  shop:    'badge-gold',
+  scorer:  'badge-gold',
+  coach:   'badge-lime',
+  admin:   'badge-lime',
+}
+
+interface RoleEntry { id: string; role: string; assigned_at: string }
+interface UserRow {
   id: string
-  user_id: string
-  role: string
-  assigned_at: string
+  email: string
+  full_name: string | null
+  created_at: string
+  roles: RoleEntry[]
 }
 
 export default function AdminUsersPage() {
-  const [roles, setRoles]     = useState<UserRole[]>([])
-  const [loading, setLoading] = useState(true)
-  const [newUserId, setNewUserId] = useState('')
-  const [newRole, setNewRole]     = useState<'scorer' | 'admin'>('scorer')
-  const [saving, setSaving]   = useState(false)
-  const [error, setError]     = useState<string | null>(null)
+  const [users, setUsers]           = useState<UserRow[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [search, setSearch]         = useState('')
+  const [error, setError]           = useState<string | null>(null)
+  const [pendingRoles, setPendingRoles] = useState<Record<string, Role>>({})
+  const [saving, setSaving]         = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
-  useEffect(() => {
-    supabase.from('user_roles').select('*').order('assigned_at', { ascending: false }).then(({ data }) => {
-      if (data) setRoles(data)
-      setLoading(false)
-    })
+  const getToken = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    return session?.access_token ?? ''
   }, [])
 
-  async function handleAssign(e: React.FormEvent) {
-    e.preventDefault()
-    if (!newUserId.trim()) return
-    setSaving(true); setError(null)
-    const { data, error } = await supabase
-      .from('user_roles')
-      .upsert({ user_id: newUserId.trim(), role: newRole }, { onConflict: 'user_id,role' })
-      .select().single()
-    setSaving(false)
-    if (error) { setError(error.message); return }
+  const loadUsers = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const token = await getToken()
+      const res = await fetch('/api/admin/users', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('Failed to load users')
+      setUsers(await res.json())
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Unknown error')
+    } finally {
+      setLoading(false)
+    }
+  }, [getToken])
 
-    // Audit log
-    await supabase.from('audit_log').insert({
-      action: 'role_assigned',
-      entity_type: 'user_roles',
-      entity_id: data.id,
-      new_data: { user_id: newUserId, role: newRole },
+  useEffect(() => { loadUsers() }, [loadUsers])
+
+  async function handleAssign(userId: string) {
+    const role = pendingRoles[userId] ?? availableRolesFor(userId)[0]
+    if (!role) return
+    setSaving(`assign:${userId}`)
+    setError(null)
+    const token = await getToken()
+    const res = await fetch('/api/admin/set-role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ userId, role }),
     })
-
-    setRoles(prev => [data, ...prev.filter(r => !(r.user_id === data.user_id && r.role === data.role))])
-    setNewUserId('')
+    const result = await res.json()
+    setSaving(null)
+    if (!res.ok) { setError(result.error); return }
+    await loadUsers()
+    setPendingRoles(prev => { const n = { ...prev }; delete n[userId]; return n })
   }
 
-  async function handleRevoke(role: UserRole) {
-    const { error } = await supabase.from('user_roles').delete().eq('id', role.id)
-    if (error) { setError(error.message); return }
+  async function handleRevoke(userId: string, roleEntry: RoleEntry) {
+    setSaving(`revoke:${roleEntry.id}`)
+    setError(null)
+    const { error: err } = await supabase.from('user_roles').delete().eq('id', roleEntry.id)
+    if (err) { setError(err.message); setSaving(null); return }
     await supabase.from('audit_log').insert({
       action: 'role_revoked',
       entity_type: 'user_roles',
-      entity_id: role.id,
-      old_data: { user_id: role.user_id, role: role.role },
+      entity_id: roleEntry.id,
+      old_data: { user_id: userId, role: roleEntry.role },
     })
-    setRoles(prev => prev.filter(r => r.id !== role.id))
+    setSaving(null)
+    setUsers(prev => prev.map(u =>
+      u.id === userId ? { ...u, roles: u.roles.filter(r => r.id !== roleEntry.id) } : u
+    ))
   }
+
+  async function handleDelete(userId: string) {
+    setSaving(`delete:${userId}`)
+    setError(null)
+    const token = await getToken()
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const result = await res.json()
+    setSaving(null)
+    setConfirmDelete(null)
+    if (!res.ok) { setError(result.error); return }
+    setUsers(prev => prev.filter(u => u.id !== userId))
+  }
+
+  function availableRolesFor(userId: string) {
+    const user = users.find(u => u.id === userId)
+    if (!user) return [...ALL_ROLES]
+    return ALL_ROLES.filter(r => !user.roles.some(er => er.role === r))
+  }
+
+  const filtered = users.filter(u =>
+    !search ||
+    u.email.toLowerCase().includes(search.toLowerCase()) ||
+    (u.full_name ?? '').toLowerCase().includes(search.toLowerCase())
+  )
 
   return (
     <div style={{ paddingTop: 'var(--nav-h)', minHeight: '100vh', paddingBottom: 80 }}>
       <style>{`
-        .au-form-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 12px;
-          align-items: end;
-        }
-        @media (min-width: 480px) {
-          .au-form-grid {
-            grid-template-columns: 2fr 1fr;
-          }
-        }
-        @media (min-width: 640px) {
-          .au-form-grid {
-            grid-template-columns: 2fr 1fr auto;
-          }
-        }
-        .au-form-grid .btn { width: 100%; justify-content: center; }
-        @media (min-width: 640px) {
-          .au-form-grid .btn { width: auto; }
-        }
-        .au-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        .au-table-scroll .table { min-width: 480px; }
-        .au-input, .au-select {
-          width: 100%; padding: 8px 12px;
+        .um-search {
+          width: 100%; padding: 10px 14px;
           background: var(--surface); border: 1px solid var(--border);
-          borderRadius: 4px; color: var(--text); font-size: 14px;
-          min-height: 44px;
+          border-radius: 4px; color: var(--text); font-size: 14px;
+          margin-bottom: 24px;
         }
+        .um-search:focus { outline: none; border-color: var(--blue-mid); }
+        .um-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .um-wrap .table { min-width: 640px; }
+        .um-role-list { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+        .um-role-chip {
+          display: inline-flex; align-items: center; gap: 3px;
+          padding: 2px 8px 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;
+          background: var(--surface); border: 1px solid var(--border); color: var(--text);
+          line-height: 1.6; white-space: nowrap;
+        }
+        .um-role-chip button {
+          background: none; border: none; cursor: pointer; padding: 0 0 0 2px;
+          color: var(--muted); font-size: 14px; line-height: 1; display: flex; align-items: center;
+        }
+        .um-role-chip button:hover { color: var(--red); }
+        .um-role-chip button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .um-add-row { display: flex; gap: 6px; align-items: center; }
+        .um-select {
+          padding: 5px 8px; background: var(--surface); border: 1px solid var(--border);
+          border-radius: 4px; color: var(--text); font-size: 12px; min-height: 32px;
+        }
+        .um-name { font-weight: 600; font-size: 14px; color: var(--text); }
+        .um-email { font-size: 12px; color: var(--muted); margin-top: 1px; }
+        .um-del-row { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+        .um-del-label { font-size: 12px; color: var(--muted); }
+        .um-count { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
       `}</style>
+
       <div className="page-hero">
         <div className="container">
           <div className="section-label">Admin</div>
-          <h1>User Roles</h1>
+          <h1>User Management</h1>
         </div>
       </div>
 
-      <div className="container" style={{ paddingTop: 32, maxWidth: 640 }}>
-        <form onSubmit={handleAssign} style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 4, padding: 24, marginBottom: 32 }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, textTransform: 'uppercase', marginBottom: 16 }}>
-            Assign Role
-          </h3>
-          <div className="au-form-grid">
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>User ID (from Supabase Auth)</label>
-              <input
-                style={{ width: '100%', padding: '8px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: 14, minHeight: 44 }}
-                placeholder="user-uuid"
-                value={newUserId}
-                onChange={e => setNewUserId(e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Role</label>
-              <select
-                style={{ width: '100%', padding: '8px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: 14, minHeight: 44 }}
-                value={newRole}
-                onChange={e => setNewRole(e.target.value as 'scorer' | 'admin')}
-              >
-                <option value="scorer">scorer</option>
-                <option value="admin">admin</option>
-              </select>
-            </div>
-            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? '...' : 'Assign'}</button>
+      <div className="container" style={{ paddingTop: 32, maxWidth: 900 }}>
+        {error && (
+          <div style={{
+            color: 'var(--red)', background: 'rgba(239,68,68,0.08)',
+            border: '1px solid var(--red)', borderRadius: 4,
+            padding: '10px 14px', marginBottom: 16, fontSize: 13,
+          }}>
+            {error}
           </div>
-          {error && <p style={{ color: 'var(--red)', fontSize: 13, marginTop: 8 }}>{error}</p>}
-        </form>
+        )}
+
+        <input
+          className="um-search"
+          placeholder="Search by name or email…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
 
         {loading ? (
-          <div style={{ color: 'var(--muted)' }}>Loading...</div>
+          <div style={{ color: 'var(--muted)' }}>Loading…</div>
         ) : (
-          <div className="au-table-scroll">
-            <table className="table">
-              <thead><tr><th>User ID</th><th>Role</th><th>Assigned</th><th></th></tr></thead>
-              <tbody>
-                {roles.map(r => (
-                  <tr key={r.id}>
-                    <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{r.user_id.slice(0, 16)}...</td>
-                    <td><span className={`badge ${r.role === 'admin' ? 'badge-lime' : 'badge-gold'}`}>{r.role}</span></td>
-                    <td style={{ color: 'var(--muted)', fontSize: 13 }}>{new Date(r.assigned_at).toLocaleDateString()}</td>
-                    <td>
-                      <button
-                        className="btn btn-ghost"
-                        onClick={() => handleRevoke(r)}
-                        style={{ fontSize: 12, color: 'var(--red)' }}
-                      >
-                        Revoke
-                      </button>
-                    </td>
+          <>
+            <div className="um-count">{filtered.length} user{filtered.length !== 1 ? 's' : ''}</div>
+            <div className="um-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Current Roles</th>
+                    <th>Add Role</th>
+                    <th>Joined</th>
+                    <th></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filtered.map(u => {
+                    const available = availableRolesFor(u.id)
+                    const isDeleting = saving === `delete:${u.id}`
+
+                    return (
+                      <tr key={u.id}>
+                        <td>
+                          {u.full_name && <div className="um-name">{u.full_name}</div>}
+                          <div className="um-email">{u.email}</div>
+                        </td>
+
+                        <td>
+                          <div className="um-role-list">
+                            {u.roles.length === 0 && (
+                              <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>
+                            )}
+                            {u.roles.map(r => (
+                              <span key={r.id} className={`um-role-chip badge ${ROLE_BADGE[r.role as Role] ?? 'badge-blue'}`}>
+                                {r.role}
+                                <button
+                                  title={`Revoke ${r.role}`}
+                                  disabled={saving === `revoke:${r.id}`}
+                                  onClick={() => handleRevoke(u.id, r)}
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+
+                        <td>
+                          {available.length > 0 && (
+                            <div className="um-add-row">
+                              <select
+                                className="um-select"
+                                value={pendingRoles[u.id] ?? available[0]}
+                                onChange={e => setPendingRoles(prev => ({
+                                  ...prev,
+                                  [u.id]: e.target.value as Role,
+                                }))}
+                              >
+                                {available.map(r => (
+                                  <option key={r} value={r}>{r}</option>
+                                ))}
+                              </select>
+                              <button
+                                className="btn btn-primary"
+                                style={{ fontSize: 12, padding: '5px 12px', minHeight: 32 }}
+                                disabled={saving === `assign:${u.id}`}
+                                onClick={() => handleAssign(u.id)}
+                              >
+                                {saving === `assign:${u.id}` ? '…' : 'Assign'}
+                              </button>
+                            </div>
+                          )}
+                        </td>
+
+                        <td style={{ color: 'var(--muted)', fontSize: 12, whiteSpace: 'nowrap' }}>
+                          {new Date(u.created_at).toLocaleDateString()}
+                        </td>
+
+                        <td>
+                          {confirmDelete === u.id ? (
+                            <div className="um-del-row">
+                              <span className="um-del-label">Sure?</span>
+                              <button
+                                className="btn btn-ghost"
+                                style={{ fontSize: 12, color: 'var(--red)', padding: '2px 8px' }}
+                                disabled={isDeleting}
+                                onClick={() => handleDelete(u.id)}
+                              >
+                                {isDeleting ? '…' : 'Delete'}
+                              </button>
+                              <button
+                                className="btn btn-ghost"
+                                style={{ fontSize: 12, padding: '2px 8px' }}
+                                onClick={() => setConfirmDelete(null)}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              className="btn btn-ghost"
+                              style={{ fontSize: 12, color: 'var(--muted)', padding: '2px 8px' }}
+                              onClick={() => setConfirmDelete(u.id)}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+
+                  {filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={5} style={{ color: 'var(--muted)', textAlign: 'center', padding: 32 }}>
+                        {search ? `No users matching "${search}"` : 'No users found'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>
