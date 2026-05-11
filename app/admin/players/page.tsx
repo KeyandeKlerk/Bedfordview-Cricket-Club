@@ -28,6 +28,13 @@ interface Player {
 }
 
 interface RoleEntry { id: string; role: string; assigned_at: string }
+interface PendingClaim {
+  id: string
+  player_id: string
+  user_id: string
+  claimant_email: string
+  created_at: string
+}
 interface AuthUser {
   id: string
   email: string
@@ -68,8 +75,11 @@ function PlayerSkeleton() {
 export default function AdminPlayersPage() {
   const [players, setPlayers]       = useState<Player[]>([])
   const [authUsers, setAuthUsers]   = useState<AuthUser[]>([])
+  const [pendingClaims, setPendingClaims] = useState<PendingClaim[]>([])
   const [loading, setLoading]       = useState(true)
   const [isAdmin, setIsAdmin]       = useState(false)
+  const [claimActioning, setClaimActioning] = useState<string | null>(null)
+  const [claimError, setClaimError] = useState<string | null>(null)
 
   // Edit / new player modal
   const [editPlayer, setEditPlayer] = useState<Player | null | 'new'>(null)
@@ -116,6 +126,12 @@ export default function AdminPlayersPage() {
       if (authRes.ok) {
         setAuthUsers(await authRes.json())
         setIsAdmin(true)
+        const { data: claims } = await supabase
+          .from('player_claims')
+          .select('id, player_id, user_id, claimant_email, created_at')
+          .eq('status', 'pending')
+          .order('created_at')
+        setPendingClaims(claims ?? [])
       }
       setLoading(false)
     }
@@ -126,6 +142,35 @@ export default function AdminPlayersPage() {
     () => new Map(authUsers.map(u => [u.id, u])),
     [authUsers]
   )
+
+  // ── Claim handlers ────────────────────────────────────────────────────────
+
+  async function handleClaim(claimId: string, action: 'approve' | 'reject') {
+    setClaimActioning(`${action}:${claimId}`)
+    setClaimError(null)
+    const token = await getToken()
+    const res = await fetch('/api/admin/claims', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ claimId, action }),
+    })
+    const result = await res.json()
+    setClaimActioning(null)
+    if (!res.ok) { setClaimError(result.error); return }
+
+    if (action === 'approve') {
+      const claim = pendingClaims.find(c => c.id === claimId)
+      if (claim) {
+        setPlayers(prev => prev.map(p =>
+          p.id === claim.player_id ? { ...p, user_id: claim.user_id, email: claim.claimant_email } : p
+        ))
+        const token2 = await getToken()
+        const refreshed = await fetch('/api/admin/users', { headers: { Authorization: `Bearer ${token2}` } })
+        if (refreshed.ok) setAuthUsers(await refreshed.json())
+      }
+    }
+    setPendingClaims(prev => prev.filter(c => c.id !== claimId))
+  }
 
   // ── Role handlers ──────────────────────────────────────────────────────────
 
@@ -555,6 +600,26 @@ export default function AdminPlayersPage() {
 
         .ap-role-err { font-size: 12px; color: #fca5a5; margin-top: 4px; }
 
+        /* Pending claims */
+        .ap-claims-banner {
+          background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.25);
+          border-radius: 10px; padding: 16px 20px; margin-bottom: 24px;
+        }
+        .ap-claims-title {
+          font-family: var(--font-display); font-size: 12px; font-weight: 700;
+          letter-spacing: 0.1em; text-transform: uppercase; color: #fbbf24;
+          margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+        }
+        .ap-claim-row {
+          display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+          padding: 10px 0; border-top: 1px solid rgba(245,158,11,0.12);
+        }
+        .ap-claim-row:first-of-type { border-top: none; padding-top: 0; }
+        .ap-claim-player { font-weight: 600; font-size: 14px; color: var(--text); }
+        .ap-claim-email  { font-size: 12px; color: var(--muted); }
+        .ap-claim-date   { font-size: 11px; color: rgba(147,197,253,0.35); margin-left: auto; white-space: nowrap; }
+        .ap-claim-actions { display: flex; gap: 6px; }
+
         @media (max-width: 480px) { .ap-form-row { grid-template-columns: 1fr; } }
       `}</style>
 
@@ -573,6 +638,50 @@ export default function AdminPlayersPage() {
         </div>
 
         <div className="container" style={{ paddingTop: 24 }}>
+
+          {/* Pending claims banner */}
+          {isAdmin && pendingClaims.length > 0 && (
+            <div className="ap-claims-banner">
+              <div className="ap-claims-title">
+                ⏳ Pending Profile Claims ({pendingClaims.length})
+              </div>
+              {claimError && <div style={{ fontSize: 12, color: '#fca5a5', marginBottom: 8 }}>{claimError}</div>}
+              {pendingClaims.map(claim => {
+                const player = players.find(p => p.id === claim.player_id)
+                return (
+                  <div key={claim.id} className="ap-claim-row">
+                    <div>
+                      <div className="ap-claim-player">
+                        {player ? `${player.first_name} ${player.last_name}` : 'Unknown player'}
+                      </div>
+                      <div className="ap-claim-email">claimed by {claim.claimant_email}</div>
+                    </div>
+                    <div className="ap-claim-date">
+                      {new Date(claim.created_at).toLocaleDateString()}
+                    </div>
+                    <div className="ap-claim-actions">
+                      <button
+                        className="btn btn-primary"
+                        style={{ fontSize: 12, padding: '5px 14px', minHeight: 30 }}
+                        disabled={!!claimActioning}
+                        onClick={() => handleClaim(claim.id, 'approve')}
+                      >
+                        {claimActioning === `approve:${claim.id}` ? '…' : 'Approve'}
+                      </button>
+                      <button
+                        className="ap-row-btn danger"
+                        style={{ fontSize: 12, padding: '5px 12px', minHeight: 30 }}
+                        disabled={!!claimActioning}
+                        onClick={() => handleClaim(claim.id, 'reject')}
+                      >
+                        {claimActioning === `reject:${claim.id}` ? '…' : 'Reject'}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           {!loading && (
             <div className="ap-stats">

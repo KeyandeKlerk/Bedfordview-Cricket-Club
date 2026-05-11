@@ -122,7 +122,7 @@ export default function AvailabilityPage() {
       <div style={{ fontSize: 14, color: 'var(--muted)', textAlign: 'center', maxWidth: 300 }}>
         You need to claim your player profile before submitting availability.
       </div>
-      <button className="btn btn-primary" onClick={() => router.push('/admin/profile/claim')}>
+      <button className="btn btn-primary" onClick={() => router.push('/claim-profile')}>
         Claim Profile →
       </button>
     </div>

@@ -859,7 +859,7 @@ export default async function DashboardPage() {
                       }}>
                         <span style={{ flexShrink: 0 }}>⚠️</span>
                         <span>
-                          <Link href="/admin/profile/claim" style={{ color: '#fbbf24', fontWeight: 700 }}>Claim your player profile</Link>
+                          <Link href="/claim-profile" style={{ color: '#fbbf24', fontWeight: 700 }}>Claim your player profile</Link>
                           {' '}to submit availability.
                         </span>
                       </div>
