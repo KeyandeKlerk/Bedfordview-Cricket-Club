@@ -15,9 +15,8 @@ export async function POST(req: NextRequest) {
   const { data: { user }, error: authError } = await adminClient.auth.getUser(token)
   if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Check admin role
   const { data: roles } = await adminClient
-    .from('user_roles').select('role').eq('user_id', user.id).in('role', ['admin']).limit(1)
+    .from('user_roles').select('role').eq('user_id', user.id).in('role', ['admin', 'coach', 'scorer']).limit(1)
   if (!roles || roles.length === 0) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { first_name, last_name, nickname, batting_style, bowling_style } = await req.json()
