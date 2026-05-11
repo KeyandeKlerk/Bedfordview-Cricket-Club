@@ -41,6 +41,24 @@ export async function getQueueCount(): Promise<number> {
 }
 
 /**
+ * Returns the highest sequence_number across all queued balls, or 0 if the queue
+ * is empty. Used on page load to advance lastKnownSequenceRef past any offline balls
+ * that were queued but not yet flushed, preventing sequence number collisions when
+ * the scorer scores online after a reload mid-offline session.
+ */
+export async function getQueueMaxSequence(): Promise<number> {
+  const d = await getDb()
+  if (d) {
+    try {
+      const last = await d.balls.orderBy('sequence_number').last()
+      if (last) return last.sequence_number
+    } catch { /* fall through */ }
+  }
+  if (memoryQueue.length === 0) return 0
+  return Math.max(...memoryQueue.map(b => b.sequence_number))
+}
+
+/**
  * Enqueue a ball event for later sync.
  * Returns { warned: true } when approaching the hard cap (>= 250),
  * and { blocked: true } when at the hard cap (>= 300).

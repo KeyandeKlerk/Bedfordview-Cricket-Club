@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getCurrentPlayerServer } from '@/lib/supabase-server'
-import NotificationBell from '@/components/NotificationBell'
+import ConditionalNotificationBell from '@/components/ConditionalNotificationBell'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,14 +12,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!ALLOWED_ROLES.includes(player.role)) redirect('/dashboard')
   return (
     <>
-      {/* Notification bell — floats top-right, only visible on admin pages */}
+      {/* Notification bell — floats top-right on admin pages, hidden on scorer */}
       <div style={{
         position: 'fixed',
         top: 14,
         right: 14,
         zIndex: 200,
       }}>
-        <NotificationBell userId={player.id} />
+        <ConditionalNotificationBell userId={player.id} />
       </div>
       {children}
     </>

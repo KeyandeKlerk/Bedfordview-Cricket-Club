@@ -14,7 +14,11 @@ npm run dev        # Start dev server at http://localhost:3000
 npm run build      # Production build
 npm run start      # Start production server
 npm run lint       # Run ESLint
-npm test           # Run engine unit tests (vitest)
+npm test           # Run all unit tests (vitest)
+npx vitest run lib/cricket/__tests__/engine.test.ts   # Run a single test file
+npm run test:e2e          # Run Playwright e2e tests (headless)
+npm run test:e2e:ui       # Run Playwright e2e tests with UI
+npm run test:e2e:report   # Show last Playwright report
 ```
 
 ## Environment Setup
@@ -32,6 +36,7 @@ Run migrations in order in the Supabase SQL Editor:
 4. `supabase/migrations/015_notifications.sql`
 5. `supabase/migrations/016_attended_flag.sql`
 6. `supabase/migrations/017_reliability_view.sql`
+7. `supabase/migrations/018_fix_selection_rls.sql`
 
 ### Granting roles
 Roles are stored in the **`user_roles` table** (not `players`). The `has_role()` DB function checks `user_roles` with hierarchy: `admin > coach > scorer > shop > player`. To grant a role:
@@ -63,14 +68,21 @@ WHERE id IN (SELECT match_id FROM innings WHERE status = 'in_progress');
 - `lib/cricket/engine.ts` — computeInningsState, computeStrikeAfterBall, totalBallRuns, bowlerRuns
 - `lib/cricket/validators.ts` — validateBall (shared client+edge)
 - `lib/cricket/phases.ts` — detectPhase (scorer UI state machine)
+- `lib/cricket/commentary.ts` — ball-by-ball commentary generator
+- `lib/cricket/reportGenerator.ts` — match report text generation
 - `lib/offline/queue.ts` — Dexie IndexedDB queue with memory fallback
+- `lib/scoring-lock.ts` — optimistic lock for multi-scorer concurrency (acquireLock, renewLock, releaseLock, initiateHandover, acceptHandover)
+- `lib/stats/formatters.ts` — shared stat formatters: overs(), fmt(), bestFigures(), formatDate()
+- `lib/stats/types.ts` — TypeScript types for stats views
 - `lib/supabase.ts` — legacy compat re-exports (Player type, isAdmin, isScorer, getCurrentPlayer)
 - `lib/supabase-server.ts` — `getCurrentPlayerServer()` — fetches user + linked player + highest-privilege role
 - `lib/queries.ts` — legacy query helpers normalising new schema to old shape
 
-**Data flow:** Server components use `async/await` Supabase queries directly; client components use Supabase client in `useEffect`. Public pages use ISR (`revalidate: 60–300`). No custom API routes — all queries go through Supabase client.
+**Data flow:** Server components use `async/await` Supabase queries directly; client components use Supabase client in `useEffect`. Public pages use ISR (`revalidate: 60–300`). API routes exist for privileged server-side operations that require the service role key (role assignment, player creation, order management).
 
 **Auth & roles:** Supabase Auth (email/password). Role hierarchy: `admin > coach > scorer > shop > player > member`. Stored in `user_roles` table. `has_role()` DB function enforces hierarchy. `getCurrentPlayerServer()` returns the highest-privilege role and linked player record (if claimed).
+
+**Middleware (`middleware.ts`):** Runs on all non-static routes. Calls `supabase.auth.getUser()` to refresh expired sessions and write updated cookies. Does not enforce route protection — that happens in `app/admin/layout.tsx` and individual server components.
 
 **Database tables (core):** `players`, `matches`, `innings`, `ball_events`, `match_players`, `opponents`, `competitions`, `seasons`, `grounds`, `user_roles`, `audit_log`
 
@@ -80,9 +92,12 @@ WHERE id IN (SELECT match_id FROM innings WHERE status = 'in_progress');
 - `selections` — coach XI selections per match; UNIQUE(match_id, player_id)
 - `notifications` — in-app notifications with `idempotency_key TEXT UNIQUE` to prevent duplicates
 
+**Scoring lock fields on `matches`:** `scorer_session_id`, `scorer_locked_at`, `scorer_user_id`, `pending_handover_to`, `pending_handover_at`. Lock TTL is 2 minutes; heartbeat every 30s. Uses `acquire_scoring_lock` RPC to avoid a PostgREST bug with `.or()` on UPDATE.
+
 **Database functions:**
 - `has_role(user_uuid, required_role)` — hierarchy-aware role check (use in RLS policies)
 - `current_player_id()` — returns `players.id` for the current auth user
+- `acquire_scoring_lock(p_match_id, p_session_id, p_user_id)` — atomic lock acquisition
 
 **Views:**
 - `career_batting_stats`, `career_bowling_stats` — per-player career aggregates
@@ -106,9 +121,16 @@ WHERE id IN (SELECT match_id FROM innings WHERE status = 'in_progress');
 - `/results` — Completed matches list
 - `/results/[id]` — Full match scorecard (innings, batting, bowling, FoW)
 - `/stats` — Career batting and bowling tables
+- `/stats/[id]` — Individual player career stats
 - `/squad` — Player grid
 - `/live` — **Live scores page** — polls every 30s, queries `innings.status = 'in_progress'` (not `matches.status`), shows score and chasing target
 - `/matches/[id]` — Real-time public scorecard (Supabase Realtime + polling fallback)
+- `/(public)/news` — Club news articles
+- `/(public)/membership` — Membership purchase
+- `/(public)/shop` — Club shop
+- `/gallery`, `/contact` — Static content pages
+- `/junior/fixtures`, `/junior/results`, `/junior/stats` — Junior section equivalents
+- `/analytics` — Match analytics and charts
 - `/login`, `/register` — Auth pages
 
 ### Admin (require scorer/admin/coach/shop role — enforced in `app/admin/layout.tsx`)
@@ -123,6 +145,9 @@ WHERE id IN (SELECT match_id FROM innings WHERE status = 'in_progress');
 - `/admin/competitions` — Leagues & cups
 - `/admin/availability` — Availability windows list + create
 - `/admin/availability/[id]` — Window detail: player responses + linked matches with "Select XI →" per match
+- `/admin/news` — News article management
+- `/admin/orders` — Order management
+- `/admin/products` — Shop product management
 - `/admin/profile/claim` — Link auth account to player record
 
 ### Player-facing
@@ -140,6 +165,18 @@ WHERE id IN (SELECT match_id FROM innings WHERE status = 'in_progress');
 ### Notification Bell
 `components/NotificationBell.tsx` — fixed top-right on admin pages. Subscribes to `notifications` table via Realtime. Links to `/notifications`.
 
+### API Routes
+All require a Bearer token + admin role check (except `/api/auth/register`):
+- `POST /api/admin/set-role` — assign scorer/admin role; writes to `user_roles` + `audit_log`
+- `POST /api/admin/create-player` — create a new player record
+- `POST /api/auth/register` — public registration
+- `GET /api/match-report/[id]` — generate text match report
+- `GET/POST /api/orders` — order creation and listing
+- `POST /api/orders/[id]/confirm` — confirm an order
+- `GET /api/orders/export` — CSV export of orders
+- `GET/PUT/DELETE /api/products/[id]` — product management
+- `POST /api/on-selection-announced` — proxy to edge function (also callable directly)
+
 ## Edge Functions
 
 All in `supabase/functions/`. Deploy via `supabase functions deploy <name>`.
@@ -151,6 +188,8 @@ All in `supabase/functions/`. Deploy via `supabase functions deploy <name>`.
 | `on-match-completed` | DB Webhook: `matches UPDATE WHERE status='completed'` | Notifies attendees; marks non-attendees as did_not_play |
 | `on-order-paid` | DB Webhook: `orders UPDATE WHERE status='paid'` | Creates membership, assigns player role, notifies user |
 | `availability-deadline-reminder` | pg_cron `0 18 * * *` or Vercel cron | Reminds non-responders 24h before deadline |
+| `validate-ball` | HTTP POST from scorer | Server-side ball validation (mirrors `lib/cricket/validators.ts`) |
+| `refresh-stats` | HTTP POST | Manually trigger stats view refresh |
 
 All notifications use `idempotency_key TEXT UNIQUE` in format `{type}:{entity_id}:{user_id}` to prevent duplicates on retry.
 
@@ -166,6 +205,8 @@ Phase state machine driven by `lib/cricket/phases.ts`:
 2. Updates `matches.status = 'in_progress'` (required for live page)
 
 Both require the user to have a row in `user_roles`. `matches` write requires `admin` role; `innings` write requires `admin` role; `ball_events` insert/delete allows `scorer` role.
+
+**Scoring lock:** Only one session can score at a time. `lib/scoring-lock.ts` manages the lock via the `matches` table fields. A HandoverModal lets the current scorer transfer control to another user without losing state.
 
 ## Availability & Selection Flow
 
@@ -197,4 +238,5 @@ Both require the user to have a row in `user_roles`. `matches` write requires `a
 
 - `dexie` — IndexedDB wrapper for offline queue
 - `swr` — React data fetching (available)
-- `vitest`, `@vitejs/plugin-react` — test framework
+- `vitest`, `@vitejs/plugin-react` — unit test framework
+- `@playwright/test` — e2e test framework

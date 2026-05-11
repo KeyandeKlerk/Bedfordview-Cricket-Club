@@ -23,7 +23,6 @@ function mp(overrides: Partial<MatchPlayer> & { side: 'home' | 'away' }): MatchP
     actual_batting_position: null,
     is_captain: false,
     is_keeper: false,
-    is_active: true,
     ...overrides,
   }
 }
@@ -192,6 +191,47 @@ describe('detectPhase — innings_number edge cases', () => {
   it('5.2 — innings_number 3 in_progress → scoring', () => {
     expect(detectPhase(players, { innings_number: 3, status: 'in_progress' }, 12, OUR_SIDE))
       .toBe('scoring')
+  })
+
+})
+
+// ── Section 6: re-entry regression (phase reversion bug) ─────────────────────
+
+describe('detectPhase — re-entry regression: setup phases must NOT show when scoring is active', () => {
+
+  it('6.1 — empty matchPlayers + in_progress innings + balls → scoring (not setup_bcc_xi)', () => {
+    // Regression: if match_players loads empty due to transient RLS/auth state,
+    // an in_progress innings with ball_events must never revert to setup_bcc_xi.
+    expect(detectPhase([], { innings_number: 1, status: 'in_progress' }, 50, OUR_SIDE))
+      .toBe('scoring')
+  })
+
+  it('6.2 — partial matchPlayers (< 11 BCC) + in_progress innings + balls → scoring', () => {
+    const fewPlayers = [mp({ side: 'home' }), mp({ side: 'home' })]
+    expect(detectPhase(fewPlayers, { innings_number: 1, status: 'in_progress' }, 30, OUR_SIDE))
+      .toBe('scoring')
+  })
+
+  it('6.3 — empty matchPlayers + in_progress innings + balls (innings 2) → scoring', () => {
+    expect(detectPhase([], { innings_number: 2, status: 'in_progress' }, 14, OUR_SIDE))
+      .toBe('scoring')
+  })
+
+  it('6.4 — short-circuit does NOT fire with 0 balls (select_openers must still be reachable)', () => {
+    // ballCount = 0 means openers haven't been selected yet — select_openers is still valid.
+    // With full squad + in_progress innings + 0 balls, we should get select_openers, not scoring.
+    const players = [...squad(OUR_SIDE), ...squad(OPP_SIDE)]
+    expect(detectPhase(players, { innings_number: 1, status: 'in_progress' }, 0, OUR_SIDE))
+      .toBe('select_openers')
+  })
+
+  it('6.5 — completed innings not affected by short-circuit (innings_break preserved)', () => {
+    // Completed innings should still correctly return innings_break / match_complete.
+    const players = [...squad(OUR_SIDE), ...squad(OPP_SIDE)]
+    expect(detectPhase(players, { innings_number: 1, status: 'completed' }, 120, OUR_SIDE))
+      .toBe('innings_break')
+    expect(detectPhase(players, { innings_number: 2, status: 'completed' }, 80, OUR_SIDE))
+      .toBe('match_complete')
   })
 
 })

@@ -5,7 +5,7 @@ import { computeInningsState, isNaturalEnd, deriveResultText } from '@/lib/crick
 import { detectPhase as _detectPhase, type Phase } from '@/lib/cricket/phases'
 import { validateBall } from '@/lib/cricket/validators'
 import { generateCommentary } from '@/lib/cricket/commentary'
-import { queueBall, flushQueue, getQueueCount } from '@/lib/offline/queue'
+import { queueBall, flushQueue, getQueueCount, getQueueMaxSequence } from '@/lib/offline/queue'
 import { supabase } from '@/lib/supabase/client'
 import { subscribeBallEvents } from '@/lib/supabase/realtime'
 import Link from 'next/link'
@@ -31,6 +31,8 @@ interface MatchData {
   opponentName?: string
   competitionName?: string
   matchDate?: string
+  initialTossWonBy?: 'home' | 'away' | null
+  initialTossDecision?: 'bat' | 'field' | null
 }
 
 interface InningsData {
@@ -134,8 +136,8 @@ function ScorerShellInner({
   // Pending selections: hold chosen player until the next ball is submitted
   const [pendingNewBatterId, setPendingNewBatterId] = useState<string | null>(null)
   const [pendingNewBowlerId, setPendingNewBowlerId] = useState<string | null>(null)
-  const [tossWonBy, setTossWonBy]     = useState<'home' | 'away' | null>(null)
-  const [tossDecision, setTossDecision] = useState<'bat' | 'field' | null>(null)
+  const [tossWonBy, setTossWonBy]     = useState<'home' | 'away' | null>(match.initialTossWonBy ?? null)
+  const [tossDecision, setTossDecision] = useState<'bat' | 'field' | null>(match.initialTossDecision ?? null)
   const [matchResultText, setMatchResultText] = useState<string | null>(null)
   const [opener1, setOpener1]         = useState<string | null>(null)
   const [opener2, setOpener2]         = useState<string | null>(null)
@@ -227,6 +229,18 @@ function ScorerShellInner({
   }, [innings?.id])
 
   useEffect(() => { getQueueCount().then(onQueueCount) }, [])
+
+  // On mount, advance lastKnownSequenceRef past any balls that are still in the
+  // offline queue from a previous session. Without this, a page reload mid-offline
+  // would re-use sequence numbers already assigned to queued balls, causing the
+  // first online ball to collide with the first queued ball on flush.
+  useEffect(() => {
+    getQueueMaxSequence().then(maxQueued => {
+      if (maxQueued > lastKnownSequenceRef.current) {
+        lastKnownSequenceRef.current = maxQueued
+      }
+    })
+  }, [])
 
   // Over boundary → prompt new bowler (must be before any early returns)
   const prevLegalBalls = useRef(state.legalBalls)
@@ -648,6 +662,12 @@ function ScorerShellInner({
     try {
       const ballToUndo = balls.find(b => b.id === ballId)
 
+      // Snapshot ref values BEFORE the optimistic removal so we can restore them
+      // if the DB delete fails — otherwise the rollback setBalls call triggers the
+      // over-boundary and wicket useEffects spuriously.
+      const preUndoLegalBalls = prevLegalBalls.current
+      const preUndoWickets    = prevWickets.current
+
       setBalls(prev => {
         const filtered = prev.filter(b => b.id !== ballId)
         // Recompute to get accurate counts BEFORE the useEffect runs,
@@ -676,7 +696,10 @@ function ScorerShellInner({
       const { error } = await supabase.from('ball_events').delete().eq('id', ballId)
       if (error) {
         setError('Failed to delete ball: ' + error.message)
-        // Restore the ball optimistically removed above
+        // Restore pre-undo ref values before re-adding the ball so the useEffects
+        // see no net change and don't re-fire the change-bowler / new-batter modals.
+        prevLegalBalls.current = preUndoLegalBalls
+        prevWickets.current    = preUndoWickets
         const { data } = await supabase.from('ball_events').select('*').eq('id', ballId).single()
         if (data) setBalls(prev => [...prev, data as BallEvent].sort((a, b) => a.sequence_number - b.sequence_number))
       }
@@ -724,25 +747,32 @@ function ScorerShellInner({
   }
 
   async function handleEndInnings() {
+    if (submittingRef.current) return
     if (!innings) return
-    if (innings.innings_number >= 2) {
-      // Compute result text from available data
-      const resultText = innings.target != null
-        ? deriveResultText(
-            innings.target - 1,
-            state.totalRuns,
-            state.wickets,
-            innings.batting_side === match.our_team_side,
-          )
-        : null
+    submittingRef.current = true
+    setSubmitting(true)
+    try {
+      if (innings.innings_number >= 2) {
+        const resultText = innings.target != null
+          ? deriveResultText(
+              innings.target - 1,
+              state.totalRuns,
+              state.wickets,
+              innings.batting_side === match.our_team_side,
+            )
+          : null
 
-      await supabase.from('innings').update({ status: 'completed' }).eq('id', innings.id)
-      await supabase.from('matches').update({ status: 'completed', result_text: resultText }).eq('id', match.id)
-      setMatchResultText(resultText)
-      setPhase('match_complete')
-    } else {
-      // First innings: InningsBreakFlow handles the DB update + innings 2 creation
-      setPhase('innings_break')
+        await supabase.from('innings').update({ status: 'completed' }).eq('id', innings.id)
+        await supabase.from('matches').update({ status: 'completed', result_text: resultText }).eq('id', match.id)
+        setMatchResultText(resultText)
+        setPhase('match_complete')
+      } else {
+        // First innings: InningsBreakFlow handles DB update + innings 2 creation
+        setPhase('innings_break')
+      }
+    } finally {
+      submittingRef.current = false
+      setSubmitting(false)
     }
   }
 
@@ -975,7 +1005,10 @@ function ScorerShellInner({
         {!needsNewBatter && !needsNewBowler && !isNaturalEnd(state, match.overs_per_innings, innings.target) && (
           <>
             <div style={{ opacity: submitting ? 0.3 : 1, pointerEvents: submitting ? 'none' : 'auto', marginBottom: 8 }}>
-              <ExtrasRow onExtra={(type, extrasRuns, batRuns) => submitBall({ extras_type: type, extras_runs: extrasRuns, runs_off_bat: batRuns })} />
+              <ExtrasRow
+                onExtra={(type, extrasRuns, batRuns) => submitBall({ extras_type: type, extras_runs: extrasRuns, runs_off_bat: batRuns })}
+                disabled={submitting}
+              />
             </div>
             <div style={{ marginBottom: 4 }}>
               <UndoButton lastBall={lastBall} playerName={playerName} onUndo={undoLastBall} disabled={submitting} />

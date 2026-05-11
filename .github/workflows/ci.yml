@@ -6,13 +6,18 @@ on:
   pull_request:
     branches: [main, master, develop]
 
+# Cancel any in-progress run for the same branch/PR when a new push arrives
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NODE_VERSION: '20'
 
 jobs:
-  # ─── Job 1: Type-check + Unit tests ─────────────────────────────────────────
+  # ─── Job 1: Lint + Type-check + Unit tests ────────────────────────────────────
   unit:
-    name: Type-check & Unit tests
+    name: Lint · Type-check · Unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,22 +30,27 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Lint
+        run: npm run lint
+
       - name: Type-check
         run: npx tsc --noEmit
 
-      - name: Unit tests (cricket engine)
+      - name: Unit tests (cricket engine + phases)
         run: npm test -- --run
 
-  # ─── Job 2: Build ────────────────────────────────────────────────────────────
+  # ─── Job 2: Production build ──────────────────────────────────────────────────
   build:
     name: Production build
     runs-on: ubuntu-latest
     needs: unit
     env:
+      # Build-time env vars — required by Next.js to embed into the bundle
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+      # Server-side secret — used by API routes and server components
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -55,23 +65,29 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Cache the .next directory so E2E jobs don't need to rebuild
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: nextjs-build
-          path: .next/
+          path: |
+            .next/
+            public/
           retention-days: 1
 
-  # ─── Job 3: E2E tests (public + security — no auth needed) ──────────────────
+  # ─── Job 3: E2E — public routes + security (no auth) ─────────────────────────
+  #
+  # Runs on every push. No TEST_USER credentials required.
+  # Tests: public-routes.spec.ts, mobile-all.spec.ts, security.spec.ts
   e2e-public:
-    name: E2E (public + security)
+    name: E2E · Public + Security
     runs-on: ubuntu-latest
     needs: build
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -83,17 +99,33 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install chromium --with-deps
+
+      - name: Install Playwright system deps (cached browser still needs OS libs)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
 
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
           name: nextjs-build
-          path: .next/
 
-      - name: Run public + security E2E tests
-        run: npx playwright test --project=public --project=public-mobile --project=security
+      - name: E2E — public + mobile + security
+        run: >
+          npx playwright test
+          --project=public
+          --project=public-mobile
+          --project=iphone-se-public
+          --project=security
         env:
           CI: true
 
@@ -105,18 +137,22 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-  # ─── Job 4: E2E tests (authenticated — requires secrets) ────────────────────
+  # ─── Job 4: E2E — authenticated flows (scorer, admin, player) ────────────────
+  #
+  # Only runs when TEST_USER_EMAIL and TEST_USER_PASSWORD are configured as
+  # repository secrets. Set them in Settings → Secrets and variables → Actions.
   e2e-auth:
-    name: E2E (authenticated)
+    name: E2E · Authenticated
     runs-on: ubuntu-latest
     needs: build
-    # Only runs when auth secrets are configured
+    # Skip this job gracefully if auth secrets are not configured.
+    # GitHub evaluates secrets as empty strings when unset — the comparison is safe.
     if: ${{ secrets.TEST_USER_EMAIL != '' }}
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
       TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
     steps:
@@ -130,17 +166,35 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install chromium --with-deps
+
+      - name: Install Playwright system deps (cached browser still needs OS libs)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
 
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
           name: nextjs-build
-          path: .next/
 
-      - name: Run authenticated E2E tests
-        run: npx playwright test --project=setup --project=chromium --project=mobile-chrome
+      - name: E2E — authenticated (desktop + mobile)
+        # setup must run first to write tests/e2e/.auth/user.json, then
+        # all auth-dependent projects pick it up via storageState.
+        run: >
+          npx playwright test
+          --project=setup
+          --project=chromium
+          --project=mobile-chrome
+          --project=iphone-se
         env:
           CI: true
 
@@ -151,3 +205,11 @@ jobs:
           name: playwright-report-auth
           path: playwright-report/
           retention-days: 7
+
+      - name: Upload auth storage state (for debugging)
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: auth-state
+          path: tests/e2e/.auth/
+          retention-days: 1

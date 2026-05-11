@@ -73,6 +73,8 @@ export default async function ScorerPage({ params }: { params: Promise<{ id: str
         opponentName: (match.opponent as any)?.canonical_name,
         competitionName: (match.competition as any)?.name,
         matchDate: match.match_date,
+        initialTossWonBy: (match as any).toss_won_by ?? null,
+        initialTossDecision: (match as any).toss_decision ?? null,
       }}
       innings={activeInnings}
       initialBalls={initialBalls}

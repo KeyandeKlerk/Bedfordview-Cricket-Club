@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { InningsState, MatchPlayer } from '@/lib/cricket/types'
 import { oversDisplay } from '@/lib/cricket/engine'
 import { supabase } from '@/lib/supabase/client'
@@ -40,10 +40,15 @@ export default function InningsBreakFlow({
   const [selectingFor, setSelectingFor] = useState<'opener1' | 'opener2' | 'bowler' | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Synchronous guards against double-tap — React state updates are async and
+  // a fast second tap can slip through before the first re-render.
+  const savingRef = useRef(false)
 
   const target = completedState.totalRuns + 1
 
   async function handleSetupInnings2() {
+    if (savingRef.current) return
+    savingRef.current = true
     setSaving(true)
     setError(null)
     try {
@@ -74,11 +79,14 @@ export default function InningsBreakFlow({
       setError(e.message ?? 'Failed to set up innings 2')
     } finally {
       setSaving(false)
+      savingRef.current = false
     }
   }
 
   async function handleResume() {
     if (!innings2Id || !opener1 || !opener2 || !openingBowler) return
+    if (savingRef.current) return
+    savingRef.current = true
     setSaving(true)
     setError(null)
     try {
@@ -96,6 +104,7 @@ export default function InningsBreakFlow({
       setError(e.message ?? 'Failed to start innings 2')
     } finally {
       setSaving(false)
+      savingRef.current = false
     }
   }
 

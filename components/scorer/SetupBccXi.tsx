@@ -64,6 +64,19 @@ export default function SetupBccXi({ matchId, ourSide, availablePlayers, onCompl
       batting_position: i + 1,
     }))
 
+    // Refuse to delete match_players if ball_events already exist for this match —
+    // those events reference match_players.id values and deleting the rows would
+    // leave dangling FKs (or corrupt the innings log if cascade-deleted).
+    const { count: ballCount } = await supabase
+      .from('ball_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('match_id', matchId)
+    if (ballCount && ballCount > 0) {
+      setSaving(false)
+      setError('Scoring has already started for this match. Re-entering setup is not allowed.')
+      return
+    }
+
     const { error: delError } = await supabase
       .from('match_players')
       .delete()

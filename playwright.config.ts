@@ -58,10 +58,28 @@ export default defineConfig({
       testMatch: '**/security.spec.ts',
       use: { ...devices['Desktop Chrome'] },
     },
+    /* iPhone SE — smallest common phone (375×667) — authenticated */
+    {
+      name: 'iphone-se',
+      testIgnore: ['**/security.spec.ts'],
+      use: {
+        ...devices['iPhone SE'],
+        storageState: 'tests/e2e/.auth/user.json',
+      },
+      dependencies: ['setup'],
+    },
+    /* iPhone SE — public routes only, no auth */
+    {
+      name: 'iphone-se-public',
+      testMatch: ['**/public-routes.spec.ts', '**/mobile-all.spec.ts'],
+      use: { ...devices['iPhone SE'] },
+    },
   ],
 
   webServer: {
-    command: 'npm run dev',
+    // In CI, the production build is pre-built and served via `npm start`.
+    // Locally, `npm run dev` is used so changes are reflected without a rebuild.
+    command: process.env.CI ? 'npm run start' : 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

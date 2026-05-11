@@ -267,13 +267,13 @@ export default function WicketModal({
               </button>
               <button
                 onClick={handleConfirmFielder}
-                disabled={!substituteMode && !fielderId && selectedType !== 'run_out'}
+                disabled={!substituteMode && !fielderId}
                 style={{
                   flex: 2, padding: '14px', borderRadius: 8, cursor: 'pointer', fontSize: 15, fontWeight: 700,
                   minHeight: 52,
-                  background: (!substituteMode && !fielderId && selectedType !== 'run_out') ? 'rgba(184,240,0,0.05)' : 'rgba(184,240,0,0.15)',
+                  background: (!substituteMode && !fielderId) ? 'rgba(184,240,0,0.05)' : 'rgba(184,240,0,0.15)',
                   border: '1px solid var(--lime)', color: 'var(--lime)',
-                  opacity: (!substituteMode && !fielderId && selectedType !== 'run_out') ? 0.4 : 1,
+                  opacity: (!substituteMode && !fielderId) ? 0.4 : 1,
                 }}
               >
                 Confirm Wicket

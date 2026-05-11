@@ -110,3 +110,146 @@ export const INNINGS_FIXTURE = {
   overs_completed: 5,
   created_at: new Date().toISOString(),
 }
+
+export const PLAYER_FIXTURE = {
+  id: 'player-uuid-1',
+  first_name: 'Alice',
+  last_name: 'Smith',
+  batting_style: 'Right-hand bat',
+  bowling_style: 'Right-arm medium',
+  is_active: true,
+  user_id: null,
+  jersey_number: 7,
+  is_captain_club: false,
+  is_vice_captain: false,
+  created_at: new Date().toISOString(),
+}
+
+export const ARTICLE_FIXTURE = {
+  id: 'article-uuid-1',
+  title: 'BCC Win the League',
+  slug: 'bcc-win-the-league',
+  content: 'Bedfordview Cricket Club clinched the T20 League title...',
+  excerpt: 'BCC clinched the title in dramatic fashion.',
+  published_at: new Date().toISOString(),
+  created_at: new Date().toISOString(),
+  match_id: null,
+}
+
+export const PRODUCT_FIXTURE = {
+  id: 'product-uuid-1',
+  name: 'BCC Playing Shirt',
+  description: 'Official BCC playing shirt',
+  image_url: null,
+  category: 'kit',
+  price_cents: 45000,
+  available_sizes: ['S', 'M', 'L', 'XL'],
+  benefits: null,
+  is_active: true,
+  sort_order: 1,
+  created_at: new Date().toISOString(),
+}
+
+export const ORDER_FIXTURE = {
+  id: 'order-uuid-1',
+  user_id: 'test-user-uuid',
+  status: 'pending',
+  total_cents: 45000,
+  type: 'kit',
+  created_at: new Date().toISOString(),
+  line_items: [{ product_id: 'product-uuid-1', qty: 1, size: 'M', price_cents: 45000 }],
+}
+
+export const AVAILABILITY_WINDOW_FIXTURE = {
+  id: 'window-uuid-1',
+  title: 'Weekend 12 April',
+  season_id: 'sea1',
+  window_start: '2026-04-12',
+  window_end: '2026-04-13',
+  deadline: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+  created_at: new Date().toISOString(),
+}
+
+export const NOTIFICATION_FIXTURE = {
+  id: 'notif-uuid-1',
+  user_id: 'test-user-uuid',
+  type: 'selection_announced',
+  title: 'You have been selected',
+  body: 'You have been selected for the match vs Edenvale CC.',
+  entity_type: 'match',
+  entity_id: 'match-uuid-1',
+  read_at: null,
+  idempotency_key: 'selection_announced:match-uuid-1:test-user-uuid',
+  created_at: new Date().toISOString(),
+}
+
+export const SELECTION_FIXTURE = {
+  id: 'selection-uuid-1',
+  match_id: 'match-uuid-1',
+  player_id: 'player-uuid-1',
+  status: 'selected',
+  confirmed_at: null,
+  withdrawn_at: null,
+  created_at: new Date().toISOString(),
+}
+
+/**
+ * Stub all 7 common admin table queries in one call.
+ * Reduces 60-line beforeEach boilerplate to a single helper.
+ */
+export async function mockAllAdmin(page: Page) {
+  await page.route('**/rest/v1/matches**', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'application/json', 'Content-Range': '0-0/1' },
+      body: JSON.stringify([MATCH_FIXTURE]),
+    })
+  })
+  await page.route('**/rest/v1/players**', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify([PLAYER_FIXTURE, { ...PLAYER_FIXTURE, id: 'player-uuid-2', first_name: 'Bob', last_name: 'Jones' }]),
+    })
+  })
+  await page.route('**/rest/v1/opponents**', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify([{ id: 'opp1', canonical_name: 'Edenvale CC' }]),
+    })
+  })
+  await page.route('**/rest/v1/competitions**', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify([{ id: 'comp1', name: 'T20 League', category: 'senior', match_format: 'T20' }]),
+    })
+  })
+  await page.route('**/rest/v1/seasons**', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify([{ id: 'sea1', name: '2026', is_active: true }]),
+    })
+  })
+  await page.route('**/rest/v1/grounds**', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify([{ id: 'g1', name: 'Bedfordview Oval' }]),
+    })
+  })
+  await page.route('**/rest/v1/user_roles**', async (route: Route) => {
+    const method = route.request().method()
+    if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify([{ id: 'ur1', user_id: 'test-user-uuid', role: 'admin' }]),
+      })
+    } else {
+      await route.fulfill({ status: 201, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
+    }
+  })
+}
