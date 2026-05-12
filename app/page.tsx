@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { getMatches } from '@/lib/queries'
-import { createClient } from '@supabase/supabase-js'
+import { anonSupabase as supabase } from '@/lib/supabase/server'
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-ZA', {
@@ -18,10 +18,6 @@ export default async function HomePage() {
   ]
 
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
     const [u, r, seasonData, totalMatchesRes, winsRes] = await Promise.all([
       getMatches('upcoming'),
       getMatches('completed'),

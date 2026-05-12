@@ -1,5 +1,5 @@
 'use client'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase/client'
 import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
@@ -12,11 +12,6 @@ import FormGuide from '@/components/stats/charts/FormGuide'
 import ScatterPlot from '@/components/stats/charts/ScatterPlot'
 import WinLossPanel from '@/components/stats/charts/WinLossPanel'
 import RollingFormChart from '@/components/stats/charts/RollingFormChart'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

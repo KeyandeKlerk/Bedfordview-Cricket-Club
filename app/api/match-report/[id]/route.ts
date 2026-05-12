@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { serverSupabase as supabase } from '@/lib/supabase/server'
 import { computeInningsState } from '@/lib/cricket/engine'
 import { buildInningsSummary, generateMatchReport } from '@/lib/cricket/reportGenerator'
 import type { BallEvent } from '@/lib/cricket/types'
@@ -11,11 +11,6 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: matchId } = await params
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
 
   // Fetch match metadata
   const { data: match, error: matchErr } = await supabase

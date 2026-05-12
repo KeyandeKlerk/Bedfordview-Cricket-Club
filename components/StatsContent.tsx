@@ -1,13 +1,8 @@
 'use client'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase/client'
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { overs, fmt, bestFigures, BATTING_COLS, BOWLING_COLS, FIELDING_COLS } from '@/lib/stats/formatters'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 interface Season      { id: string; name: string; is_active: boolean }
 interface Competition { id: string; name: string; season_id: string; type: string; category: string }

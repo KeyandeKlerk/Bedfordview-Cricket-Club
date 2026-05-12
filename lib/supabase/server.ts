@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 
 /**
- * Server-only Supabase client using the service role key.
- * Never import this in client components.
+ * Server-only Supabase client using the service role key (bypasses RLS).
+ * Use for admin API routes. Never import this in client components.
  */
 export function createServerClient() {
   return createClient(
@@ -16,6 +16,22 @@ export function createServerClient() {
 let _serverSupabase: ReturnType<typeof createServerClient> | undefined
 export const serverSupabase = new Proxy({} as ReturnType<typeof createServerClient>, {
   get(_, prop) { return (_serverSupabase ??= createServerClient())[prop as keyof ReturnType<typeof createServerClient>] },
+})
+
+/**
+ * Server-only Supabase client using the anon key (respects RLS).
+ * Use for public server components and pages. Never import this in client components.
+ */
+function createAnonClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'http://localhost:54321',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'placeholder'
+  )
+}
+
+let _anonSupabase: ReturnType<typeof createAnonClient> | undefined
+export const anonSupabase = new Proxy({} as ReturnType<typeof createAnonClient>, {
+  get(_, prop) { return (_anonSupabase ??= createAnonClient())[prop as keyof ReturnType<typeof createAnonClient>] },
 })
 
 export async function getCurrentUserRole(userId: string): Promise<string | null> {

@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { anonSupabase as supabase } from '@/lib/supabase/server'
 import Link from 'next/link'
 
 export const revalidate = 300
@@ -56,11 +56,6 @@ export default async function RecordsPage({
 }) {
   const { category } = await searchParams
   const cat = category === 'senior' || category === 'junior' ? category : null
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
 
   // When no category selected, use the totals views (one row per player, all categories combined).
   // When a category is selected, use the category-scoped views with a team_category filter.

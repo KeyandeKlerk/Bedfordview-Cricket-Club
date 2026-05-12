@@ -1,15 +1,10 @@
 'use client'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase/client'
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import RunRateChart from '@/components/analytics/charts/RunRateChart'
 import ResultsTrajectory from '@/components/analytics/charts/ResultsTrajectory'
 import AnalyticsBarChart from '@/components/analytics/charts/AnalyticsBarChart'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 

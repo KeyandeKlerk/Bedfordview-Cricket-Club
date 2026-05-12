@@ -1,5 +1,5 @@
 import { ImageResponse } from 'next/og'
-import { createClient } from '@supabase/supabase-js'
+import { anonSupabase as supabase } from '@/lib/supabase/server'
 import { computeInningsState, deriveResultText } from '@/lib/cricket/engine'
 import type { BallEvent } from '@/lib/cricket/types'
 
@@ -11,10 +11,6 @@ export const contentType = 'image/png'
 
 export default async function OGImage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
 
   const [matchRes, inningsRes, playersRes] = await Promise.all([
     supabase.from('matches').select('*, opponent:opponents(canonical_name), competition:competitions(name)').eq('id', id).single(),

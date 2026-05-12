@@ -1,5 +1,5 @@
 import { ImageResponse } from 'next/og'
-import { createClient } from '@supabase/supabase-js'
+import { anonSupabase as supabase } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
 export const revalidate = 300
@@ -9,10 +9,6 @@ export const contentType = 'image/png'
 
 export default async function OGImage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
 
   const [playerRes, batRes, bowlRes] = await Promise.all([
     supabase.from('players').select('first_name, last_name, batting_style, bowling_style').eq('id', id).single(),

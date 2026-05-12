@@ -1,15 +1,9 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getCurrentPlayerServer } from '@/lib/supabase-server'
-import { serverSupabase } from '@/lib/supabase/server'
-import { createClient } from '@supabase/supabase-js'
+import { serverSupabase, anonSupabase as supabase } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })

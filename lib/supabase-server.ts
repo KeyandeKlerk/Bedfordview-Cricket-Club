@@ -1,6 +1,7 @@
 // Legacy compatibility shim — new code should import from lib/supabase/server.ts
 import { createServerClient as createSSRServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import type { Role } from './cricket/types'
 
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies()
@@ -37,9 +38,8 @@ export async function getCurrentPlayerServer() {
 
   // Role hierarchy: highest-privilege role wins
   const roles = (rolesRes.data ?? []).map((r: any) => r.role as string)
-  const HIERARCHY = ['admin', 'coach', 'scorer', 'shop', 'player'] as const
-  type AppRole = 'admin' | 'coach' | 'scorer' | 'shop' | 'player' | 'member'
-  const role: AppRole = (HIERARCHY.find(r => roles.includes(r)) ?? 'member') as AppRole
+  const HIERARCHY: Role[] = ['admin', 'coach', 'scorer', 'shop', 'player']
+  const role: Role = HIERARCHY.find(r => roles.includes(r)) ?? 'member'
 
   const player = playerRes.data
 

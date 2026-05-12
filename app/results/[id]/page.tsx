@@ -1,16 +1,11 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@supabase/supabase-js'
+import { anonSupabase as supabase } from '@/lib/supabase/server'
 import { computeInningsState, oversDisplay, deriveResultText } from '@/lib/cricket/engine'
 import type { BallEvent } from '@/lib/cricket/types'
 import ShareButton from '@/components/ShareButton'
 
 export const revalidate = 30
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 /** Returns cricket-standard dismissal string, e.g. "c Smith b Jones", "b Jones", "run out (Smith)" */
 function formatHowOut(
