@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { InfoTooltip } from '@/components/InfoTooltip'
 import { overs, fmt, bestFigures, formatDate, labelDismissal, getPhaseLabel, bowlingAvgFmt } from '@/lib/stats/formatters'
+import type { BattingInning, SeasonBatting } from '@/lib/stats/types'
 import CSSBarChart from '@/components/stats/charts/CSSBarChart'
 import ColorBarChart from '@/components/stats/charts/ColorBarChart'
 import SVGLineChart from '@/components/stats/charts/SVGLineChart'
@@ -71,11 +72,6 @@ interface CareerFielding {
   total_dismissals: number
 }
 
-interface SeasonBatting extends CareerBatting {
-  season_id: string
-  seasons: { name: string } | null
-}
-
 interface SeasonBowling extends CareerBowling {
   season_id: string
   seasons: { name: string } | null
@@ -84,19 +80,6 @@ interface SeasonBowling extends CareerBowling {
 interface SeasonFielding extends CareerFielding {
   season_id: string
   seasons: { name: string } | null
-}
-
-interface BattingInning {
-  runs: number | null
-  balls_faced: number | null
-  fours: number | null
-  sixes: number | null
-  strike_rate: number | null
-  dismissal_type: string | null
-  actual_batting_position: number | null
-  opposition_name: string | null
-  match_id: string | null
-  match_date?: string | null
 }
 
 interface BowlingInning {
