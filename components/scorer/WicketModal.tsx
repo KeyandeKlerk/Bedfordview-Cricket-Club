@@ -8,6 +8,7 @@ interface Props {
   fieldingPlayers: MatchPlayer[]      // players on the fielding side
   isFreeHit: boolean
   playerName: (id: string) => string
+  getBallsFaced: (playerId: string) => number
   onConfirm: (args: {
     dismissalType: DismissalType
     dismissedPlayerId: string
@@ -39,6 +40,7 @@ export default function WicketModal({
   fieldingPlayers,
   isFreeHit,
   playerName,
+  getBallsFaced,
   onConfirm,
   onClose,
 }: Props) {
@@ -51,10 +53,12 @@ export default function WicketModal({
 
   const dismissedId = isNonStrikerOut ? nonStrikerId : strikerId
 
-  // On free hit: only run_out is allowed
+  const dismissedBalls = getBallsFaced(dismissedId)
   const availableTypes = isFreeHit
     ? ALL_DISMISSAL_TYPES.filter(d => d.type === 'run_out')
-    : ALL_DISMISSAL_TYPES
+    : dismissedBalls > 0
+      ? ALL_DISMISSAL_TYPES.filter(d => d.type !== 'timed_out')
+      : ALL_DISMISSAL_TYPES
 
   const keeperId = fieldingPlayers.find(p => p.is_keeper)?.id ?? null
 

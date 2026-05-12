@@ -14,7 +14,7 @@ interface Props {
   battingPlayers: MatchPlayer[]
   bowlingPlayers: MatchPlayer[]
   playerName: (id: string) => string
-  onResumeScoring: (innings2Id: string, openerId1: string, openerId2: string, openingBowlerId: string, target: number) => void
+  onResumeScoring: (innings2Id: string, openerId1: string, openerId2: string, openingBowlerId: string, target: number, bonusRuns: number) => void
   onMatchComplete: () => void
 }
 
@@ -34,6 +34,7 @@ export default function InningsBreakFlow({
 }: Props) {
   const [phase, setPhase] = useState<Phase>(initialInnings2Id ? 'pre_match' : 'result')
   const [innings2Id, setInnings2Id] = useState<string | null>(initialInnings2Id)
+  const [innings2BonusRuns, setInnings2BonusRuns] = useState(0)
   const [opener1, setOpener1] = useState<string | null>(null)
   const [opener2, setOpener2] = useState<string | null>(null)
   const [openingBowler, setOpeningBowler] = useState<string | null>(null)
@@ -59,6 +60,14 @@ export default function InningsBreakFlow({
         .eq('id', completedInningsId)
       if (e1) throw e1
 
+      // Seed bonus_runs from any fielding-side penalty balls in innings 1
+      const { data: penaltyBalls } = await supabase
+        .from('ball_events')
+        .select('extras_runs')
+        .eq('innings_id', completedInningsId)
+        .eq('penalty_to_fielding', true)
+      const initialBonus = penaltyBalls?.reduce((s, b) => s + b.extras_runs, 0) ?? 0
+
       // Create innings 2
       const { data, error: e2 } = await supabase
         .from('innings')
@@ -68,12 +77,14 @@ export default function InningsBreakFlow({
           batting_side: innings2BattingSide,
           status: 'pending',
           target,
+          bonus_runs: initialBonus,
         })
         .select('id')
         .single()
       if (e2) throw e2
 
       setInnings2Id(data.id)
+      setInnings2BonusRuns(initialBonus)
       setPhase('pre_match')
     } catch (e: any) {
       setError(e.message ?? 'Failed to set up innings 2')
@@ -99,7 +110,7 @@ export default function InningsBreakFlow({
       const { error: e3 } = await supabase
         .from('match_players').update({ actual_batting_position: 2 }).eq('id', opener2)
       if (e3) throw e3
-      onResumeScoring(innings2Id, opener1, opener2, openingBowler, target)
+      onResumeScoring(innings2Id, opener1, opener2, openingBowler, target, innings2BonusRuns)
     } catch (e: any) {
       setError(e.message ?? 'Failed to start innings 2')
     } finally {

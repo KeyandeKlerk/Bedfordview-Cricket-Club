@@ -31,6 +31,8 @@ function makeBall(overrides: Partial<BallEvent> = {}): BallEvent {
     dismissed_player_id: null,
     fielder_id: null,
     fielder_substitute_name: null,
+    penalty_reason: null,
+    penalty_to_fielding: false,
     commentary: null,
     created_at: new Date().toISOString(),
     ...overrides,
@@ -100,16 +102,46 @@ describe('Test 3 — bye', () => {
 
 // ── Test 4: Penalty runs ───────────────────────────────────────────────────────
 
-describe('Test 4 — penalty runs', () => {
-  it('total+=5, batter=0, bowler=0', () => {
-    const ball = makeBall({ extras_type: 'penalty', runs_off_bat: 0, extras_runs: 5 })
+describe('Test 4 — penalty runs (batting side receives)', () => {
+  it('total+=5, extras.penalty+=5, batter=0, bowler=0', () => {
+    const ball = makeBall({ extras_type: 'penalty', runs_off_bat: 0, extras_runs: 5, penalty_to_fielding: false })
     expect(totalBallRuns(ball)).toBe(5)
     expect(bowlerRuns(ball)).toBe(0)
 
     const state = computeInningsState([ball], NAMES)
     expect(state.totalRuns).toBe(5)
+    expect(state.extras.penalty).toBe(5)
+    expect(state.extras.total).toBe(5)
     expect(state.batterStats['mp-1'].runs).toBe(0)
     expect(state.bowlerStats['mp-3'].runs).toBe(0)
+  })
+})
+
+// ── Test 4b: Fielding-side penalty (opponent receives runs) ────────────────────
+
+describe('Test 4b — penalty runs (fielding side receives)', () => {
+  it('totalRuns unchanged, extras excluded, batter=0, bowler=0', () => {
+    const ball = makeBall({ extras_type: 'penalty', runs_off_bat: 0, extras_runs: 5, penalty_to_fielding: true })
+    // totalBallRuns still returns 5 (raw ball total), but engine excludes it from batting innings
+    expect(totalBallRuns(ball)).toBe(5)
+    expect(bowlerRuns(ball)).toBe(0)
+
+    const state = computeInningsState([ball], NAMES)
+    expect(state.totalRuns).toBe(0)         // NOT credited to batting innings
+    expect(state.extras.penalty).toBe(0)    // NOT in extras
+    expect(state.extras.total).toBe(0)
+    expect(state.batterStats['mp-1'].runs).toBe(0)
+    expect(state.bowlerStats['mp-3'].runs).toBe(0)
+  })
+
+  it('mix: one batting-side penalty + one fielding-side penalty: only batting one counts', () => {
+    const battingPenalty = makeBall({ extras_type: 'penalty', extras_runs: 5, penalty_to_fielding: false, over_number: 0, ball_in_over: 0 })
+    const fieldingPenalty = makeBall({ extras_type: 'penalty', extras_runs: 5, penalty_to_fielding: true, over_number: 0, ball_in_over: 1 })
+
+    const state = computeInningsState([battingPenalty, fieldingPenalty], NAMES)
+    expect(state.totalRuns).toBe(5)          // only batting-side counts
+    expect(state.extras.penalty).toBe(5)     // only batting-side in extras
+    expect(state.extras.total).toBe(5)
   })
 })
 

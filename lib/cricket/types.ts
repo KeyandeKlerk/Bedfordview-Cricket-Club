@@ -49,6 +49,8 @@ export type BallEvent = {
   dismissed_player_id: string | null  // match_players.id
   fielder_id: string | null           // match_players.id
   fielder_substitute_name: string | null
+  penalty_reason: string | null
+  penalty_to_fielding: boolean
   commentary: string | null
   created_at: string
 }

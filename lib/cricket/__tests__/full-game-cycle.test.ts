@@ -67,6 +67,7 @@ function b(overrides: Partial<BallEvent> = {}): BallEvent {
     is_boundary_four: false, is_boundary_six: false,
     dismissal_type: null, dismissed_player_id: null,
     fielder_id: null, fielder_substitute_name: null,
+    penalty_reason: null, penalty_to_fielding: false,
     commentary: null, created_at: new Date().toISOString(),
     ...overrides,
   }

@@ -41,6 +41,8 @@ const SAMPLE_BALLS = Array.from({ length: 6 }, (_, i) => ({
   dismissed_player_id: null,
   fielder_id: null,
   fielder_substitute_name: null,
+  penalty_reason: null,
+  penalty_to_fielding: false,
   commentary: null,
   created_at: new Date().toISOString(),
 }))

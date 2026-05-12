@@ -587,11 +587,11 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
                     </div>
                     <div>
                       <div className="innings-total">
-                        {state.totalRuns}<span className="innings-total-wkts">/{state.wickets}</span>
+                        {state.totalRuns + (inn.bonus_runs ?? 0)}<span className="innings-total-wkts">/{state.wickets}</span>
                       </div>
                       <div className="innings-rr">
                         {state.oversDisplay} overs ·{' '}
-                        RR {state.legalBalls > 0 ? ((state.totalRuns / state.legalBalls) * 6).toFixed(2) : '0.00'}
+                        RR {state.legalBalls > 0 ? (((state.totalRuns + (inn.bonus_runs ?? 0)) / state.legalBalls) * 6).toFixed(2) : '0.00'}
                       </div>
                     </div>
                   </div>
@@ -636,8 +636,9 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
                     <div className="extras-row">
                       <span className="extras-label">Extras</span>
                       <span className="extras-value">
-                        {state.extras.total}{' '}
-                        (b {state.extras.bye}, lb {state.extras.leg_bye}, wd {state.extras.wide}, nb {state.extras.no_ball})
+                        {state.extras.total + (inn.bonus_runs ?? 0)}{' '}
+                        (b {state.extras.bye}, lb {state.extras.leg_bye}, wd {state.extras.wide}, nb {state.extras.no_ball}
+                        {(state.extras.penalty + (inn.bonus_runs ?? 0)) > 0 && `, pen ${state.extras.penalty + (inn.bonus_runs ?? 0)}`})
                       </span>
                     </div>
                     {state.fallOfWickets.length > 0 && (

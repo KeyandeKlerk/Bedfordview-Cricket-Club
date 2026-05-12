@@ -249,16 +249,21 @@ export function computeInningsState(
     const ball = balls[i]
     const legal = isLegalDelivery(ball)
 
-    // Totals
-    state.totalRuns += totalBallRuns(ball)
+    // Totals — fielding-side penalty runs are not credited to the batting innings
+    const countForBatting = !(ball.extras_type === 'penalty' && ball.penalty_to_fielding)
+    if (countForBatting) state.totalRuns += totalBallRuns(ball)
     if (legal) state.legalBalls++
 
     // Extras
     if (ball.extras_type) {
-      const key = ball.extras_type as keyof typeof state.extras
-      if (key !== 'total') {
-        state.extras[key] += ball.extras_runs
-        state.extras.total += ball.extras_runs
+      if (ball.extras_type === 'penalty' && ball.penalty_to_fielding) {
+        // Fielding-side penalty: runs go to opponent's innings — not counted here
+      } else {
+        const key = ball.extras_type as keyof typeof state.extras
+        if (key !== 'total') {
+          state.extras[key] += ball.extras_runs
+          state.extras.total += ball.extras_runs
+        }
       }
     }
 

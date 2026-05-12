@@ -5,10 +5,11 @@ import ExtraRunsModal from './ExtraRunsModal'
 
 interface Props {
   onExtra: (type: ExtrasType, extrasRuns: number, batRuns: number) => void
+  onPenalty?: () => void
   disabled?: boolean
 }
 
-export default function ExtrasRow({ onExtra, disabled }: Props) {
+export default function ExtrasRow({ onExtra, onPenalty, disabled }: Props) {
   const [open, setOpen] = useState<ExtrasType | null>(null)
 
   const btnBase: React.CSSProperties = {
@@ -53,7 +54,7 @@ export default function ExtrasRow({ onExtra, disabled }: Props) {
       {/* Penalty: full width, secondary */}
       <button
         disabled={disabled}
-        onClick={() => !disabled && setOpen('penalty')}
+        onClick={() => !disabled && onPenalty?.()}
         style={{ ...btnBase, width: '100%', fontSize: 13, opacity: disabled ? 0.4 : 0.7, height: 44, minHeight: 44 }}
       >
         Penalty

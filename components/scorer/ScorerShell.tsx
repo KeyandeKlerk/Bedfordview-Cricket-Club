@@ -19,6 +19,8 @@ import UndoButton from './UndoButton'
 import InningsBreakFlow from './InningsBreakFlow'
 import CaptainKeeperSetup from './CaptainKeeperSetup'
 import CorrectBallModal from './CorrectBallModal'
+import CorrectOverBowlerModal from './CorrectOverBowlerModal'
+import PenaltyModal from './PenaltyModal'
 import SetupBccXi from './SetupBccXi'
 import SetupOppXi from './SetupOppXi'
 import SearchSelect from './SearchSelect'
@@ -41,6 +43,7 @@ interface InningsData {
   batting_side: 'home' | 'away'
   status: string
   target: number | null
+  bonus_runs: number
 }
 
 interface AvailablePlayer {
@@ -131,6 +134,12 @@ function ScorerShellInner({
   const [showAbandonFlow, setShowAbandonFlow]       = useState(false)
   const [showMatchOptions, setShowMatchOptions]     = useState(false)
   const [abandonReason, setAbandonReason]           = useState<string>('')
+  const [showEditFormat, setShowEditFormat]         = useState(false)
+  const [newOversInput, setNewOversInput]           = useState('')
+  const [oversPerInnings, setOversPerInnings]       = useState(match.overs_per_innings)
+  const [showCorrectBowler, setShowCorrectBowler]   = useState(false)
+  const [showInjuryBowler, setShowInjuryBowler]     = useState(false)
+  const [showPenaltyModal, setShowPenaltyModal]     = useState(false)
   const [endInningsBallId, setEndInningsBallId] = useState<string | null>(null)
   const [correctingBall, setCorrectingBall] = useState<BallEvent | null>(null)
   // Pending selections: hold chosen player until the next ball is submitted
@@ -254,7 +263,7 @@ function ScorerShellInner({
   // Don't prompt if the innings is already naturally over (saves no purpose and blocks UI)
   const prevWickets = useRef(state.wickets)
   useEffect(() => {
-    const inningsOver = innings ? isNaturalEnd(state, match.overs_per_innings, innings.target) : false
+    const inningsOver = innings ? isNaturalEnd(state, oversPerInnings, innings.target) : false
     if (state.wickets > prevWickets.current && state.wickets < 10 && !inningsOver) setShowNewBatter(true)
     prevWickets.current = state.wickets
   }, [state.wickets])
@@ -435,10 +444,10 @@ function ScorerShellInner({
               // Innings 1 — create it in the DB and mark match as in_progress
               const { data } = await supabase
                 .from('innings')
-                .upsert({ match_id: match.id, innings_number: 1, batting_side: battingSide, status: 'in_progress' }, { onConflict: 'match_id,innings_number' })
+                .upsert({ match_id: match.id, innings_number: 1, batting_side: battingSide, status: 'in_progress', bonus_runs: 0 }, { onConflict: 'match_id,innings_number' })
                 .select().single()
               if (data) {
-                setInnings({ id: data.id, innings_number: 1, batting_side: battingSide, status: 'in_progress', target: null })
+                setInnings({ id: data.id, innings_number: 1, batting_side: battingSide, status: 'in_progress', target: null, bonus_runs: 0 })
               }
               await supabase.from('matches').update({ status: 'in_progress' }).eq('id', match.id)
             } else if (innings.status !== 'in_progress') {
@@ -471,7 +480,7 @@ function ScorerShellInner({
         battingPlayers={matchPlayers.filter(p => p.side === bowlingSide)}
         bowlingPlayers={matchPlayers.filter(p => p.side === innings.batting_side)}
         playerName={playerName}
-        onResumeScoring={(inn2Id, op1, op2, bowler, target) => {
+        onResumeScoring={(inn2Id, op1, op2, bowler, target, bonusRuns) => {
           // Reset all innings-1 state that must not leak into innings 2
           prevLegalBalls.current = 0
           prevWickets.current = 0
@@ -483,7 +492,7 @@ function ScorerShellInner({
           setShowWicketModal(false)
           setShowEndInningsConfirm(false)
           // Start innings 2
-          setInnings({ id: inn2Id, innings_number: 2, batting_side: bowlingSide, status: 'in_progress', target })
+          setInnings({ id: inn2Id, innings_number: 2, batting_side: bowlingSide, status: 'in_progress', target, bonus_runs: bonusRuns })
           setOpener1(op1); setOpener2(op2); setOpeningBowler(bowler)
           setBalls([])
           setPhase('scoring')
@@ -566,13 +575,13 @@ function ScorerShellInner({
     if (authWarning) { setError('Session expired — please refresh and log in again.'); return }
 
     // Block if the innings has already reached a natural end (target met, all out, overs up)
-    if (isNaturalEnd(state, match.overs_per_innings, innings.target)) {
+    if (isNaturalEnd(state, oversPerInnings, innings.target)) {
       setError('Innings is already over — click "End Innings" to continue.')
       return
     }
 
     const validation = validateBall(partialBall, state, {
-      overs_per_innings: match.overs_per_innings,
+      overs_per_innings: oversPerInnings,
       free_hit_on_no_ball: match.free_hit_on_no_ball,
     })
     if (!validation.valid) { setError(validation.error); return }
@@ -604,6 +613,8 @@ function ScorerShellInner({
         dismissed_player_id: null,
         fielder_id: null,
         fielder_substitute_name: null,
+        penalty_reason: null,
+        penalty_to_fielding: false,
         commentary: null,
         created_at: new Date().toISOString(),
         ...partialBall,
@@ -614,7 +625,7 @@ function ScorerShellInner({
 
       // Compute state after this ball to detect a natural end caused by it
       const nextState = computeInningsState([...balls, newBall], playerNameMap)
-      const endsInnings = isNaturalEnd(nextState, match.overs_per_innings, innings.target)
+      const endsInnings = isNaturalEnd(nextState, oversPerInnings, innings.target)
 
       setBalls(prev => [...prev, newBall])
       lastKnownSequenceRef.current = nextSeq
@@ -743,6 +754,44 @@ function ScorerShellInner({
       setError('Failed to save correction: ' + error.message)
       // Revert on failure using the original captured above
       setBalls(prev => prev.map(b => b.id === updated.id ? original : b))
+    }
+  }
+
+  async function correctOverBowler(overNumber: number, newBowlerId: string) {
+    const overBalls = balls.filter(b => b.over_number === overNumber)
+    const ballIds = overBalls.map(b => b.id)
+    const originalBalls = [...balls]
+    setBalls(prev => prev.map(b => b.over_number === overNumber ? { ...b, bowler_id: newBowlerId } : b))
+    setShowCorrectBowler(false)
+    const { error } = await supabase
+      .from('ball_events')
+      .update({ bowler_id: newBowlerId })
+      .in('id', ballIds)
+    if (error) {
+      setError('Failed to correct bowler: ' + error.message)
+      setBalls(originalBalls)
+    }
+  }
+
+  async function handlePenalty(reason: string, toFielding: boolean) {
+    setShowPenaltyModal(false)
+    await submitBall({ extras_type: 'penalty', extras_runs: 5, runs_off_bat: 0, penalty_reason: reason, penalty_to_fielding: toFielding })
+    if (toFielding && innings) {
+      const fieldingSide = innings.batting_side === match.our_team_side ? oppSide : match.our_team_side
+      const { data: opponentInnings } = await supabase
+        .from('innings')
+        .select('id, bonus_runs')
+        .eq('match_id', match.id)
+        .eq('batting_side', fieldingSide)
+        .maybeSingle()
+      if (opponentInnings) {
+        await supabase
+          .from('innings')
+          .update({ bonus_runs: opponentInnings.bonus_runs + 5 })
+          .eq('id', opponentInnings.id)
+      }
+      // If no opponent innings yet: the penalty_to_fielding=true ball is stored in ball_events.
+      // InningsBreakFlow seeds bonus_runs from those balls when innings 2 is created.
     }
   }
 
@@ -886,7 +935,7 @@ function ScorerShellInner({
                 <span style={{ color: 'var(--dim)' }}>RR <strong style={{ color: 'var(--text)' }}>{((state.totalRuns / state.legalBalls) * 6).toFixed(2)}</strong></span>
               )}
               {(() => {
-                const remaining = match.overs_per_innings * 6 - state.legalBalls
+                const remaining = oversPerInnings * 6 - state.legalBalls
                 if (remaining <= 0 || remaining > 6) return null
                 return <span style={{ color: 'var(--red)', fontWeight: 600, fontSize: 12 }}>Last over</span>
               })()}
@@ -1002,11 +1051,12 @@ function ScorerShellInner({
       <div className="scorer-secondary">
         {submitting && <div className="scorer-saving-badge">Saving…</div>}
 
-        {!needsNewBatter && !needsNewBowler && !isNaturalEnd(state, match.overs_per_innings, innings.target) && (
+        {!needsNewBatter && !needsNewBowler && !isNaturalEnd(state, oversPerInnings, innings.target) && (
           <>
             <div style={{ opacity: submitting ? 0.3 : 1, pointerEvents: submitting ? 'none' : 'auto', marginBottom: 8 }}>
               <ExtrasRow
                 onExtra={(type, extrasRuns, batRuns) => submitBall({ extras_type: type, extras_runs: extrasRuns, runs_off_bat: batRuns })}
+                onPenalty={() => setShowPenaltyModal(true)}
                 disabled={submitting}
               />
             </div>
@@ -1027,7 +1077,7 @@ function ScorerShellInner({
           <button className="btn btn-primary scorer-block-btn" onClick={() => setShowChangeBowler(true)}>
             Over complete — Choose bowler →
           </button>
-        ) : isNaturalEnd(state, match.overs_per_innings, innings.target) ? (
+        ) : isNaturalEnd(state, oversPerInnings, innings.target) ? (
           <button className="btn btn-primary" onClick={handleEndInnings}
             style={{ fontSize: 17, width: '100%', justifyContent: 'center', minHeight: 64 }}>
             End Innings →
@@ -1045,7 +1095,7 @@ function ScorerShellInner({
       </div>
 
       {/* Zone E — Danger row (match options hidden behind toggle) */}
-      {!needsNewBatter && !needsNewBowler && !isNaturalEnd(state, match.overs_per_innings, innings.target) && (
+      {!needsNewBatter && !needsNewBowler && !isNaturalEnd(state, oversPerInnings, innings.target) && (
         <div className="scorer-danger-row">
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: 6 }}>
             {!showEndInningsConfirm ? (
@@ -1069,6 +1119,20 @@ function ScorerShellInner({
                     <button onClick={() => { setShowAbandonFlow(true); setShowMatchOptions(false) }}
                       style={{ flex: 1, padding: '8px 6px', minHeight: 36, borderRadius: 7, background: 'transparent', border: '1px solid transparent', color: 'var(--dim)', cursor: 'pointer', fontSize: 11, opacity: 0.55 }}>
                       Abandon
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, paddingTop: 4 }}>
+                    <button onClick={() => { setNewOversInput(String(oversPerInnings)); setShowEditFormat(true); setShowMatchOptions(false) }}
+                      style={{ flex: 1, padding: '8px 6px', minHeight: 36, borderRadius: 7, background: 'transparent', border: '1px solid rgba(56,189,248,0.3)', color: 'var(--sky)', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+                      Edit overs
+                    </button>
+                    <button onClick={() => { setShowCorrectBowler(true); setShowMatchOptions(false) }}
+                      style={{ flex: 1, padding: '8px 6px', minHeight: 36, borderRadius: 7, background: 'transparent', border: '1px solid rgba(56,189,248,0.3)', color: 'var(--sky)', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+                      Correct bowler
+                    </button>
+                    <button onClick={() => { setShowInjuryBowler(true); setShowMatchOptions(false) }}
+                      style={{ flex: 1, padding: '8px 6px', minHeight: 36, borderRadius: 7, background: 'transparent', border: '1px solid rgba(56,189,248,0.3)', color: 'var(--sky)', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+                      Bowler injured
                     </button>
                   </div>
                 </div>
@@ -1165,6 +1229,68 @@ function ScorerShellInner({
         </div>
       )}
 
+      {showEditFormat && innings && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+          <div style={{ maxWidth: 380, width: '100%', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 16, padding: 28 }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, color: 'var(--text)', marginBottom: 8 }}>Edit match overs</h2>
+            <p style={{ color: 'var(--muted)', fontSize: 13, lineHeight: 1.6, marginBottom: 20 }}>
+              Currently set to <strong style={{ color: 'var(--text)' }}>{oversPerInnings} overs</strong>.
+              {state.legalBalls > 0 && (
+                <> {Math.ceil(state.legalBalls / 6)} over{Math.ceil(state.legalBalls / 6) !== 1 ? 's' : ''} already started — minimum is {Math.ceil(state.legalBalls / 6)}.</>
+              )}
+            </p>
+            <input
+              type="number"
+              min={Math.max(1, Math.ceil(state.legalBalls / 6))}
+              value={newOversInput}
+              onChange={e => setNewOversInput(e.target.value)}
+              style={{ width: '100%', padding: '10px 14px', marginBottom: 20, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 18, fontWeight: 700, boxSizing: 'border-box', textAlign: 'center' }}
+              autoFocus
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => setShowEditFormat(false)}
+                style={{ flex: 1, padding: '12px', borderRadius: 8, background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
+              >
+                Cancel
+              </button>
+              <button
+                disabled={(() => {
+                  const v = parseInt(newOversInput, 10)
+                  return !Number.isInteger(v) || v < Math.max(1, Math.ceil(state.legalBalls / 6))
+                })()}
+                onClick={async () => {
+                  const v = parseInt(newOversInput, 10)
+                  const { error: rpcErr } = await supabase.rpc('update_match_overs', {
+                    p_match_id: match.id,
+                    p_new_overs: v,
+                  })
+                  if (rpcErr) { setError(rpcErr.message); return }
+                  setOversPerInnings(v)
+                  setShowEditFormat(false)
+                }}
+                style={{ flex: 2, padding: '12px', borderRadius: 8, background: 'rgba(56,189,248,0.15)', border: '1px solid var(--sky)', color: 'var(--sky)', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}
+              >
+                Update overs
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCorrectBowler && innings && (
+        <CorrectOverBowlerModal
+          overs={[
+            ...state.completedOvers,
+            ...(state.currentOverBalls.length > 0 ? [state.currentOverBalls] : []),
+          ]}
+          fieldingPlayers={fieldingPlayers}
+          playerName={playerName}
+          onConfirm={correctOverBowler}
+          onClose={() => setShowCorrectBowler(false)}
+        />
+      )}
+
       {showWicketModal && (
         <WicketModal
           strikerId={effectiveStrikerId}
@@ -1172,6 +1298,7 @@ function ScorerShellInner({
           fieldingPlayers={fieldingPlayers}
           isFreeHit={freeHit}
           playerName={playerName}
+          getBallsFaced={(id) => state.batterStats[id]?.balls ?? 0}
           onConfirm={async (args) => {
             await submitBall({
               dismissal_type: args.dismissalType,
@@ -1213,12 +1340,33 @@ function ScorerShellInner({
         />
       )}
 
+      {showInjuryBowler && innings && (
+        <PlayerSelectModal
+          purpose="change_bowler"
+          players={fieldingPlayers}
+          playerName={playerName}
+          previousBowlerId={prevBowlerId}
+          excludeIds={state.currentBowlerId ? [state.currentBowlerId] : []}
+          onSelect={(id) => { setPendingNewBowlerId(id); setShowInjuryBowler(false) }}
+          onClose={() => setShowInjuryBowler(false)}
+        />
+      )}
+
       {correctingBall && (
         <CorrectBallModal
           ball={correctingBall}
           playerName={playerName}
           onSave={correctBall}
           onClose={() => setCorrectingBall(null)}
+        />
+      )}
+
+      {showPenaltyModal && innings && (
+        <PenaltyModal
+          battingTeamName={innings.batting_side === match.our_team_side ? 'BCC' : (match.opponentName ?? 'Opponents')}
+          fieldingTeamName={innings.batting_side !== match.our_team_side ? 'BCC' : (match.opponentName ?? 'Opponents')}
+          onConfirm={handlePenalty}
+          onClose={() => setShowPenaltyModal(false)}
         />
       )}
 
