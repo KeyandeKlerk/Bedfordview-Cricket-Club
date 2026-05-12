@@ -234,4 +234,16 @@ describe('detectPhase — re-entry regression: setup phases must NOT show when s
       .toBe('match_complete')
   })
 
+  it('6.6 — empty matchPlayers + in_progress + 0 balls → select_openers (not setup_bcc_xi)', () => {
+    // Reload immediately after innings starts (before first ball), matchPlayers loads empty.
+    // Must return select_openers, not setup_bcc_xi — innings was already started.
+    expect(detectPhase([], { innings_number: 1, status: 'in_progress' }, 0, OUR_SIDE))
+      .toBe('select_openers')
+  })
+
+  it('6.7 — empty matchPlayers + in_progress + 0 balls (innings 2) → select_openers', () => {
+    expect(detectPhase([], { innings_number: 2, status: 'in_progress' }, 0, OUR_SIDE))
+      .toBe('select_openers')
+  })
+
 })

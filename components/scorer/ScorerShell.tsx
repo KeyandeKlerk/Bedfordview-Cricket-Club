@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { BallEvent, DismissalType, ExtrasType, InningsState, MatchPlayer } from '@/lib/cricket/types'
 import { computeInningsState, isNaturalEnd, deriveResultText } from '@/lib/cricket/engine'
+import { deriveEffectivePositions } from '@/lib/cricket/positions'
 import { detectPhase as _detectPhase, type Phase } from '@/lib/cricket/phases'
 import { validateBall } from '@/lib/cricket/validators'
 import { generateCommentary } from '@/lib/cricket/commentary'
@@ -268,6 +269,26 @@ function ScorerShellInner({
     prevWickets.current = state.wickets
   }, [state.wickets])
 
+  // Reload recovery: prevWickets/prevLegalBalls refs start at the current values, so the
+  // effects above never fire on reload even if a wicket was the last ball or an over just
+  // ended. Re-derive positions from initialBalls (all pending state is null on mount) and
+  // auto-show the picker if needed.
+  useEffect(() => {
+    const s = computeInningsState(initialBalls, new Map())
+    const pos = deriveEffectivePositions({
+      state: s,
+      ballCount: initialBalls.length,
+      pendingNewBatterId: null,
+      pendingNewBowlerId: null,
+      opener1: null,
+      opener2: null,
+      openingBowler: null,
+    })
+    if (pos.needsNewBatter) setShowNewBatter(true)
+    if (pos.needsNewBowler) setShowChangeBowler(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // mount-only — captures initialBalls from the first render's closure
+
   // ── PHASE: setup_bcc_xi ───────────────────────────────────────
   if (phase === 'setup_bcc_xi') {
     return (
@@ -525,37 +546,27 @@ function ScorerShellInner({
     return <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>Waiting for innings setup...</div>
   }
 
-  // Fall back to selected openers when no balls have been bowled yet.
-  // After a wicket, the engine sets the dismissed slot to null (Bug A fix).
-  // pendingNewBatterId fills that null slot once the scorer picks a replacement.
-  // The pending batter goes to whichever position is null:
-  //   - striker null + non-striker present  → new batter is striker
-  //   - non-striker null + striker present  → new batter is non-striker
-  const effectiveStrikerId = state.currentStrikerId ??
-    (state.currentNonStrikerId !== null ? pendingNewBatterId : null) ?? opener1
-  const effectiveNonStrikerId = state.currentNonStrikerId ??
-    (state.currentStrikerId !== null ? pendingNewBatterId : null) ?? opener2
+  const {
+    effectiveStrikerId,
+    effectiveNonStrikerId,
+    effectiveBowlerId,
+    needsNewBatter,
+    needsNewBowler,
+  } = deriveEffectivePositions({
+    state,
+    ballCount: balls.length,
+    pendingNewBatterId,
+    pendingNewBowlerId,
+    opener1,
+    opener2,
+    openingBowler,
+  })
 
-  // A new batter MUST be selected before the next ball can be scored.
-  // This is true when a wicket was recorded (engine slot is null) but no
-  // replacement has been chosen yet. We check balls.length > 0 to exclude
-  // the pre-game state where both slots are null before any delivery.
-  const needsNewBatter = balls.length > 0 && pendingNewBatterId === null &&
-    (state.currentStrikerId === null || state.currentNonStrikerId === null)
-
-  // A new bowler MUST be selected at the start of each over (after the first).
-  // Derived purely from state so it self-clears after an undo that crosses an
-  // over boundary, without needing any manual ref/state cleanup.
-  const needsNewBowler =
-    balls.length > 0 &&
-    state.legalBalls > 0 &&
-    state.legalBalls % 6 === 0 &&
-    pendingNewBowlerId === null
-  // pendingNewBowlerId overrides the previous bowler until the first ball of
-  // the new over is submitted, after which state.currentBowlerId takes over.
-  const effectiveBowlerId = pendingNewBowlerId ?? state.currentBowlerId ?? openingBowler
-
-  if (!effectiveStrikerId || !effectiveBowlerId) {
+  // Skip this guard when needsNewBatter is true: a wicket was just taken and
+  // opener1/opener2 are null (page reload mid-innings), but we still need to
+  // render so the new-batter modal can appear. Without this, the scorer sees
+  // "Waiting for innings setup..." instead of the replacement-picker.
+  if ((!effectiveStrikerId || !effectiveBowlerId) && !needsNewBatter) {
     return <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>Waiting for innings setup...</div>
   }
 
@@ -921,7 +932,7 @@ function ScorerShellInner({
 
 
       {/* Score header — compact, info only */}
-      <div className="scorer-header" style={{ padding: '8px 16px' }}>
+      <div className="scorer-header" data-testid="score-header" style={{ padding: '8px 16px' }}>
         <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           {/* Score + overs inline */}
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', minWidth: 0 }}>
@@ -1293,8 +1304,8 @@ function ScorerShellInner({
 
       {showWicketModal && (
         <WicketModal
-          strikerId={effectiveStrikerId}
-          nonStrikerId={effectiveNonStrikerId ?? effectiveStrikerId}
+          strikerId={effectiveStrikerId ?? ''}
+          nonStrikerId={effectiveNonStrikerId ?? effectiveStrikerId ?? ''}
           fieldingPlayers={fieldingPlayers}
           isFreeHit={freeHit}
           playerName={playerName}

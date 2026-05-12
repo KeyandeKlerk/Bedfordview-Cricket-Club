@@ -207,6 +207,8 @@ export function computeInningsState(
 ): InningsState {
   const name = (id: string) => playerNames.get(id) ?? id
 
+  let nextBallIsFreeHit = false
+
   const empty: InningsState = {
     inningsId: null,
     inningsNumber: 1,
@@ -328,6 +330,14 @@ export function computeInningsState(
 
       lastWicketBallIndex = i
     }
+
+    // Track free-hit state: set on no_ball, persist through non-legal (wide), clear on legal delivery
+    if (ball.extras_type === 'no_ball') {
+      nextBallIsFreeHit = true
+    } else if (isLegalDelivery(ball)) {
+      nextBallIsFreeHit = false
+    }
+    // Wide: leave nextBallIsFreeHit unchanged — free hit persists until next legal delivery
   }
 
   // ── Completed overs + currentOverBalls ────────────────────────
@@ -390,7 +400,7 @@ export function computeInningsState(
   state.currentStrikerId    = striker
   state.currentNonStrikerId = nonStriker
   state.currentBowlerId     = lastBall.bowler_id
-  state.nextBallIsFreeHit   = lastBall.extras_type === 'no_ball'
+  state.nextBallIsFreeHit   = nextBallIsFreeHit
   state.oversDisplay        = oversDisplay(state.legalBalls)
 
   // ── Clear dismissed player from on-field slots ────────────────
@@ -411,7 +421,10 @@ export function computeInningsState(
     const partnershipBalls = lastWicketBallIndex >= 0
       ? balls.slice(lastWicketBallIndex + 1)
       : balls
-    const partnershipRuns  = partnershipBalls.reduce((s, b) => s + totalBallRuns(b), 0)
+    const partnershipRuns  = partnershipBalls.reduce((s, b) => {
+      if (b.extras_type === 'penalty' && b.penalty_to_fielding) return s
+      return s + totalBallRuns(b)
+    }, 0)
     const partnershipBallCount = partnershipBalls.filter(b => isLegalDelivery(b)).length
 
     state.currentPartnership = {

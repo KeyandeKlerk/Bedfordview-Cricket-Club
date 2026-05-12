@@ -36,10 +36,13 @@ export function detectPhase(
   ballCount: number,
   ourSide: 'home' | 'away'
 ): Phase {
-  // Short-circuit: an innings actively being scored means ALL setup steps are done.
+  // Short-circuit: an in_progress innings means ALL squad setup steps are done.
   // Prevents false reversion to setup_bcc_xi when match_players loads incompletely
   // on page re-entry (e.g. transient RLS/auth state, slow network).
-  if (innings && innings.status === 'in_progress' && ballCount > 0) return 'scoring'
+  if (innings && innings.status === 'in_progress') {
+    if (ballCount > 0) return 'scoring'
+    return 'select_openers' // innings started but 0 balls — openers not yet chosen
+  }
 
   const oppSide = ourSide === 'home' ? 'away' : 'home'
   const bcc = matchPlayers.filter(p => p.side === ourSide)
