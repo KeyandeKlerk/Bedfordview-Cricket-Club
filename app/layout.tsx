@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
-import Nav from '@/components/Nav'
+import Nav from '@/components/layout/Nav'
 
 export const metadata: Metadata = {
   title: 'Bedfordview Cricket Club',

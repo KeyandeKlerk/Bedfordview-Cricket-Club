@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getCurrentPlayerServer } from '@/lib/supabase-server'
-import ConditionalNotificationBell from '@/components/ConditionalNotificationBell'
+import ConditionalNotificationBell from '@/components/layout/ConditionalNotificationBell'
 
 export const dynamic = 'force-dynamic'
 
