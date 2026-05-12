@@ -1,4 +1,5 @@
 import { anonSupabase as supabase } from '@/lib/supabase/server'
+import { fmt, overs } from '@/lib/stats/formatters'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 
@@ -57,19 +58,6 @@ interface BowlingScorecard {
   wides: number
   no_balls: number
   innings_id: string
-}
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
-function fmt(n: number | null | undefined, decimals = 1): string {
-  if (n == null || !isFinite(n)) return '—'
-  return Number.isInteger(n) ? String(n) : n.toFixed(decimals)
-}
-
-function overs(balls: number): string {
-  const ov = Math.floor(balls / 6)
-  const rem = balls % 6
-  return rem === 0 ? String(ov) : `${ov}.${rem}`
 }
 
 /** Compute best figures (most wickets, fewest runs on tie) from bowling rows */
@@ -497,11 +485,11 @@ export default async function PlayerProfilePage({
 
                     <div className="pp-sub-stats">
                       <div className="pp-sub-stat">
-                        <div className="pp-sub-val">{fmt(bat.average)}</div>
+                        <div className="pp-sub-val">{fmt(bat.average, 1)}</div>
                         <div className="pp-sub-key">Average</div>
                       </div>
                       <div className="pp-sub-stat">
-                        <div className="pp-sub-val">{fmt(bat.strike_rate)}</div>
+                        <div className="pp-sub-val">{fmt(bat.strike_rate, 1)}</div>
                         <div className="pp-sub-key">S/R</div>
                       </div>
                       <div className="pp-sub-stat">
@@ -542,7 +530,7 @@ export default async function PlayerProfilePage({
                         <div className="pp-sub-key">Average</div>
                       </div>
                       <div className="pp-sub-stat">
-                        <div className="pp-sub-val">{fmt(bowl.economy)}</div>
+                        <div className="pp-sub-val">{fmt(bowl.economy, 1)}</div>
                         <div className="pp-sub-key">Economy</div>
                       </div>
                       <div className="pp-sub-stat">

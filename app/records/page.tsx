@@ -1,4 +1,5 @@
 import { anonSupabase as supabase } from '@/lib/supabase/server'
+import { fmt, overs } from '@/lib/stats/formatters'
 import Link from 'next/link'
 
 export const revalidate = 300
@@ -32,19 +33,6 @@ interface BowlingInningsRecord {
   runs_conceded: number
   legal_balls: number
   innings_id: string
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function fmt(n: number | null | undefined, dp = 1): string {
-  if (n == null || !isFinite(n)) return '—'
-  return Number.isInteger(n) ? String(n) : n.toFixed(dp)
-}
-
-function overs(balls: number): string {
-  const ov = Math.floor(balls / 6)
-  const rem = balls % 6
-  return rem === 0 ? String(ov) : `${ov}.${rem}`
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -542,7 +530,7 @@ export default async function RecordsPage({
                             <span className="rec-stat-lbl">Runs</span>
                           </div>
                           <div className="rec-stat rec-stat--secondary">
-                            <span className="rec-stat-val">{fmt(p.average)}</span>
+                            <span className="rec-stat-val">{fmt(p.average, 1)}</span>
                             <span className="rec-stat-lbl">Avg</span>
                           </div>
                           <div className="rec-stat rec-stat--secondary">
@@ -579,7 +567,7 @@ export default async function RecordsPage({
                         <div className="rec-featured-name">{hs[0].player_name}</div>
                         <div className="rec-featured-score">{hs[0].highest_score ?? '—'}</div>
                         <div className="rec-featured-meta">
-                          Career avg {fmt(hs[0].average)} &nbsp;&middot;&nbsp; {hs[0].innings} inns
+                          Career avg {fmt(hs[0].average, 1)} &nbsp;&middot;&nbsp; {hs[0].innings} inns
                         </div>
                       </div>
                     </Link>
@@ -595,7 +583,7 @@ export default async function RecordsPage({
                           <span className="rec-hs-rank">{i + 2}</span>
                           <span className="rec-hs-name">{p.player_name}</span>
                           <span className="rec-hs-score">{p.highest_score ?? '—'}</span>
-                          <span className="rec-hs-avg">avg {fmt(p.average)}</span>
+                          <span className="rec-hs-avg">avg {fmt(p.average, 1)}</span>
                         </div>
                       </Link>
                     ))}
@@ -631,11 +619,11 @@ export default async function RecordsPage({
                             <span className="rec-stat-lbl">Wkts</span>
                           </div>
                           <div className="rec-stat rec-stat--secondary">
-                            <span className="rec-stat-val">{fmt(p.average)}</span>
+                            <span className="rec-stat-val">{fmt(p.average, 1)}</span>
                             <span className="rec-stat-lbl">Avg</span>
                           </div>
                           <div className="rec-stat rec-stat--secondary">
-                            <span className="rec-stat-val">{fmt(p.economy)}</span>
+                            <span className="rec-stat-val">{fmt(p.economy, 1)}</span>
                             <span className="rec-stat-lbl">Econ</span>
                           </div>
                         </div>
