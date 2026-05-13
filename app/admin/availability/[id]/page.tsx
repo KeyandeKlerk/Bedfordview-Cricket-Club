@@ -177,6 +177,7 @@ export default function AvailabilityWindowDetailPage() {
           .from('selections')
           .select('match_id')
           .in('match_id', matchIds)
+          .eq('status', 'selected')
         if (selData) {
           const selMap: Record<string, boolean> = {}
           selData.forEach((s: { match_id: string }) => { selMap[s.match_id] = true })

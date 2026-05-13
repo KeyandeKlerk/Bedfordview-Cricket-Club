@@ -126,6 +126,10 @@ export default function AvailabilityWindowsPage() {
       setFormError('Deadline must be before the end of the window.')
       return
     }
+    if (new Date(form.deadline) <= new Date()) {
+      setFormError('Deadline must be in the future.')
+      return
+    }
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setFormError('Not authenticated.'); setSaving(false); return }
