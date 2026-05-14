@@ -16,6 +16,17 @@ interface Season {
   is_active: boolean
 }
 
+interface Match {
+  id: string
+  match_date: string
+  competition: { name: string; category: string } | null
+  opponent: { canonical_name: string } | null
+}
+
+function formatMatchDate(d: string): string {
+  return new Date(d).toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
 interface AvailabilityWindow {
   id: string
   season_id: string
@@ -93,6 +104,9 @@ export default function AvailabilityWindowsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
+  const [formMatches, setFormMatches] = useState<Match[]>([])
+  const [formMatchesLoading, setFormMatchesLoading] = useState(false)
+  const [formSelectedMatchIds, setFormSelectedMatchIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     async function load() {
@@ -117,6 +131,18 @@ export default function AvailabilityWindowsPage() {
     }
     load()
   }, [])
+
+  async function loadFormMatches() {
+    setFormMatchesLoading(true)
+    const { data } = await supabase
+      .from('matches')
+      .select('id, match_date, competition:competitions(name, category), opponent:opponents(canonical_name)')
+      .is('availability_window_id', null)
+      .eq('status', 'upcoming')
+      .order('match_date')
+    setFormMatchesLoading(false)
+    setFormMatches((data ?? []) as unknown as Match[])
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -154,8 +180,15 @@ export default function AvailabilityWindowsPage() {
       .single()
     setSaving(false)
     if (error) { setFormError(error.message); return }
+    if (formSelectedMatchIds.size > 0) {
+      await supabase
+        .from('matches')
+        .update({ availability_window_id: data.id })
+        .in('id', [...formSelectedMatchIds])
+    }
     setWindows(prev => [data as AvailabilityWindow, ...prev])
     setForm(f => ({ ...EMPTY_FORM, season_id: f.season_id }))
+    setFormSelectedMatchIds(new Set())
     setShowForm(false)
   }
 
@@ -340,6 +373,45 @@ export default function AvailabilityWindowsPage() {
           display: flex; align-items: center; gap: 8px;
         }
 
+        /* ── MATCH PICKER ── */
+        .av-match-picker-label {
+          font-family: var(--font-display); font-size: 10px; font-weight: 700;
+          letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
+          margin-bottom: 8px; display: flex; align-items: center; gap: 8px;
+        }
+        .av-match-picker-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+        .av-match-row {
+          display: flex; align-items: center; gap: 10px;
+          padding: 9px 11px; border-radius: 8px; cursor: pointer;
+          border: 1px solid var(--border);
+          background: rgba(255,255,255,0.02);
+          margin-bottom: 6px; transition: all 0.13s; user-select: none;
+        }
+        .av-match-row.selected {
+          border-color: rgba(59,130,246,0.55);
+          background: rgba(37,99,235,0.08);
+        }
+        .av-match-row:hover { border-color: rgba(59,130,246,0.35); }
+        .av-match-check {
+          width: 17px; height: 17px; border-radius: 4px; flex-shrink: 0;
+          border: 2px solid var(--border);
+          background: transparent;
+          display: flex; align-items: center; justify-content: center;
+          transition: all 0.13s;
+        }
+        .av-match-row.selected .av-match-check {
+          border-color: var(--blue); background: var(--blue);
+        }
+        .av-match-row-info { flex: 1; min-width: 0; }
+        .av-match-row-vs {
+          font-size: 13px; font-weight: 600; color: var(--text);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .av-match-row-meta {
+          font-size: 11px; color: var(--muted); margin-top: 2px;
+          display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+        }
+
         /* ── MOBILE ── */
         @media (max-width: 480px) {
           .av-card-title { font-size: 15px; }
@@ -360,7 +432,12 @@ export default function AvailabilityWindowsPage() {
             </div>
             <button
               className="btn btn-primary"
-              onClick={() => { setShowForm(s => !s); setFormError(null) }}
+              onClick={() => {
+                const opening = !showForm
+                setShowForm(s => !s)
+                setFormError(null)
+                if (opening) { setFormSelectedMatchIds(new Set()); loadFormMatches() }
+              }}
             >
               {showForm ? '✕ Cancel' : '+ New Window'}
             </button>
@@ -452,6 +529,16 @@ export default function AvailabilityWindowsPage() {
                   />
                 </div>
               </div>
+              <MatchPicker
+                matches={formMatches}
+                loading={formMatchesLoading}
+                selectedIds={formSelectedMatchIds}
+                onToggle={id => setFormSelectedMatchIds(prev => {
+                  const next = new Set(prev)
+                  next.has(id) ? next.delete(id) : next.add(id)
+                  return next
+                })}
+              />
               <div className="av-form-actions">
                 <button
                   type="submit"
@@ -534,6 +621,63 @@ export default function AvailabilityWindowsPage() {
   )
 }
 
+function MatchPicker({
+  matches,
+  loading,
+  selectedIds,
+  onToggle,
+}: {
+  matches: Match[]
+  loading: boolean
+  selectedIds: Set<string>
+  onToggle: (id: string) => void
+}) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div className="av-match-picker-label">Linked matches</div>
+      {loading ? (
+        <div style={{ color: 'var(--muted)', fontSize: 12, padding: '8px 0' }}>Loading matches…</div>
+      ) : matches.length === 0 ? (
+        <div style={{ color: 'var(--muted)', fontSize: 12, padding: '8px 0' }}>No upcoming matches available to link.</div>
+      ) : (
+        matches.map(match => {
+          const selected = selectedIds.has(match.id)
+          const category = match.competition?.category
+          return (
+            <div
+              key={match.id}
+              className={`av-match-row${selected ? ' selected' : ''}`}
+              onClick={() => onToggle(match.id)}
+            >
+              <div className="av-match-check">
+                {selected && (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                )}
+              </div>
+              <div className="av-match-row-info">
+                <div className="av-match-row-vs">BCC vs {match.opponent?.canonical_name ?? 'Unknown'}</div>
+                <div className="av-match-row-meta">
+                  <span>{formatMatchDate(match.match_date)}</span>
+                  {category && (
+                    <span className={`badge ${category === 'senior' ? 'badge-blue' : 'badge-gold'}`} style={{ fontSize: 10 }}>
+                      {category.charAt(0).toUpperCase() + category.slice(1)}
+                    </span>
+                  )}
+                  {match.competition?.name && (
+                    <span className="badge badge-muted" style={{ fontSize: 10 }}>{match.competition.name}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        })
+      )}
+    </div>
+  )
+}
+
 function WindowCard({
   window: w,
   seasons,
@@ -558,8 +702,12 @@ function WindowCard({
     window_end: w.window_end,
     deadline: toDatetimeLocal(w.deadline),
   })
+  const [editMatches, setEditMatches] = useState<Match[]>([])
+  const [editMatchesLoading, setEditMatchesLoading] = useState(false)
+  const [editSelectedMatchIds, setEditSelectedMatchIds] = useState<Set<string>>(new Set())
+  const [originalLinkedIds, setOriginalLinkedIds] = useState<Set<string>>(new Set())
 
-  function openEdit() {
+  async function openEdit() {
     setEditForm({
       title: w.title,
       season_id: w.season_id,
@@ -570,6 +718,27 @@ function WindowCard({
     setEditError(null)
     setConfirmDelete(false)
     setEditing(true)
+    setEditMatchesLoading(true)
+    const [linkedRes, unlinkedRes] = await Promise.all([
+      supabase
+        .from('matches')
+        .select('id, match_date, competition:competitions(name, category), opponent:opponents(canonical_name)')
+        .eq('availability_window_id', w.id)
+        .order('match_date'),
+      supabase
+        .from('matches')
+        .select('id, match_date, competition:competitions(name, category), opponent:opponents(canonical_name)')
+        .is('availability_window_id', null)
+        .eq('status', 'upcoming')
+        .order('match_date'),
+    ])
+    const linked = (linkedRes.data ?? []) as unknown as Match[]
+    const unlinked = (unlinkedRes.data ?? []) as unknown as Match[]
+    const linkedIds = new Set(linked.map(m => m.id))
+    setEditMatches([...linked, ...unlinked])
+    setEditSelectedMatchIds(new Set(linkedIds))
+    setOriginalLinkedIds(new Set(linkedIds))
+    setEditMatchesLoading(false)
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -596,8 +765,18 @@ function WindowCard({
       .eq('id', w.id)
       .select('*, season:seasons(name)')
       .single()
+    if (error) { setSaving(false); setEditError(error.message); return }
+    const toLink = [...editSelectedMatchIds].filter(id => !originalLinkedIds.has(id))
+    const toUnlink = [...originalLinkedIds].filter(id => !editSelectedMatchIds.has(id))
+    await Promise.all([
+      toLink.length > 0
+        ? supabase.from('matches').update({ availability_window_id: w.id }).in('id', toLink)
+        : Promise.resolve(),
+      toUnlink.length > 0
+        ? supabase.from('matches').update({ availability_window_id: null }).in('id', toUnlink)
+        : Promise.resolve(),
+    ])
     setSaving(false)
-    if (error) { setEditError(error.message); return }
     onUpdate(data as AvailabilityWindow)
     setEditing(false)
   }
@@ -687,6 +866,16 @@ function WindowCard({
                 />
               </div>
             </div>
+            <MatchPicker
+              matches={editMatches}
+              loading={editMatchesLoading}
+              selectedIds={editSelectedMatchIds}
+              onToggle={id => setEditSelectedMatchIds(prev => {
+                const next = new Set(prev)
+                next.has(id) ? next.delete(id) : next.add(id)
+                return next
+              })}
+            />
             <div className="av-form-actions">
               <button type="submit" className="btn btn-primary" disabled={saving} style={{ fontSize: 13, padding: '10px 18px', minHeight: 40 }}>
                 {saving ? 'Saving…' : 'Save Changes'}
