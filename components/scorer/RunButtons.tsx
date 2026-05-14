@@ -16,7 +16,7 @@ function RunBtn({ r, disabled, onClick }: { r: number; disabled?: boolean; onCli
       disabled={disabled}
       onClick={onClick}
       style={{
-        height: 'clamp(64px, 12vw, 88px)',
+        height: 'clamp(52px, 10vw, 80px)',
         borderRadius: 10,
         border: isFour
           ? '2px solid var(--lime)'

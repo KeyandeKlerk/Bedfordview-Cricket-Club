@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react'
 import type { InningsState, MatchPlayer } from '@/lib/cricket/types'
 import { oversDisplay } from '@/lib/cricket/engine'
+import { dlsTarget } from '@/lib/cricket/dls'
 import { supabase } from '@/lib/supabase/client'
 import PlayerSelectModal from './PlayerSelectModal'
 
@@ -11,10 +12,20 @@ interface Props {
   completedState: InningsState
   innings2Id: string | null    // null = not created yet
   innings2BattingSide: 'home' | 'away'  // correct side for innings 2 (passed from ScorerShell)
+  oversPerInnings: number
   battingPlayers: MatchPlayer[]
   bowlingPlayers: MatchPlayer[]
   playerName: (id: string) => string
-  onResumeScoring: (innings2Id: string, openerId1: string, openerId2: string, openingBowlerId: string, target: number, bonusRuns: number) => void
+  onResumeScoring: (
+    innings2Id: string,
+    openerId1: string,
+    openerId2: string,
+    openingBowlerId: string,
+    target: number,
+    bonusRuns: number,
+    team1Score: number,
+    team1OversAllocated: number,
+  ) => void
   onMatchComplete: () => void
 }
 
@@ -26,6 +37,7 @@ export default function InningsBreakFlow({
   completedState,
   innings2Id: initialInnings2Id,
   innings2BattingSide,
+  oversPerInnings,
   battingPlayers,
   bowlingPlayers,
   playerName,
@@ -41,11 +53,19 @@ export default function InningsBreakFlow({
   const [selectingFor, setSelectingFor] = useState<'opener1' | 'opener2' | 'bowler' | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // DLS state: only shown when innings 1 ended before the full allocation
+  const inn1OversUsed = Math.floor(completedState.legalBalls / 6)
+  const inn1EndedEarly = completedState.legalBalls < oversPerInnings * 6
+  const [useDls, setUseDls] = useState(false)
+  const [team2OversAllocated, setTeam2OversAllocated] = useState(inn1OversUsed)
   // Synchronous guards against double-tap — React state updates are async and
   // a fast second tap can slip through before the first re-render.
   const savingRef = useRef(false)
 
-  const target = completedState.totalRuns + 1
+  const effectiveTarget = useDls
+    ? dlsTarget(completedState.totalRuns, inn1OversUsed, team2OversAllocated)
+    : completedState.totalRuns + 1
+  const team1OversAllocated = useDls ? inn1OversUsed : oversPerInnings
 
   async function handleSetupInnings2() {
     if (savingRef.current) return
@@ -76,7 +96,7 @@ export default function InningsBreakFlow({
           innings_number: 2,
           batting_side: innings2BattingSide,
           status: 'pending',
-          target,
+          target: effectiveTarget,
           bonus_runs: initialBonus,
         })
         .select('id')
@@ -110,7 +130,7 @@ export default function InningsBreakFlow({
       const { error: e3 } = await supabase
         .from('match_players').update({ actual_batting_position: 2 }).eq('id', opener2)
       if (e3) throw e3
-      onResumeScoring(innings2Id, opener1, opener2, openingBowler, target, innings2BonusRuns)
+      onResumeScoring(innings2Id, opener1, opener2, openingBowler, effectiveTarget, innings2BonusRuns, completedState.totalRuns, team1OversAllocated)
     } catch (e: any) {
       setError(e.message ?? 'Failed to start innings 2')
     } finally {
@@ -135,9 +155,40 @@ export default function InningsBreakFlow({
             {oversDisplay(completedState.legalBalls)} overs
           </div>
 
+          {/* DLS section — only appears when innings 1 ended before the full allocation */}
+          {inn1EndedEarly && (
+            <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: useDls ? 14 : 0 }}>
+                <input type="checkbox" checked={useDls} onChange={e => setUseDls(e.target.checked)} style={{ width: 16, height: 16, accentColor: 'var(--blue-mid)', cursor: 'pointer' }} />
+                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Apply DLS method</span>
+              </label>
+              {useDls && (
+                <>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>
+                    Team 1 batted {oversDisplay(completedState.legalBalls)} overs. How many overs will Team 2 face?
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      type="number"
+                      min={1}
+                      max={oversPerInnings}
+                      value={team2OversAllocated}
+                      onChange={e => setTeam2OversAllocated(Math.max(1, Math.min(oversPerInnings, Number(e.target.value))))}
+                      style={{ width: 72, padding: '7px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 16, textAlign: 'center' }}
+                    />
+                    <span style={{ color: 'var(--muted)', fontSize: 13 }}>overs</span>
+                  </div>
+                  <div style={{ marginTop: 10, fontSize: 13 }}>
+                    DLS target: <strong style={{ color: 'var(--gold)', fontSize: 17 }}>{dlsTarget(completedState.totalRuns, inn1OversUsed, team2OversAllocated)}</strong>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px', marginBottom: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 13, color: 'var(--muted)' }}>Target to win</span>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 900, color: 'var(--gold)' }}>{target}</span>
+            <span style={{ fontSize: 13, color: 'var(--muted)' }}>{useDls ? 'DLS target to win' : 'Target to win'}</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 900, color: 'var(--gold)' }}>{effectiveTarget}</span>
           </div>
 
           <button

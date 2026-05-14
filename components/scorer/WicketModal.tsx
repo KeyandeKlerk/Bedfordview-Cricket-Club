@@ -14,11 +14,13 @@ interface Props {
     dismissedPlayerId: string
     fielderId: string | null
     fielderSubstituteName: string | null
+    fielder2Id: string | null
+    fielder2SubstituteName: string | null
   }) => void
   onClose: () => void
 }
 
-type Step = 'type' | 'fielder'
+type Step = 'type' | 'fielder' | 'fielder2'
 
 const ALL_DISMISSAL_TYPES: { type: DismissalType; label: string; needsFielder: boolean; noNullBowler: boolean }[] = [
   { type: 'bowled',            label: 'Bowled',           needsFielder: false, noNullBowler: true  },
@@ -50,6 +52,9 @@ export default function WicketModal({
   const [fielderId, setFielderId] = useState<string | null>(null)
   const [substituteMode, setSubstituteMode] = useState(false)
   const [substituteName, setSubstituteName] = useState('')
+  const [fielder2Id, setFielder2Id] = useState<string | null>(null)
+  const [substitute2Mode, setSubstitute2Mode] = useState(false)
+  const [substitute2Name, setSubstitute2Name] = useState('')
 
   const dismissedId = isNonStrikerOut ? nonStrikerId : strikerId
 
@@ -77,6 +82,8 @@ export default function WicketModal({
         dismissedPlayerId: dismissedId,
         fielderId: null,
         fielderSubstituteName: null,
+        fielder2Id: null,
+        fielder2SubstituteName: null,
       })
       onClose()
     }
@@ -84,11 +91,30 @@ export default function WicketModal({
 
   function handleConfirmFielder() {
     if (!selectedType) return
+    if (selectedType === 'run_out') {
+      setStep('fielder2')
+      return
+    }
     onConfirm({
       dismissalType: selectedType,
       dismissedPlayerId: dismissedId,
       fielderId: substituteMode ? null : fielderId,
       fielderSubstituteName: substituteMode ? substituteName.trim() || null : null,
+      fielder2Id: null,
+      fielder2SubstituteName: null,
+    })
+    onClose()
+  }
+
+  function handleConfirmFielder2() {
+    if (!selectedType) return
+    onConfirm({
+      dismissalType: selectedType,
+      dismissedPlayerId: dismissedId,
+      fielderId: substituteMode ? null : fielderId,
+      fielderSubstituteName: substituteMode ? substituteName.trim() || null : null,
+      fielder2Id: substitute2Mode ? null : fielder2Id,
+      fielder2SubstituteName: substitute2Mode ? substitute2Name.trim() || null : null,
     })
     onClose()
   }
@@ -280,7 +306,80 @@ export default function WicketModal({
                   opacity: (!substituteMode && !fielderId) ? 0.4 : 1,
                 }}
               >
-                Confirm Wicket
+                {selectedType === 'run_out' ? 'Next →' : 'Confirm Wicket'}
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 'fielder2' && (
+          <>
+            <div style={{ marginBottom: 18 }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 900, textTransform: 'uppercase', color: 'var(--red)', margin: '0 0 4px' }}>
+                Second fielder
+              </h3>
+              <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>Optional — select if a second player was involved in the run-out</p>
+            </div>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: 14, padding: '10px 12px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+              <input
+                type="checkbox"
+                checked={substitute2Mode}
+                onChange={e => setSubstitute2Mode(e.target.checked)}
+                style={{ accentColor: 'var(--lime)', width: 16, height: 16 }}
+              />
+              <span style={{ fontSize: 14, fontWeight: 500 }}>Substitute fielder</span>
+            </label>
+
+            {substitute2Mode ? (
+              <input
+                type="text"
+                placeholder="Substitute fielder name"
+                value={substitute2Name}
+                onChange={e => setSubstitute2Name(e.target.value)}
+                autoFocus
+                style={{
+                  width: '100%', padding: '10px 14px', marginBottom: 14,
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  borderRadius: 8, color: 'var(--text)', fontSize: 14, boxSizing: 'border-box',
+                }}
+              />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '40vh', overflowY: 'auto', marginBottom: 14 }}>
+                {fieldingPlayers.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => setFielder2Id(prev => prev === p.id ? null : p.id)}
+                    style={{
+                      padding: '13px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 15, fontWeight: 600,
+                      textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8,
+                      minHeight: 50,
+                      background: fielder2Id === p.id ? 'rgba(184,240,0,0.1)' : 'var(--surface)',
+                      border: fielder2Id === p.id ? '1px solid var(--lime)' : '1px solid var(--border)',
+                      color: fielder2Id === p.id ? 'var(--lime)' : 'var(--text)',
+                    }}
+                  >
+                    {p.is_keeper && <span style={{ fontSize: 13, opacity: 0.7 }}>†</span>}
+                    {p.is_captain && <span style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 700 }}>(C)</span>}
+                    {playerName(p.id)}
+                    {fielder2Id === p.id && <span style={{ marginLeft: 'auto', fontSize: 16 }}>✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => { setStep('fielder'); setFielder2Id(null); setSubstitute2Mode(false); setSubstitute2Name('') }}
+                style={{ flex: 1, padding: '14px', borderRadius: 8, background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', fontSize: 15, fontWeight: 600, minHeight: 52 }}
+              >
+                Back
+              </button>
+              <button
+                onClick={handleConfirmFielder2}
+                style={{ flex: 2, padding: '14px', borderRadius: 8, cursor: 'pointer', fontSize: 15, fontWeight: 700, minHeight: 52, background: 'rgba(184,240,0,0.15)', border: '1px solid var(--lime)', color: 'var(--lime)' }}
+              >
+                {fielder2Id || (substitute2Mode && substitute2Name.trim()) ? 'Confirm Wicket' : 'Skip — no second fielder'}
               </button>
             </div>
           </>

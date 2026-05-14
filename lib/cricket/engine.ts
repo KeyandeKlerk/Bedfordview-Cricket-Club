@@ -176,6 +176,8 @@ function makeBatterStats(matchPlayerId: string, name: string): BatterStats {
     dismissalBowlerId: null,
     dismissalFielderId: null,
     dismissalFielderSubName: null,
+    dismissalFielder2Id: null,
+    dismissalFielder2SubName: null,
     battingPosition: null,
   }
 }
@@ -224,6 +226,7 @@ export function computeInningsState(
     currentNonStrikerId: null,
     currentBowlerId: null,
     currentOverBalls: [],
+    currentOverLegalBalls: 0,
     completedOvers: [],
     fallOfWickets: [],
     currentPartnership: null,
@@ -313,8 +316,10 @@ export function computeInningsState(
       state.batterStats[dismissedId].dismissalType           = ball.dismissal_type
       state.batterStats[dismissedId].dismissalText           = ball.commentary
       state.batterStats[dismissedId].dismissalBowlerId       = bowlerId
-      state.batterStats[dismissedId].dismissalFielderId      = ball.fielder_id
-      state.batterStats[dismissedId].dismissalFielderSubName = ball.fielder_substitute_name
+      state.batterStats[dismissedId].dismissalFielderId       = ball.fielder_id
+      state.batterStats[dismissedId].dismissalFielderSubName  = ball.fielder_substitute_name
+      state.batterStats[dismissedId].dismissalFielder2Id      = ball.fielder2_id ?? null
+      state.batterStats[dismissedId].dismissalFielder2SubName = ball.fielder2_substitute_name ?? null
 
       state.wickets++
       if (BOWLER_WICKET_TYPES.includes(ball.dismissal_type as DismissalType)) {
@@ -356,6 +361,7 @@ export function computeInningsState(
   // naturally shows the completed over rather than an empty array (test 9).
   const lastOverNum = sortedOverNums[sortedOverNums.length - 1]
   state.currentOverBalls = ballsByOver.get(lastOverNum) ?? []
+  state.currentOverLegalBalls = state.currentOverBalls.filter(b => isLegalDelivery(b)).length
 
   // ── Maidens (spec: bye breaks a maiden) ──────────────────────
   for (const [, overBalls] of ballsByOver) {

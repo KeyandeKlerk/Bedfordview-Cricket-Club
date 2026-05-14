@@ -7,15 +7,17 @@ import ShareButton from '@/components/ShareButton'
 
 export const revalidate = 30
 
-/** Returns cricket-standard dismissal string, e.g. "c Smith b Jones", "b Jones", "run out (Smith)" */
+/** Returns cricket-standard dismissal string, e.g. "c Smith b Jones", "b Jones", "run out (Smith/Jones)" */
 function formatHowOut(
   dismissalType: string | null,
   bowlerName: string | null,
   fielderName: string | null,
+  fielder2Name?: string | null,
 ): string {
   if (!dismissalType) return 'not out'
   const b = bowlerName ? shortName(bowlerName) : null
   const f = fielderName ? shortName(fielderName) : null
+  const f2 = fielder2Name ? shortName(fielder2Name) : null
   switch (dismissalType) {
     case 'bowled':     return b ? `b ${b}` : 'bowled'
     case 'lbw':        return b ? `lbw b ${b}` : 'lbw'
@@ -25,7 +27,10 @@ function formatHowOut(
       if (b)                 return `c & b ${b}`
       return 'caught'
     case 'stumped':    return f && b ? `st †${f} b ${b}` : b ? `st b ${b}` : 'stumped'
-    case 'run_out':    return f ? `run out (${f})` : 'run out'
+    case 'run_out': {
+      const fielders = [f, f2].filter(Boolean).join('/')
+      return fielders ? `run out (${fielders})` : 'run out'
+    }
     case 'hit_wicket': return b ? `hit wkt b ${b}` : 'hit wicket'
     case 'obstructing_the_field': return 'obstructing the field'
     case 'timed_out':  return 'timed out'
@@ -604,13 +609,15 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
                           const bowlerName = b.dismissalBowlerId ? (playerNameMap.get(b.dismissalBowlerId) ?? null) : null
                           const fielderName = b.dismissalFielderSubName
                             ?? (b.dismissalFielderId ? (playerNameMap.get(b.dismissalFielderId) ?? null) : null)
+                          const fielder2Name = b.dismissalFielder2SubName
+                            ?? (b.dismissalFielder2Id ? (playerNameMap.get(b.dismissalFielder2Id) ?? null) : null)
                           return (
                           <tr key={b.matchPlayerId}>
                             <td>
                               <div className="player-name">{b.name}</div>
                               <div className="how-out">
                                 {b.isOut
-                                  ? formatHowOut(b.dismissalType, bowlerName, fielderName)
+                                  ? formatHowOut(b.dismissalType, bowlerName, fielderName, fielder2Name)
                                   : 'not out'}
                               </div>
                             </td>

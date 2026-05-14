@@ -49,6 +49,8 @@ export type BallEvent = {
   dismissed_player_id: string | null  // match_players.id
   fielder_id: string | null           // match_players.id
   fielder_substitute_name: string | null
+  fielder2_id?: string | null         // match_players.id — second fielder for run-outs
+  fielder2_substitute_name?: string | null
   penalty_reason: string | null
   penalty_to_fielding: boolean
   commentary: string | null
@@ -85,6 +87,8 @@ export type BatterStats = {
   dismissalBowlerId: string | null
   dismissalFielderId: string | null
   dismissalFielderSubName: string | null
+  dismissalFielder2Id: string | null
+  dismissalFielder2SubName: string | null
   battingPosition: number | null
 }
 
@@ -137,6 +141,7 @@ export type InningsState = {
   currentNonStrikerId: string | null // match_players.id
   currentBowlerId: string | null     // match_players.id
   currentOverBalls: BallEvent[]       // balls of the CURRENT (or last completed) over
+  currentOverLegalBalls?: number      // legal deliveries in the current over (0 if new over, 6 when over just ended)
   completedOvers: BallEvent[][]
   fallOfWickets: FallOfWicket[]
   currentPartnership: Partnership | null

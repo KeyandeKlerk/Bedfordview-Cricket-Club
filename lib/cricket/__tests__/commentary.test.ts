@@ -52,6 +52,8 @@ function makeState(battingRuns: Record<string, number> = {}): InningsState {
       dismissalBowlerId: null,
       dismissalFielderId: null,
       dismissalFielderSubName: null,
+      dismissalFielder2Id: null,
+      dismissalFielder2SubName: null,
       battingPosition: null,
     }
   }

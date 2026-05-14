@@ -20,6 +20,7 @@ const ADMIN_LINKS = [
   { href: '/admin/players',      icon: '👤', label: 'Players',      sub: 'Squad, accounts & roles', },
   { href: '/admin/seasons',      icon: '📆', label: 'Seasons',      sub: 'Manage seasons',         },
   { href: '/admin/opponents',    icon: '🏏', label: 'Opponents',    sub: 'Opposition clubs',       },
+  { href: '/admin/grounds',      icon: '📍', label: 'Grounds',      sub: 'Match venues',           },
   { href: '/admin/competitions', icon: '🏆', label: 'Competitions', sub: 'Leagues & cups',         },
 ]
 

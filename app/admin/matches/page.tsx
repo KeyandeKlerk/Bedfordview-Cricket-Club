@@ -82,6 +82,8 @@ export default function AdminMatchesPage() {
     if (!deleteTarget) return
     setDeleting(true)
     setError(null)
+    // Articles FK has no CASCADE — delete them before the match
+    await supabase.from('articles').delete().eq('match_id', deleteTarget.id)
     const { error } = await supabase.from('matches').delete().eq('id', deleteTarget.id)
     setDeleting(false)
     if (error) { setError(error.message); setDeleteTarget(null); return }
@@ -504,7 +506,7 @@ export default function AdminMatchesPage() {
               on {formatDate(deleteTarget.match_date)}.
             </div>
             <div className="am-modal-warning">
-              This will permanently remove all innings, ball events, and scoring data. This cannot be undone.
+              This will permanently remove all innings, ball events, and scoring data. Any linked news articles will also be deleted. This cannot be undone.
             </div>
             <div className="am-modal-actions">
               <button className="am-modal-cancel" onClick={() => setDeleteTarget(null)}>

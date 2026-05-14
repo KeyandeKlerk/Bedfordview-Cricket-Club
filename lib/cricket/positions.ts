@@ -9,7 +9,7 @@ export interface EffectivePositions {
 }
 
 export interface PositionInputs {
-  state: Pick<InningsState, 'currentStrikerId' | 'currentNonStrikerId' | 'currentBowlerId' | 'legalBalls'>
+  state: Pick<InningsState, 'currentStrikerId' | 'currentNonStrikerId' | 'currentBowlerId' | 'legalBalls'> & { currentOverLegalBalls?: number }
   ballCount: number
   pendingNewBatterId: string | null
   pendingNewBowlerId: string | null
@@ -53,10 +53,14 @@ export function deriveEffectivePositions({
     pendingNewBatterId === null &&
     (state.currentStrikerId === null || state.currentNonStrikerId === null)
 
+  // currentOverLegalBalls defaults to 6 when absent so existing tests (which don't set it)
+  // still see needsNewBowler=true at over boundaries; after a NB starts the new over it is 0.
+  const overLegal = state.currentOverLegalBalls ?? 6
   const needsNewBowler =
     ballCount > 0 &&
     state.legalBalls > 0 &&
     state.legalBalls % 6 === 0 &&
+    overLegal === 6 &&  // current over has exactly 6 legal balls = it just ended
     pendingNewBowlerId === null
 
   const effectiveBowlerId = pendingNewBowlerId ?? state.currentBowlerId ?? openingBowler

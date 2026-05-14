@@ -7,6 +7,7 @@ import { detectPhase as _detectPhase, type Phase } from '@/lib/cricket/phases'
 import { validateBall } from '@/lib/cricket/validators'
 import { generateCommentary } from '@/lib/cricket/commentary'
 import { queueBall, flushQueue, getQueueCount, getQueueMaxSequence } from '@/lib/offline/queue'
+import { dlsTarget } from '@/lib/cricket/dls'
 import { supabase } from '@/lib/supabase/client'
 import { subscribeBallEvents } from '@/lib/supabase/realtime'
 import Link from 'next/link'
@@ -131,6 +132,8 @@ function ScorerShellInner({
   const [showNewBatter, setShowNewBatter]           = useState(false)
   const [showChangeBowler, setShowChangeBowler]     = useState(false)
   const [showEndInningsConfirm, setShowEndInningsConfirm] = useState(false)
+  const [endEarlyReason, setEndEarlyReason]               = useState('')
+  const [endEarlyOtherText, setEndEarlyOtherText]         = useState('')
   const [showDeclareConfirm, setShowDeclareConfirm] = useState(false)
   const [showAbandonFlow, setShowAbandonFlow]       = useState(false)
   const [showMatchOptions, setShowMatchOptions]     = useState(false)
@@ -141,6 +144,10 @@ function ScorerShellInner({
   const [showCorrectBowler, setShowCorrectBowler]   = useState(false)
   const [showInjuryBowler, setShowInjuryBowler]     = useState(false)
   const [showPenaltyModal, setShowPenaltyModal]     = useState(false)
+  const [showReviseDlsDialog, setShowReviseDlsDialog] = useState(false)
+  const [revisedTeam2Overs, setRevisedTeam2Overs]     = useState(match.overs_per_innings)
+  const [team1Score, setTeam1Score]                   = useState(0)
+  const [team1OversAllocated, setTeam1OversAllocated] = useState(match.overs_per_innings)
   const [endInningsBallId, setEndInningsBallId] = useState<string | null>(null)
   const [correctingBall, setCorrectingBall] = useState<BallEvent | null>(null)
   // Pending selections: hold chosen player until the next ball is submitted
@@ -498,10 +505,11 @@ function ScorerShellInner({
         completedState={state}
         innings2Id={null}
         innings2BattingSide={bowlingSide}
+        oversPerInnings={oversPerInnings}
         battingPlayers={matchPlayers.filter(p => p.side === bowlingSide)}
         bowlingPlayers={matchPlayers.filter(p => p.side === innings.batting_side)}
         playerName={playerName}
-        onResumeScoring={(inn2Id, op1, op2, bowler, target, bonusRuns) => {
+        onResumeScoring={(inn2Id, op1, op2, bowler, target, bonusRuns, t1Score, t1Overs) => {
           // Reset all innings-1 state that must not leak into innings 2
           prevLegalBalls.current = 0
           prevWickets.current = 0
@@ -512,6 +520,10 @@ function ScorerShellInner({
           setShowNewBatter(false)
           setShowWicketModal(false)
           setShowEndInningsConfirm(false)
+          // Store team 1 data for possible DLS revision during innings 2
+          setTeam1Score(t1Score)
+          setTeam1OversAllocated(t1Overs)
+          setRevisedTeam2Overs(oversPerInnings)
           // Start innings 2
           setInnings({ id: inn2Id, innings_number: 2, batting_side: bowlingSide, status: 'in_progress', target, bonus_runs: bonusRuns })
           setOpener1(op1); setOpener2(op2); setOpeningBowler(bowler)
@@ -903,8 +915,15 @@ function ScorerShellInner({
         overflow: hidden; max-height: 0; transition: max-height 0.2s ease;
       }
       .scorer-match-options.open { max-height: 200px; }
+      .scorer-danger-row { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
       @media (max-width: 400px) {
         .scorer-batter-grid { grid-template-columns: 1fr 34px 30px 26px 26px; gap: 0 4px; padding: 7px 10px; }
+      }
+      @media (max-height: 680px) {
+        .scorer-secondary { padding-top: 4px; }
+        .scorer-primary   { padding-top: 6px; }
+        .scorer-danger-row { padding-bottom: max(6px, env(safe-area-inset-bottom)); }
+        .scorer-wicket-btn { min-height: 48px !important; }
       }
     `}</style>
     <div className="scorer-shell">
@@ -1011,7 +1030,7 @@ function ScorerShellInner({
 
         {/* Bowler + This over — inline row to save vertical space */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 0, borderTop: '1px solid var(--border)' }}>
-          {effectiveBowlerId && (() => {
+          {effectiveBowlerId ? (() => {
             const bs = state.bowlerStats[effectiveBowlerId]
             const bowlerMp = matchPlayers.find(p => p.id === effectiveBowlerId)
             return (
@@ -1037,7 +1056,9 @@ function ScorerShellInner({
                 )}
               </div>
             )
-          })()}
+          })() : (
+            <div style={{ flex: 1, padding: '5px 16px', borderRight: '1px solid var(--border)', color: 'var(--dim)', fontSize: 12 }}>Awaiting bowler</div>
+          )}
           {/* This over */}
           <div style={{ padding: '5px 12px', flexShrink: 0 }}>
             <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>
@@ -1105,24 +1126,27 @@ function ScorerShellInner({
         )}
       </div>
 
-      {/* Zone E — Danger row (match options hidden behind toggle) */}
+      {/* Zone E — End innings button + match options toggle */}
       {!needsNewBatter && !needsNewBowler && !isNaturalEnd(state, oversPerInnings, innings.target) && (
         <div className="scorer-danger-row">
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 6 }}>
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
             {!showEndInningsConfirm ? (
               <>
+                {/* Persistent visible end-innings button */}
+                <button
+                  onClick={() => { setEndEarlyReason(''); setEndEarlyOtherText(''); setShowEndInningsConfirm(true); setShowMatchOptions(false) }}
+                  style={{ width: '100%', padding: '9px', marginBottom: 4, borderRadius: 8, background: 'rgba(251,146,60,0.12)', border: '1px solid rgba(251,146,60,0.45)', color: '#fb923c', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                >
+                  End innings early
+                </button>
                 <button
                   onClick={() => setShowMatchOptions(v => !v)}
-                  style={{ width: '100%', padding: '6px 8px', minHeight: 34, borderRadius: 7, background: 'transparent', border: 'none', color: 'var(--dim)', cursor: 'pointer', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+                  style={{ width: '100%', padding: '5px 8px', minHeight: 30, borderRadius: 7, background: 'transparent', border: 'none', color: 'var(--dim)', cursor: 'pointer', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
                 >
                   <span style={{ fontSize: 16, lineHeight: 1 }}>⋯</span> Match options
                 </button>
                 <div className={`scorer-match-options${showMatchOptions ? ' open' : ''}`}>
                   <div style={{ display: 'flex', gap: 6, paddingTop: 6 }}>
-                    <button onClick={() => { setShowEndInningsConfirm(true); setShowMatchOptions(false) }}
-                      style={{ flex: 1, padding: '8px 6px', minHeight: 36, borderRadius: 7, background: 'transparent', border: '1px solid var(--border)', color: 'var(--dim)', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
-                      End early
-                    </button>
                     <button onClick={() => { setShowDeclareConfirm(true); setShowMatchOptions(false) }}
                       style={{ flex: 1, padding: '8px 6px', minHeight: 36, borderRadius: 7, background: 'transparent', border: '1px solid rgba(59,130,246,0.3)', color: 'var(--blue-mid)', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
                       Declare
@@ -1146,13 +1170,40 @@ function ScorerShellInner({
                       Bowler injured
                     </button>
                   </div>
+                  {innings?.innings_number === 2 && (
+                    <div style={{ paddingTop: 4 }}>
+                      <button onClick={() => { setRevisedTeam2Overs(oversPerInnings); setShowReviseDlsDialog(true); setShowMatchOptions(false) }}
+                        style={{ width: '100%', padding: '8px 6px', minHeight: 36, borderRadius: 7, background: 'transparent', border: '1px solid rgba(56,189,248,0.3)', color: 'var(--sky)', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+                        Revise target (rain / DLS)
+                      </button>
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
-              <div style={{ background: 'rgba(255,200,0,0.08)', border: '1px solid rgba(255,200,0,0.35)', borderRadius: 7, padding: '10px 12px' }}>
-                <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--gold)', marginBottom: 4 }}>End innings early?</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
+              <div style={{ background: 'rgba(251,146,60,0.07)', border: '1px solid rgba(251,146,60,0.35)', borderRadius: 8, padding: '10px 12px' }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#fb923c', marginBottom: 2 }}>End innings early?</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>
                   {state.oversDisplay} ov · {state.wickets} wkts · {state.totalRuns} runs
+                </div>
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Reason</div>
+                  {(['Rain / bad light', 'Opposition conceded', 'Overs reduced (D/L)', 'Other'] as const).map(r => (
+                    <button key={r} onClick={() => setEndEarlyReason(r)}
+                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', marginBottom: 4, borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 500, background: endEarlyReason === r ? 'rgba(251,146,60,0.15)' : 'var(--surface)', border: endEarlyReason === r ? '1px solid rgba(251,146,60,0.55)' : '1px solid var(--border)', color: endEarlyReason === r ? '#fb923c' : 'var(--text)' }}>
+                      {r}
+                    </button>
+                  ))}
+                  {endEarlyReason === 'Other' && (
+                    <input
+                      type="text"
+                      placeholder="Describe reason…"
+                      value={endEarlyOtherText}
+                      onChange={e => setEndEarlyOtherText(e.target.value)}
+                      autoFocus
+                      style={{ width: '100%', padding: '8px 10px', marginTop: 2, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text)', fontSize: 13, boxSizing: 'border-box' }}
+                    />
+                  )}
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={() => setShowEndInningsConfirm(false)}
@@ -1160,12 +1211,58 @@ function ScorerShellInner({
                     Cancel
                   </button>
                   <button onClick={handleEndInnings}
-                    style={{ flex: 2, padding: '10px', minHeight: 40, borderRadius: 7, background: 'rgba(255,200,0,0.15)', border: '1px solid var(--gold)', color: 'var(--gold)', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                    disabled={!endEarlyReason || (endEarlyReason === 'Other' && !endEarlyOtherText.trim())}
+                    style={{ flex: 2, padding: '10px', minHeight: 40, borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 700, background: (!endEarlyReason || (endEarlyReason === 'Other' && !endEarlyOtherText.trim())) ? 'rgba(251,146,60,0.05)' : 'rgba(251,146,60,0.18)', border: '1px solid rgba(251,146,60,0.45)', color: '#fb923c', opacity: (!endEarlyReason || (endEarlyReason === 'Other' && !endEarlyOtherText.trim())) ? 0.5 : 1 }}>
                     Confirm End
                   </button>
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* DLS revision dialog */}
+      {showReviseDlsDialog && innings && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+          <div style={{ maxWidth: 360, width: '100%', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 800, color: 'var(--text)', marginBottom: 6 }}>Revise Target — Rain / DLS</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16, lineHeight: 1.5 }}>
+              Team 1 scored <strong style={{ color: 'var(--text)' }}>{team1Score}</strong> from <strong style={{ color: 'var(--text)' }}>{team1OversAllocated}</strong> overs.
+              Enter Team 2&apos;s revised overs allocation.
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Team 2 overs</div>
+              <input
+                type="number"
+                min={1}
+                max={oversPerInnings}
+                value={revisedTeam2Overs}
+                onChange={e => setRevisedTeam2Overs(Math.max(1, Math.min(oversPerInnings, Number(e.target.value))))}
+                style={{ width: 80, padding: '8px 12px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 18, textAlign: 'center' }}
+              />
+            </div>
+            <div style={{ fontSize: 13, marginBottom: 20 }}>
+              DLS target: <strong style={{ color: 'var(--gold)', fontSize: 20, fontFamily: 'var(--font-display)' }}>
+                {dlsTarget(team1Score, team1OversAllocated, revisedTeam2Overs)}
+              </strong>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setShowReviseDlsDialog(false)}
+                style={{ flex: 1, padding: '10px', minHeight: 40, borderRadius: 7, background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                Cancel
+              </button>
+              <button onClick={async () => {
+                const newTarget = dlsTarget(team1Score, team1OversAllocated, revisedTeam2Overs)
+                const { error: e } = await supabase.from('innings').update({ target: newTarget }).eq('id', innings.id)
+                if (e) { setError(e.message); return }
+                setInnings(prev => prev ? { ...prev, target: newTarget } : prev)
+                setShowReviseDlsDialog(false)
+              }}
+                style={{ flex: 2, padding: '10px', minHeight: 40, borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 700, background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.45)', color: 'var(--sky)' }}>
+                Apply new target
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1316,6 +1413,8 @@ function ScorerShellInner({
               dismissed_player_id: args.dismissedPlayerId,
               fielder_id: args.fielderId,
               fielder_substitute_name: args.fielderSubstituteName,
+              fielder2_id: args.fielder2Id,
+              fielder2_substitute_name: args.fielder2SubstituteName,
             })
             setShowWicketModal(false)
           }}

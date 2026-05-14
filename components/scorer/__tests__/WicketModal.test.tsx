@@ -126,6 +126,8 @@ describe('Dismissals that confirm immediately (no fielder step)', () => {
       dismissedPlayerId: 'mp1',
       fielderId: null,
       fielderSubstituteName: null,
+      fielder2Id: null,
+      fielder2SubstituteName: null,
     })
     expect(onClose).toHaveBeenCalledOnce()
   })
@@ -239,6 +241,8 @@ describe('Step 2 — fielder selection (caught/stumped/run_out)', () => {
       dismissedPlayerId: 'mp1',
       fielderId: 'f3',
       fielderSubstituteName: null,
+      fielder2Id: null,
+      fielder2SubstituteName: null,
     })
   })
 
@@ -297,6 +301,8 @@ describe('Substitute fielder mode', () => {
       dismissedPlayerId: 'mp1',
       fielderId: null,
       fielderSubstituteName: 'John Sub',
+      fielder2Id: null,
+      fielder2SubstituteName: null,
     })
   })
 
