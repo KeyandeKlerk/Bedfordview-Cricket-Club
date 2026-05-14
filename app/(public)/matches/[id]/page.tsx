@@ -276,6 +276,7 @@ export default function PublicMatchPage() {
                 {activeInnings?.target && (
                   <div className="score-target">
                     Need {activeInnings.target - state.totalRuns} off {((match.overs_per_innings * 6) - state.legalBalls)} balls
+                    {activeInnings.is_dls && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#7dd3fc', background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.35)', borderRadius: 4, padding: '1px 5px', verticalAlign: 'middle' }}>DLS</span>}
                   </div>
                 )}
               </div>

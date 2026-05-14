@@ -17,9 +17,10 @@ interface LiveMatch {
     batting_side: string
     status: string
     target: number | null
+    is_dls: boolean
   }[]
   score: { runs: number; wickets: number; overs: string; rr: string } | null
-  chasing: { target: number; need: number; balls: number } | null
+  chasing: { target: number; need: number; balls: number; isDls: boolean } | null
 }
 
 function formatTime(d: string) {
@@ -97,6 +98,7 @@ export default function LivePage() {
               target: activeInnings.target,
               need: activeInnings.target - state.totalRuns,
               balls: ovs - state.legalBalls,
+              isDls: activeInnings.is_dls ?? false,
             }
           }
         }
@@ -585,7 +587,7 @@ export default function LivePage() {
                       <span className="lmc-chase-icon">🎯</span>
                       Need <strong style={{ color: '#fde68a', margin: '0 4px' }}>{m.chasing.need}</strong> runs off{' '}
                       <strong style={{ color: '#fde68a', margin: '0 4px' }}>{m.chasing.balls}</strong> balls
-                      (target {m.chasing.target})
+                      (target {m.chasing.target}{m.chasing.isDls && <span style={{ marginLeft: 5, fontSize: 10, fontWeight: 700, color: '#7dd3fc', background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.35)', borderRadius: 3, padding: '0 4px', verticalAlign: 'middle' }}>DLS</span>})
                     </div>
                   )}
 

@@ -46,6 +46,7 @@ interface InningsData {
   status: string
   target: number | null
   bonus_runs: number
+  is_dls: boolean
 }
 
 interface AvailablePlayer {
@@ -475,7 +476,7 @@ function ScorerShellInner({
                 .upsert({ match_id: match.id, innings_number: 1, batting_side: battingSide, status: 'in_progress', bonus_runs: 0 }, { onConflict: 'match_id,innings_number' })
                 .select().single()
               if (data) {
-                setInnings({ id: data.id, innings_number: 1, batting_side: battingSide, status: 'in_progress', target: null, bonus_runs: 0 })
+                setInnings({ id: data.id, innings_number: 1, batting_side: battingSide, status: 'in_progress', target: null, bonus_runs: 0, is_dls: false })
               }
               await supabase.from('matches').update({ status: 'in_progress' }).eq('id', match.id)
             } else if (innings.status !== 'in_progress') {
@@ -509,7 +510,7 @@ function ScorerShellInner({
         battingPlayers={matchPlayers.filter(p => p.side === bowlingSide)}
         bowlingPlayers={matchPlayers.filter(p => p.side === innings.batting_side)}
         playerName={playerName}
-        onResumeScoring={(inn2Id, op1, op2, bowler, target, bonusRuns, t1Score, t1Overs) => {
+        onResumeScoring={(inn2Id, op1, op2, bowler, target, bonusRuns, t1Score, t1Overs, isDls) => {
           // Reset all innings-1 state that must not leak into innings 2
           prevLegalBalls.current = 0
           prevWickets.current = 0
@@ -525,7 +526,7 @@ function ScorerShellInner({
           setTeam1OversAllocated(t1Overs)
           setRevisedTeam2Overs(oversPerInnings)
           // Start innings 2
-          setInnings({ id: inn2Id, innings_number: 2, batting_side: bowlingSide, status: 'in_progress', target, bonus_runs: bonusRuns })
+          setInnings({ id: inn2Id, innings_number: 2, batting_side: bowlingSide, status: 'in_progress', target, bonus_runs: bonusRuns, is_dls: isDls })
           setOpener1(op1); setOpener2(op2); setOpeningBowler(bowler)
           setBalls([])
           setPhase('scoring')
@@ -980,10 +981,12 @@ function ScorerShellInner({
             {innings.target ? (
               state.totalRuns >= innings.target ? (
                 <div style={{ background: 'rgba(184,240,0,0.12)', border: '1px solid var(--lime)', borderRadius: 7, padding: '4px 8px', textAlign: 'center' }}>
+                  {innings.is_dls && <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--sky)', marginBottom: 1 }}>DLS</div>}
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 900, color: 'var(--lime)', fontSize: 14 }}>Target!</div>
                 </div>
               ) : (
                 <div style={{ background: 'rgba(255,200,0,0.1)', border: '1px solid rgba(255,200,0,0.35)', borderRadius: 7, padding: '4px 8px', textAlign: 'center' }}>
+                  {innings.is_dls && <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--sky)', marginBottom: 1 }}>DLS</div>}
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 900, color: 'var(--gold)', fontSize: 20, lineHeight: 1 }}>
                     {innings.target - state.totalRuns}
                   </div>
@@ -1254,9 +1257,9 @@ function ScorerShellInner({
               </button>
               <button onClick={async () => {
                 const newTarget = dlsTarget(team1Score, team1OversAllocated, revisedTeam2Overs)
-                const { error: e } = await supabase.from('innings').update({ target: newTarget }).eq('id', innings.id)
+                const { error: e } = await supabase.from('innings').update({ target: newTarget, is_dls: true }).eq('id', innings.id)
                 if (e) { setError(e.message); return }
-                setInnings(prev => prev ? { ...prev, target: newTarget } : prev)
+                setInnings(prev => prev ? { ...prev, target: newTarget, is_dls: true } : prev)
                 setShowReviseDlsDialog(false)
               }}
                 style={{ flex: 2, padding: '10px', minHeight: 40, borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 700, background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.45)', color: 'var(--sky)' }}>

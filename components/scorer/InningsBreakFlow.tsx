@@ -25,6 +25,7 @@ interface Props {
     bonusRuns: number,
     team1Score: number,
     team1OversAllocated: number,
+    isDls: boolean,
   ) => void
   onMatchComplete: () => void
 }
@@ -97,6 +98,7 @@ export default function InningsBreakFlow({
           batting_side: innings2BattingSide,
           status: 'pending',
           target: effectiveTarget,
+          is_dls: useDls,
           bonus_runs: initialBonus,
         })
         .select('id')
@@ -130,7 +132,7 @@ export default function InningsBreakFlow({
       const { error: e3 } = await supabase
         .from('match_players').update({ actual_batting_position: 2 }).eq('id', opener2)
       if (e3) throw e3
-      onResumeScoring(innings2Id, opener1, opener2, openingBowler, effectiveTarget, innings2BonusRuns, completedState.totalRuns, team1OversAllocated)
+      onResumeScoring(innings2Id, opener1, opener2, openingBowler, effectiveTarget, innings2BonusRuns, completedState.totalRuns, team1OversAllocated, useDls)
     } catch (e: any) {
       setError(e.message ?? 'Failed to start innings 2')
     } finally {

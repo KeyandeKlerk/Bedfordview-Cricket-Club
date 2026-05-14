@@ -1,0 +1,1 @@
+ALTER TABLE innings ADD COLUMN IF NOT EXISTS is_dls boolean NOT NULL DEFAULT false;

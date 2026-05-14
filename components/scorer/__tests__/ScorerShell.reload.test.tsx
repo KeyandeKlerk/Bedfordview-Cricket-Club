@@ -76,6 +76,7 @@ const INNINGS = {
   status: 'in_progress',
   target: null,
   bonus_runs: 0,
+  is_dls: false,
 }
 
 function makeBall(seq: number, overNum: number, ballInOver: number, overrides: Partial<BallEvent> = {}): BallEvent {
