@@ -3,6 +3,13 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 
+function toDatetimeLocal(iso: string): string {
+  const d = new Date(iso)
+  const offset = d.getTimezoneOffset()
+  const local = new Date(d.getTime() - offset * 60000)
+  return local.toISOString().slice(0, 16)
+}
+
 interface Season {
   id: string
   name: string
@@ -492,7 +499,13 @@ export default function AvailabilityWindowsPage() {
                   <span className="badge badge-green">{activeWindows.length}</span>
                 </div>
                 {activeWindows.map(w => (
-                  <WindowCard key={w.id} window={w} />
+                  <WindowCard
+                    key={w.id}
+                    window={w}
+                    seasons={seasons}
+                    onUpdate={updated => setWindows(prev => prev.map(x => x.id === updated.id ? updated : x))}
+                    onDelete={id => setWindows(prev => prev.filter(x => x.id !== id))}
+                  />
                 ))}
               </>
             )}
@@ -504,7 +517,13 @@ export default function AvailabilityWindowsPage() {
                   <span className="badge badge-muted">{pastWindows.length}</span>
                 </div>
                 {pastWindows.map(w => (
-                  <WindowCard key={w.id} window={w} />
+                  <WindowCard
+                    key={w.id}
+                    window={w}
+                    seasons={seasons}
+                    onUpdate={updated => setWindows(prev => prev.map(x => x.id === updated.id ? updated : x))}
+                    onDelete={id => setWindows(prev => prev.filter(x => x.id !== id))}
+                  />
                 ))}
               </>
             )}
@@ -515,42 +534,241 @@ export default function AvailabilityWindowsPage() {
   )
 }
 
-function WindowCard({ window: w }: { window: AvailabilityWindow }) {
+function WindowCard({
+  window: w,
+  seasons,
+  onUpdate,
+  onDelete,
+}: {
+  window: AvailabilityWindow
+  seasons: Season[]
+  onUpdate: (updated: AvailabilityWindow) => void
+  onDelete: (id: string) => void
+}) {
   const open = isOpen(w.deadline)
+  const [editing, setEditing] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({
+    title: w.title,
+    season_id: w.season_id,
+    window_start: w.window_start,
+    window_end: w.window_end,
+    deadline: toDatetimeLocal(w.deadline),
+  })
+
+  function openEdit() {
+    setEditForm({
+      title: w.title,
+      season_id: w.season_id,
+      window_start: w.window_start,
+      window_end: w.window_end,
+      deadline: toDatetimeLocal(w.deadline),
+    })
+    setEditError(null)
+    setConfirmDelete(false)
+    setEditing(true)
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    setEditError(null)
+    if (!editForm.title.trim() || !editForm.season_id || !editForm.window_start || !editForm.window_end || !editForm.deadline) {
+      setEditError('All fields are required.')
+      return
+    }
+    if (new Date(editForm.window_end) < new Date(editForm.window_start)) {
+      setEditError('End date must be on or after start date.')
+      return
+    }
+    setSaving(true)
+    const { data, error } = await supabase
+      .from('availability_windows')
+      .update({
+        title: editForm.title.trim(),
+        season_id: editForm.season_id,
+        window_start: editForm.window_start,
+        window_end: editForm.window_end,
+        deadline: editForm.deadline,
+      })
+      .eq('id', w.id)
+      .select('*, season:seasons(name)')
+      .single()
+    setSaving(false)
+    if (error) { setEditError(error.message); return }
+    onUpdate(data as AvailabilityWindow)
+    setEditing(false)
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    // Unlink any matches pointing at this window (no CASCADE on that FK)
+    const { error: unlinkError } = await supabase
+      .from('matches')
+      .update({ availability_window_id: null })
+      .eq('availability_window_id', w.id)
+    if (unlinkError) { setEditError(unlinkError.message); setConfirmDelete(false); setDeleting(false); return }
+    // player_availability rows cascade-delete automatically
+    const { error } = await supabase
+      .from('availability_windows')
+      .delete()
+      .eq('id', w.id)
+    setDeleting(false)
+    if (error) { setEditError(error.message); setConfirmDelete(false); return }
+    onDelete(w.id)
+  }
+
   return (
     <div className={`av-card${open ? ' open' : ''}`}>
-      <div className="av-card-header">
-        <div className="av-card-title">{w.title}</div>
-        <div className="av-card-badges">
-          {w.season && (
-            <span className="badge badge-blue">{w.season.name}</span>
+      {editing ? (
+        <>
+          {editError && (
+            <div className="av-form-error" style={{ marginBottom: 14 }}>
+              <span>&#9888;</span> {editError}
+            </div>
           )}
-          <span className={`badge ${open ? 'badge-green' : 'badge-muted'}`}>
-            {open ? 'Open' : 'Closed'}
-          </span>
-        </div>
-      </div>
-      <div className="av-card-meta">
-        <div className="av-card-meta-row">
-          <span className="av-card-meta-icon">&#128197;</span>
-          <span>{formatDateRange(w.window_start, w.window_end)}</span>
-        </div>
-        <div className="av-card-meta-row">
-          <span className="av-card-meta-icon">&#9201;</span>
-          <span style={{ color: open ? 'rgba(147,197,253,0.75)' : 'rgba(147,197,253,0.4)' }}>
-            {open ? 'Closes' : 'Closed'} {formatDeadline(w.deadline)}
-          </span>
-        </div>
-      </div>
-      <div className="av-card-actions">
-        <Link
-          href={`/admin/availability/${w.id}`}
-          className="btn btn-primary"
-          style={{ fontSize: 13, padding: '10px 18px', minHeight: 40 }}
-        >
-          View Responses &rarr;
-        </Link>
-      </div>
+          <form onSubmit={handleSave} noValidate>
+            <div className="av-form-grid" style={{ marginBottom: 14 }}>
+              <div className="field av-form-title-field">
+                <label>Title</label>
+                <input
+                  className="input"
+                  type="text"
+                  value={editForm.title}
+                  onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label>Season</label>
+                <select
+                  className="input select"
+                  value={editForm.season_id}
+                  onChange={e => setEditForm(f => ({ ...f, season_id: e.target.value }))}
+                  required
+                >
+                  {seasons.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}{s.is_active ? ' (active)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label>Window Start</label>
+                <input
+                  className="input"
+                  type="date"
+                  value={editForm.window_start}
+                  onChange={e => setEditForm(f => ({ ...f, window_start: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label>Window End</label>
+                <input
+                  className="input"
+                  type="date"
+                  value={editForm.window_end}
+                  onChange={e => setEditForm(f => ({ ...f, window_end: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label>Response Deadline</label>
+                <input
+                  className="input"
+                  type="datetime-local"
+                  value={editForm.deadline}
+                  onChange={e => setEditForm(f => ({ ...f, deadline: e.target.value }))}
+                  required
+                />
+              </div>
+            </div>
+            <div className="av-form-actions">
+              <button type="submit" className="btn btn-primary" disabled={saving} style={{ fontSize: 13, padding: '10px 18px', minHeight: 40 }}>
+                {saving ? 'Saving…' : 'Save Changes'}
+              </button>
+              <button type="button" className="btn btn-ghost" onClick={() => setEditing(false)} style={{ fontSize: 13, padding: '10px 18px', minHeight: 40 }}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </>
+      ) : (
+        <>
+          <div className="av-card-header">
+            <div className="av-card-title">{w.title}</div>
+            <div className="av-card-badges">
+              {w.season && (
+                <span className="badge badge-blue">{w.season.name}</span>
+              )}
+              <span className={`badge ${open ? 'badge-green' : 'badge-muted'}`}>
+                {open ? 'Open' : 'Closed'}
+              </span>
+            </div>
+          </div>
+          <div className="av-card-meta">
+            <div className="av-card-meta-row">
+              <span className="av-card-meta-icon">&#128197;</span>
+              <span>{formatDateRange(w.window_start, w.window_end)}</span>
+            </div>
+            <div className="av-card-meta-row">
+              <span className="av-card-meta-icon">&#9201;</span>
+              <span style={{ color: open ? 'rgba(147,197,253,0.75)' : 'rgba(147,197,253,0.4)' }}>
+                {open ? 'Closes' : 'Closed'} {formatDeadline(w.deadline)}
+              </span>
+            </div>
+          </div>
+          {editError && (
+            <div className="av-form-error" style={{ marginBottom: 14 }}>
+              <span>&#9888;</span> {editError}
+            </div>
+          )}
+          {confirmDelete ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '10px 14px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.22)', borderRadius: 8 }}>
+              <span style={{ fontSize: 13, color: '#fca5a5', flex: 1 }}>Delete this window and all responses?</span>
+              <button
+                className="btn"
+                style={{ fontSize: 12, padding: '7px 14px', minHeight: 34, background: 'rgba(239,68,68,0.18)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.35)' }}
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting…' : 'Confirm Delete'}
+              </button>
+              <button className="btn btn-ghost" style={{ fontSize: 12, padding: '7px 14px', minHeight: 34 }} onClick={() => setConfirmDelete(false)}>
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="av-card-actions">
+              <Link
+                href={`/admin/availability/${w.id}`}
+                className="btn btn-primary"
+                style={{ fontSize: 13, padding: '10px 18px', minHeight: 40 }}
+              >
+                View Responses &rarr;
+              </Link>
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: 13, padding: '10px 18px', minHeight: 40 }}
+                onClick={openEdit}
+              >
+                Edit
+              </button>
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: 13, padding: '10px 18px', minHeight: 40, color: '#fca5a5', borderColor: 'rgba(239,68,68,0.25)' }}
+                onClick={() => { setEditError(null); setConfirmDelete(true) }}
+              >
+                Delete
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

@@ -45,6 +45,7 @@ interface Match {
   match_date: string
   competition: { name: string; category: string } | null
   opponent: { canonical_name: string } | null
+  availability_window_id?: string | null
 }
 
 type AvailStatus = 'available' | 'unavailable' | 'tentative' | 'no_response'
@@ -138,6 +139,15 @@ export default function AvailabilityWindowDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Link panel state
+  const [showLinkPanel, setShowLinkPanel] = useState(false)
+  const [unlinkableMatches, setUnlinkableMatches] = useState<Match[]>([])
+  const [linkPanelLoading, setLinkPanelLoading] = useState(false)
+  const [linkPanelError, setLinkPanelError] = useState<string | null>(null)
+  const [linkingId, setLinkingId] = useState<string | null>(null)
+  const [unlinkingId, setUnlinkingId] = useState<string | null>(null)
+  const [showAllUnlinked, setShowAllUnlinked] = useState(false)
+
   useEffect(() => {
     if (!windowId) return
     async function load() {
@@ -189,6 +199,52 @@ export default function AvailabilityWindowDetailPage() {
     }
     load()
   }, [windowId])
+
+  async function openLinkPanel() {
+    setShowLinkPanel(true)
+    setLinkPanelError(null)
+    setLinkPanelLoading(true)
+    const { data, error } = await supabase
+      .from('matches')
+      .select('id, match_date, competition:competitions(name, category), opponent:opponents(canonical_name), availability_window_id')
+      .is('availability_window_id', null)
+      .in('status', ['upcoming', 'in_progress'])
+      .order('match_date', { ascending: true })
+    setLinkPanelLoading(false)
+    if (error) { setLinkPanelError(error.message); return }
+    setUnlinkableMatches((data ?? []) as unknown as Match[])
+  }
+
+  async function handleLink(matchId: string) {
+    setLinkingId(matchId)
+    const { error } = await supabase
+      .from('matches')
+      .update({ availability_window_id: windowId })
+      .eq('id', matchId)
+    setLinkingId(null)
+    if (error) { setLinkPanelError(error.message); return }
+    const linked = unlinkableMatches.find(m => m.id === matchId)
+    if (linked) {
+      setMatches(prev => [...prev, linked].sort((a, b) => a.match_date.localeCompare(b.match_date)))
+      setUnlinkableMatches(prev => prev.filter(m => m.id !== matchId))
+    }
+  }
+
+  async function handleUnlink(matchId: string) {
+    setUnlinkingId(matchId)
+    const { error } = await supabase
+      .from('matches')
+      .update({ availability_window_id: null })
+      .eq('id', matchId)
+    setUnlinkingId(null)
+    if (error) { setError(error.message); return }
+    const removed = matches.find(m => m.id === matchId)
+    setMatches(prev => prev.filter(m => m.id !== matchId))
+    if (removed && showLinkPanel) {
+      setUnlinkableMatches(prev => [...prev, removed].sort((a, b) => a.match_date.localeCompare(b.match_date)))
+    }
+    setSelections(prev => { const n = { ...prev }; delete n[matchId]; return n })
+  }
 
   // Build merged player rows: all active players + their response if any
   const playerRows: PlayerRow[] = allPlayers.map(player => {
@@ -569,7 +625,107 @@ export default function AvailabilityWindowDetailPage() {
           {!loading && (
             <span className="badge badge-muted">{matches.length}</span>
           )}
+          {!loading && (
+            <button
+              className="btn btn-ghost"
+              style={{ fontSize: 12, padding: '6px 14px', minHeight: 32 }}
+              onClick={() => showLinkPanel ? setShowLinkPanel(false) : openLinkPanel()}
+            >
+              {showLinkPanel ? '✕ Close' : '+ Link Match'}
+            </button>
+          )}
         </div>
+
+        {/* ── LINK PANEL ── */}
+        {showLinkPanel && (
+          <div style={{
+            background: 'rgba(6,15,34,0.95)',
+            border: '1px solid rgba(59,130,246,0.22)',
+            borderRadius: 12,
+            padding: '18px 18px 14px',
+            marginBottom: 16,
+            position: 'relative',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+              background: 'linear-gradient(90deg, var(--blue), var(--sky), transparent)',
+            }} />
+            <div style={{
+              fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 800,
+              letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--sky)',
+              marginBottom: 14,
+            }}>
+              Link a Match
+            </div>
+            {linkPanelError && (
+              <div style={{
+                background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.28)',
+                color: '#fca5a5', padding: '10px 14px', borderRadius: 8,
+                fontSize: 13, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <span>&#9888;</span> {linkPanelError}
+              </div>
+            )}
+            {linkPanelLoading ? (
+              <div style={{ color: 'var(--muted)', fontSize: 13, padding: '12px 0' }}>Loading matches…</div>
+            ) : unlinkableMatches.length === 0 ? (
+              <div style={{ color: 'var(--muted)', fontSize: 13, padding: '8px 0' }}>
+                No unlinked upcoming matches found.
+              </div>
+            ) : (
+              <>
+                {(showAllUnlinked ? unlinkableMatches : unlinkableMatches.slice(0, 8)).map(match => {
+                  const category = match.competition?.category
+                  return (
+                    <div key={match.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '10px 0', borderBottom: '1px solid rgba(59,130,246,0.07)',
+                      flexWrap: 'wrap',
+                    }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700,
+                          color: 'var(--text)', letterSpacing: '-0.01em',
+                        }}>
+                          BCC vs {match.opponent?.canonical_name ?? 'Unknown'}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                          <span>&#128197; {formatMatchDate(match.match_date)}</span>
+                          {category && (
+                            <span className={`badge ${category === 'senior' ? 'badge-blue' : 'badge-gold'}`} style={{ fontSize: 10 }}>
+                              {category.charAt(0).toUpperCase() + category.slice(1)}
+                            </span>
+                          )}
+                          {match.competition?.name && (
+                            <span className="badge badge-muted" style={{ fontSize: 10 }}>{match.competition.name}</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        className="btn btn-primary"
+                        style={{ fontSize: 12, padding: '7px 14px', minHeight: 34, flexShrink: 0 }}
+                        onClick={() => handleLink(match.id)}
+                        disabled={linkingId === match.id}
+                      >
+                        {linkingId === match.id ? 'Linking…' : 'Link'}
+                      </button>
+                    </div>
+                  )
+                })}
+                {!showAllUnlinked && unlinkableMatches.length > 8 && (
+                  <button
+                    className="btn btn-ghost"
+                    style={{ fontSize: 12, padding: '7px 14px', minHeight: 34, marginTop: 10 }}
+                    onClick={() => setShowAllUnlinked(true)}
+                  >
+                    Show all {unlinkableMatches.length} matches
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {loading ? (
           <>
@@ -586,10 +742,13 @@ export default function AvailabilityWindowDetailPage() {
           </>
         ) : matches.length === 0 ? (
           <div className="avd-empty">
-            No matches are linked to this availability window.<br />
-            <span style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
-              Set <code style={{ background: 'rgba(59,130,246,0.1)', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>availability_window_id</code> on a match to link it here.
-            </span>
+            No matches linked yet.{' '}
+            <button
+              onClick={() => showLinkPanel ? setShowLinkPanel(false) : openLinkPanel()}
+              style={{ color: 'var(--blue-mid)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontSize: 'inherit' }}
+            >
+              Link a match &rarr;
+            </button>
           </div>
         ) : (
           matches.map(match => {
@@ -645,6 +804,14 @@ export default function AvailabilityWindowDetailPage() {
                   >
                     View Match
                   </Link>
+                  <button
+                    className="btn btn-ghost"
+                    style={{ fontSize: 13, padding: '10px 18px', minHeight: 40, color: '#fca5a5', borderColor: 'rgba(239,68,68,0.25)' }}
+                    onClick={() => handleUnlink(match.id)}
+                    disabled={unlinkingId === match.id}
+                  >
+                    {unlinkingId === match.id ? 'Unlinking…' : 'Unlink'}
+                  </button>
                 </div>
               </div>
             )
