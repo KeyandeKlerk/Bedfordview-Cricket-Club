@@ -12,6 +12,13 @@ interface Window {
   season_id: string
 }
 
+interface Match {
+  id: string
+  match_date: string
+  competition: { name: string; category: string } | null
+  opponent: { canonical_name: string } | null
+}
+
 interface ExistingResponse {
   status: 'available' | 'unavailable' | 'tentative'
   note: string | null
@@ -39,6 +46,7 @@ export default function AvailabilityPage() {
   const router = useRouter()
 
   const [window, setWindow] = useState<Window | null>(null)
+  const [matches, setMatches] = useState<Match[]>([])
   const [existing, setExisting] = useState<ExistingResponse | null>(null)
   const [playerId, setPlayerId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -54,14 +62,20 @@ export default function AvailabilityPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      const [windowRes, playerRes] = await Promise.all([
+      const [windowRes, playerRes, matchesRes] = await Promise.all([
         supabase.from('availability_windows').select('*').eq('id', windowId).single(),
         supabase.from('players').select('id').eq('user_id', user.id).maybeSingle(),
+        supabase
+          .from('matches')
+          .select('id, match_date, competition:competitions(name, category), opponent:opponents(canonical_name)')
+          .eq('availability_window_id', windowId)
+          .order('match_date'),
       ])
 
       if (!windowRes.data) { router.push('/dashboard'); return }
       setWindow(windowRes.data)
       setCountdown(deadlineCountdown(windowRes.data.deadline))
+      if (matchesRes.data) setMatches(matchesRes.data as unknown as Match[])
 
       if (!playerRes.data) { setLoading(false); return }
       setPlayerId(playerRes.data.id)
@@ -213,6 +227,30 @@ export default function AvailabilityPage() {
           background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3);
           font-size: 14px; color: #fca5a5;
         }
+        .matches-section {
+          margin-bottom: 28px;
+        }
+        .matches-label {
+          font-family: var(--font-display); font-size: 10px; font-weight: 700;
+          letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted);
+          margin-bottom: 10px; display: flex; align-items: center; gap: 10px;
+        }
+        .matches-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+        .match-row {
+          display: flex; align-items: center; gap: 12px;
+          padding: 12px 14px; border-radius: 10px;
+          background: rgba(255,255,255,0.02); border: 1px solid var(--border);
+          margin-bottom: 8px;
+        }
+        .match-row-info { flex: 1; min-width: 0; }
+        .match-row-vs {
+          font-family: var(--font-display); font-size: 14px; font-weight: 700;
+          color: var(--text); letter-spacing: -0.01em;
+        }
+        .match-row-meta {
+          font-size: 12px; color: var(--muted); margin-top: 3px;
+          display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+        }
       `}</style>
 
       <div className="avail-wrap">
@@ -255,6 +293,35 @@ export default function AvailabilityPage() {
           {error && (
             <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', fontSize: 13, marginBottom: 16 }}>
               {error}
+            </div>
+          )}
+
+          {matches.length > 0 && (
+            <div className="matches-section">
+              <div className="matches-label">Matches this weekend</div>
+              {matches.map(match => {
+                const category = match.competition?.category
+                return (
+                  <div key={match.id} className="match-row">
+                    <div className="match-row-info">
+                      <div className="match-row-vs">
+                        BCC vs {match.opponent?.canonical_name ?? 'Unknown'}
+                      </div>
+                      <div className="match-row-meta">
+                        <span>{formatDate(match.match_date)}</span>
+                        {category && (
+                          <span className={`badge ${category === 'senior' ? 'badge-blue' : 'badge-gold'}`} style={{ fontSize: 10 }}>
+                            {category.charAt(0).toUpperCase() + category.slice(1)}
+                          </span>
+                        )}
+                        {match.competition?.name && (
+                          <span className="badge badge-muted" style={{ fontSize: 10 }}>{match.competition.name}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
 
