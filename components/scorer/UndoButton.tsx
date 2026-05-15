@@ -42,7 +42,7 @@ export default function UndoButton({ lastBall, playerName, onUndo, disabled }: P
           fontSize: 12,
           color: 'var(--red)',
           borderColor: 'rgba(224,60,46,0.4)',
-          minHeight: 40,
+          minHeight: 36,
           width: '100%',
           justifyContent: 'center',
           opacity: 0.75,
