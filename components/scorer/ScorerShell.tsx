@@ -878,7 +878,6 @@ function ScorerShellInner({
         position: fixed; top: var(--nav-h); left: 0; right: 0; bottom: 0;
         display: flex; flex-direction: column; overflow: hidden;
       }
-      .scorer-header { flex-shrink: 0; background: var(--panel); border-bottom: 1px solid var(--border); }
       .scorer-info { flex-shrink: 0; max-width: 640px; margin: 0 auto; width: 100%; }
       .scorer-mid { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
       .scorer-secondary { flex-shrink: 0; padding: 8px 16px 0; max-width: 640px; margin: 0 auto; width: 100%; box-sizing: border-box; }
@@ -945,54 +944,46 @@ function ScorerShellInner({
       )}
 
 
-      {/* Score header — compact, info only */}
-      <div className="scorer-header" data-testid="score-header" style={{ padding: '8px 16px' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          {/* Score + overs inline */}
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', minWidth: 0 }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(44px, 10vw, 60px)', fontWeight: 900, lineHeight: 1, letterSpacing: '-0.02em', flexShrink: 0 }}>
+      <div className="scorer-info">
+        {/* Compact score strip — replaces full header bar */}
+        <div data-testid="score-header" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 16px 6px' }}>
+          <Link href="/admin/matches" style={{ color: 'var(--dim)', textDecoration: 'none', fontSize: 18, lineHeight: 1, flexShrink: 0, padding: '2px 4px 2px 0' }}>←</Link>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: 30, fontWeight: 900, lineHeight: 1, flexShrink: 0 }}>
               <span style={{ color: 'var(--lime)' }}>{state.totalRuns}</span>
-              <span style={{ color: 'var(--muted)', fontSize: 'clamp(32px, 7vw, 44px)' }}>/{state.wickets}</span>
-            </div>
-            <div style={{ color: 'var(--muted)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--text)', fontSize: 13 }}>{state.oversDisplay} ov</span>
-              {state.legalBalls > 0 && (
-                <span style={{ color: 'var(--dim)' }}>RR <strong style={{ color: 'var(--text)' }}>{((state.totalRuns / state.legalBalls) * 6).toFixed(2)}</strong></span>
-              )}
-              {(() => {
-                const remaining = oversPerInnings * 6 - state.legalBalls
-                if (remaining <= 0 || remaining > 6) return null
-                return <span style={{ color: 'var(--red)', fontWeight: 600, fontSize: 12 }}>Last over</span>
-              })()}
-            </div>
+              <span style={{ color: 'var(--muted)', fontSize: 22 }}>/{state.wickets}</span>
+            </span>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--text)', fontSize: 13 }}>{state.oversDisplay} ov</span>
+            {state.legalBalls > 0 && (
+              <span style={{ color: 'var(--dim)', fontSize: 12 }}>RR <strong style={{ color: 'var(--text)' }}>{((state.totalRuns / state.legalBalls) * 6).toFixed(2)}</strong></span>
+            )}
+            {(() => {
+              const remaining = oversPerInnings * 6 - state.legalBalls
+              if (remaining <= 0 || remaining > 6) return null
+              return <span style={{ color: 'var(--red)', fontWeight: 600, fontSize: 12 }}>Last over</span>
+            })()}
           </div>
-          {/* Right: nav + target */}
-          <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
-            <div style={{ fontSize: 10, color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Link href="/admin/matches" style={{ color: 'var(--dim)', textDecoration: 'none', fontSize: 12 }}>← Matches</Link>
-              <span style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>Inn {innings.innings_number}</span>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <span style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Inn {innings.innings_number}</span>
             {innings.target ? (
               state.totalRuns >= innings.target ? (
-                <div style={{ background: 'rgba(184,240,0,0.12)', border: '1px solid var(--lime)', borderRadius: 7, padding: '4px 8px', textAlign: 'center' }}>
-                  {innings.is_dls && <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--sky)', marginBottom: 1 }}>DLS</div>}
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 900, color: 'var(--lime)', fontSize: 14 }}>Target!</div>
+                <div style={{ background: 'rgba(184,240,0,0.12)', border: '1px solid var(--lime)', borderRadius: 7, padding: '3px 7px', textAlign: 'center' }}>
+                  {innings.is_dls && <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--sky)', marginBottom: 1 }}>DLS</div>}
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 900, color: 'var(--lime)', fontSize: 13 }}>Target!</div>
                 </div>
               ) : (
-                <div style={{ background: 'rgba(255,200,0,0.1)', border: '1px solid rgba(255,200,0,0.35)', borderRadius: 7, padding: '4px 8px', textAlign: 'center' }}>
-                  {innings.is_dls && <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--sky)', marginBottom: 1 }}>DLS</div>}
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 900, color: 'var(--gold)', fontSize: 20, lineHeight: 1 }}>
+                <div style={{ background: 'rgba(255,200,0,0.1)', border: '1px solid rgba(255,200,0,0.35)', borderRadius: 7, padding: '3px 7px', textAlign: 'center' }}>
+                  {innings.is_dls && <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--sky)', marginBottom: 1 }}>DLS</div>}
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 900, color: 'var(--gold)', fontSize: 17, lineHeight: 1 }}>
                     {innings.target - state.totalRuns}
                   </div>
-                  <div style={{ color: 'var(--muted)', fontSize: 10, marginTop: 1 }}>to win</div>
+                  <div style={{ color: 'var(--muted)', fontSize: 9, marginTop: 1 }}>to win</div>
                 </div>
               )
             ) : null}
           </div>
         </div>
-      </div>
 
-      <div className="scorer-info">
         {/* Batters */}
         <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 0, borderLeft: 'none', borderRight: 'none', overflow: 'hidden' }}>
           <div className="scorer-batter-grid" style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border)' }}>
