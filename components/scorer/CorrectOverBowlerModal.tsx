@@ -26,6 +26,16 @@ export default function CorrectOverBowlerModal({
   const selectedOverNumber = selectedOver ? selectedOver[0].over_number : null
   const currentBowlerId = selectedOver ? selectedOver[0].bowler_id : null
 
+  // Bowlers of adjacent overs — ineligible to bowl the selected over
+  const prevOverBowlerId = selectedOverIndex !== null && selectedOverIndex > 0
+    ? overs[selectedOverIndex - 1][0].bowler_id : null
+  const nextOverBowlerId = selectedOverIndex !== null && selectedOverIndex < overs.length - 1
+    ? overs[selectedOverIndex + 1][0].bowler_id : null
+
+  function isIneligible(playerId: string) {
+    return playerId === prevOverBowlerId || playerId === nextOverBowlerId
+  }
+
   function handleConfirm() {
     if (selectedOverNumber === null || !selectedBowlerId) return
     onConfirm(selectedOverNumber, selectedBowlerId)
@@ -165,25 +175,37 @@ export default function CorrectOverBowlerModal({
               <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
                 {fieldingPlayers.map(p => {
                   const isCurrent = p.id === currentBowlerId
+                  const ineligible = isIneligible(p.id)
                   const isSelected = p.id === selectedBowlerId
+                  const disabled = isCurrent || ineligible
+                  const adjacentLabel = p.id === prevOverBowlerId && p.id === nextOverBowlerId
+                    ? 'bowled prev & next over'
+                    : p.id === prevOverBowlerId
+                    ? 'bowled prev over'
+                    : p.id === nextOverBowlerId
+                    ? 'bowled next over'
+                    : null
                   return (
                     <button
                       key={p.id}
-                      onClick={() => setSelectedBowlerId(p.id)}
+                      disabled={disabled}
+                      onClick={() => !disabled && setSelectedBowlerId(p.id)}
                       style={{
-                        padding: '13px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 15, fontWeight: 600,
+                        padding: '13px 14px', borderRadius: 8, cursor: disabled ? 'not-allowed' : 'pointer',
+                        fontSize: 15, fontWeight: 600,
                         textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8, minHeight: 50,
                         background: isSelected ? 'rgba(56,189,248,0.1)' : 'var(--surface)',
                         border: isSelected ? '2px solid var(--sky)' : '1px solid var(--border)',
-                        color: isSelected ? 'var(--sky)' : isCurrent ? 'var(--dim)' : 'var(--text)',
-                        opacity: isCurrent ? 0.5 : 1,
+                        color: isSelected ? 'var(--sky)' : disabled ? 'var(--dim)' : 'var(--text)',
+                        opacity: disabled ? 0.45 : 1,
                       }}
                     >
                       {p.is_keeper && <span style={{ fontSize: 13, opacity: 0.7 }}>†</span>}
                       {p.is_captain && <span style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 700 }}>(C)</span>}
                       {playerName(p.id)}
-                      {isCurrent && <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--dim)' }}>current</span>}
-                      {isSelected && !isCurrent && <span style={{ marginLeft: 'auto', fontSize: 16 }}>✓</span>}
+                      {isCurrent && !ineligible && <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--dim)' }}>current</span>}
+                      {adjacentLabel && <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--dim)' }}>{adjacentLabel}</span>}
+                      {isSelected && !disabled && <span style={{ marginLeft: 'auto', fontSize: 16 }}>✓</span>}
                     </button>
                   )
                 })}
@@ -197,14 +219,14 @@ export default function CorrectOverBowlerModal({
                   Back
                 </button>
                 <button
-                  disabled={!selectedBowlerId || selectedBowlerId === currentBowlerId}
+                  disabled={!selectedBowlerId || selectedBowlerId === currentBowlerId || (!!selectedBowlerId && isIneligible(selectedBowlerId))}
                   onClick={handleConfirm}
                   style={{
                     flex: 2, padding: '12px', borderRadius: 8, fontSize: 14, fontWeight: 700,
-                    cursor: (selectedBowlerId && selectedBowlerId !== currentBowlerId) ? 'pointer' : 'not-allowed',
-                    background: (selectedBowlerId && selectedBowlerId !== currentBowlerId) ? 'rgba(56,189,248,0.15)' : 'transparent',
+                    cursor: (selectedBowlerId && selectedBowlerId !== currentBowlerId && !isIneligible(selectedBowlerId)) ? 'pointer' : 'not-allowed',
+                    background: (selectedBowlerId && selectedBowlerId !== currentBowlerId && !isIneligible(selectedBowlerId)) ? 'rgba(56,189,248,0.15)' : 'transparent',
                     border: '1px solid var(--sky)', color: 'var(--sky)',
-                    opacity: (selectedBowlerId && selectedBowlerId !== currentBowlerId) ? 1 : 0.4,
+                    opacity: (selectedBowlerId && selectedBowlerId !== currentBowlerId && !isIneligible(selectedBowlerId)) ? 1 : 0.4,
                   }}
                 >
                   Confirm change
