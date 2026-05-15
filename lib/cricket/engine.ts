@@ -154,6 +154,49 @@ export function computeStrikeAfterBall(
   return { striker, nonStriker }
 }
 
+/**
+ * After correcting a ball's runs/extras, recomputes who should be batter /
+ * non-striker on every subsequent ball and returns the rows that need updating.
+ *
+ * Pass `balls` with the corrected ball already carrying its new values.
+ * Returns an empty array when nothing downstream needs to change.
+ */
+export function recomputeBatterSequence(
+  balls: BallEvent[],
+  correctedIndex: number,
+): Array<{ id: string; batter_id: string; non_striker_id: string }> {
+  if (correctedIndex >= balls.length - 1) return []
+
+  // Legal-ball count up to and including the corrected ball
+  let legalCount = 0
+  for (let i = 0; i <= correctedIndex; i++) {
+    if (isLegalDelivery(balls[i])) legalCount++
+  }
+
+  // Strike state immediately after the corrected ball
+  const cb = balls[correctedIndex]
+  let { striker, nonStriker } = computeStrikeAfterBall(
+    cb, legalCount, cb.batter_id, cb.non_striker_id,
+  )
+
+  const updates: Array<{ id: string; batter_id: string; non_striker_id: string }> = []
+
+  for (let i = correctedIndex + 1; i < balls.length; i++) {
+    const ball = balls[i]
+
+    // Both batter slots are already correct — everything after is fine too
+    if (ball.batter_id === striker && ball.non_striker_id === nonStriker) break
+
+    updates.push({ id: ball.id, batter_id: striker, non_striker_id: nonStriker })
+
+    // Advance using the corrected positions (not the stale stored ones)
+    if (isLegalDelivery(ball)) legalCount++
+    ;({ striker, nonStriker } = computeStrikeAfterBall(ball, legalCount, striker, nonStriker))
+  }
+
+  return updates
+}
+
 // ── FULL INNINGS STATE ────────────────────────────────────────────────────────
 
 const BOWLER_WICKET_TYPES: DismissalType[] = [

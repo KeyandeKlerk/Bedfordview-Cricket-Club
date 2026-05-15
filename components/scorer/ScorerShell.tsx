@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import type { BallEvent, DismissalType, ExtrasType, InningsState, MatchPlayer } from '@/lib/cricket/types'
-import { computeInningsState, isNaturalEnd, deriveResultText, totalBallRuns } from '@/lib/cricket/engine'
+import { computeInningsState, isNaturalEnd, deriveResultText, totalBallRuns, recomputeBatterSequence } from '@/lib/cricket/engine'
 import { deriveEffectivePositions } from '@/lib/cricket/positions'
 import { detectPhase as _detectPhase, type Phase } from '@/lib/cricket/phases'
 import { validateBall } from '@/lib/cricket/validators'
@@ -759,24 +759,41 @@ function ScorerShellInner({
       setError('Bat runs cannot be scored off a wide.'); return
     }
 
-    // Capture original for rollback before any state mutation
-    const original = balls.find(x => x.id === updated.id)!
-    // Optimistic update
-    setBalls(prev => prev.map(b => b.id === updated.id ? updated : b))
+    // Snapshot for rollback
+    const originalBalls = balls
+
+    // Build corrected list and compute which downstream balls need batter swaps
+    const correctedList = balls.map(b => b.id === updated.id ? updated : b)
+    const correctedIndex = correctedList.findIndex(b => b.id === updated.id)
+    const cascades = recomputeBatterSequence(correctedList, correctedIndex)
+
+    // Optimistic update: corrected ball + any cascaded batter swaps
+    setBalls(correctedList.map(b => {
+      const c = cascades.find(u => u.id === b.id)
+      return c ? { ...b, batter_id: c.batter_id, non_striker_id: c.non_striker_id } : b
+    }))
     setCorrectingBall(null)
 
-    const { error } = await supabase.from('ball_events').update({
-      runs_off_bat:      updated.runs_off_bat,
-      extras_type:       updated.extras_type,
-      extras_runs:       updated.extras_runs,
-      is_boundary_four:  updated.is_boundary_four,
-      is_boundary_six:   updated.is_boundary_six,
-    }).eq('id', updated.id)
+    // Persist: main correction + cascade batter updates in parallel
+    const results = await Promise.all([
+      supabase.from('ball_events').update({
+        runs_off_bat:      updated.runs_off_bat,
+        extras_type:       updated.extras_type,
+        extras_runs:       updated.extras_runs,
+        is_boundary_four:  updated.is_boundary_four,
+        is_boundary_six:   updated.is_boundary_six,
+      }).eq('id', updated.id),
+      ...cascades.map(c =>
+        supabase.from('ball_events')
+          .update({ batter_id: c.batter_id, non_striker_id: c.non_striker_id })
+          .eq('id', c.id)
+      ),
+    ])
 
-    if (error) {
-      setError('Failed to save correction: ' + error.message)
-      // Revert on failure using the original captured above
-      setBalls(prev => prev.map(b => b.id === updated.id ? original : b))
+    const firstError = results.find(r => r.error)?.error
+    if (firstError) {
+      setError('Failed to save correction: ' + firstError.message)
+      setBalls(originalBalls)
     }
   }
 
