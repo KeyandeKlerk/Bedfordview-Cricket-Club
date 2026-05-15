@@ -877,9 +877,6 @@ function ScorerShellInner({
       .scorer-shell {
         position: fixed; top: 0; left: 0; right: 0; bottom: 0;
         display: flex; flex-direction: column; overflow: hidden;
-        /* Boost dim/muted contrast — globals are too low-opacity for scorer */
-        --dim:   rgba(147,197,253,0.55);
-        --muted: rgba(147,197,253,0.78);
         /* Responsive scale tokens — all scorer sizes derive from these */
         --sf-score:     clamp(26px, 4.5dvh, 44px);
         --sf-score-wkt: clamp(18px, 3.2dvh, 32px);

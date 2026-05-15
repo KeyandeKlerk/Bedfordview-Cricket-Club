@@ -23,8 +23,8 @@
 
   /* Text */
   --text:     #e2eeff;
-  --muted:    rgba(147,197,253,0.55);
-  --dim:      rgba(59,130,246,0.25);
+  --muted:    rgba(147,197,253,0.78);
+  --dim:      rgba(147,197,253,0.55);
 
   /* Semantic */
   --red:      #ef4444;
