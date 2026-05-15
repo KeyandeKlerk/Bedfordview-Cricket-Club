@@ -877,6 +877,9 @@ function ScorerShellInner({
       .scorer-shell {
         position: fixed; top: 0; left: 0; right: 0; bottom: 0;
         display: flex; flex-direction: column; overflow: hidden;
+        /* Boost dim/muted contrast — globals are too low-opacity for scorer */
+        --dim:   rgba(147,197,253,0.55);
+        --muted: rgba(147,197,253,0.78);
         /* Responsive scale tokens — all scorer sizes derive from these */
         --sf-score:     clamp(26px, 4.5dvh, 44px);
         --sf-score-wkt: clamp(18px, 3.2dvh, 32px);
@@ -956,7 +959,7 @@ function ScorerShellInner({
       <div className="scorer-info">
         {/* Compact score strip — replaces full header bar */}
         <div data-testid="score-header" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 'var(--sf-row-pad) 16px' }}>
-          <Link href="/admin/matches" style={{ color: 'var(--dim)', textDecoration: 'none', fontSize: 'var(--sf-stat)', lineHeight: 1, flexShrink: 0, padding: '2px 4px 2px 0' }}>←</Link>
+          <Link href="/admin/matches" style={{ color: 'var(--muted)', textDecoration: 'none', fontSize: 'var(--sf-stat)', lineHeight: 1, flexShrink: 0, padding: '2px 4px 2px 0' }}>←</Link>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
             <span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--sf-score)', fontWeight: 900, lineHeight: 1, flexShrink: 0 }}>
               <span style={{ color: 'var(--lime)' }}>{state.totalRuns}</span>
