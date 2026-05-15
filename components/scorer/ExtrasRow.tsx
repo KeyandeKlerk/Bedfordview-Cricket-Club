@@ -13,10 +13,10 @@ export default function ExtrasRow({ onExtra, onPenalty, disabled }: Props) {
   const [open, setOpen] = useState<ExtrasType | null>(null)
 
   const btnBase: React.CSSProperties = {
-    fontSize: 13,
-    height: 38,
+    fontSize: 'clamp(12px, 1.85dvh, 16px)' as any,
+    height: 'clamp(36px, 5.5dvh, 50px)' as any,
     padding: 0,
-    minHeight: 38,
+    minHeight: 'clamp(36px, 5.5dvh, 50px)' as any,
     justifyContent: 'center',
     whiteSpace: 'nowrap',
     borderRadius: 8,
@@ -55,7 +55,7 @@ export default function ExtrasRow({ onExtra, onPenalty, disabled }: Props) {
       <button
         disabled={disabled}
         onClick={() => !disabled && onPenalty?.()}
-        style={{ ...btnBase, width: '100%', fontSize: 11, opacity: disabled ? 0.4 : 0.5, height: 32, minHeight: 32 }}
+        style={{ ...btnBase, width: '100%', fontSize: 'clamp(10px, 1.5dvh, 13px)' as any, opacity: disabled ? 0.4 : 0.5, height: 'clamp(28px, 4dvh, 38px)' as any, minHeight: 'clamp(28px, 4dvh, 38px)' as any }}
       >
         Penalty
       </button>

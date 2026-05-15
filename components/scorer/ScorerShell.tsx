@@ -877,6 +877,15 @@ function ScorerShellInner({
       .scorer-shell {
         position: fixed; top: 0; left: 0; right: 0; bottom: 0;
         display: flex; flex-direction: column; overflow: hidden;
+        /* Responsive scale tokens — all scorer sizes derive from these */
+        --sf-score:     clamp(26px, 4.5dvh, 44px);
+        --sf-score-wkt: clamp(18px, 3.2dvh, 32px);
+        --sf-stat:      clamp(13px, 2dvh,   18px);
+        --sf-body:      clamp(12px, 1.85dvh, 16px);
+        --sf-small:     clamp(10px, 1.5dvh,  13px);
+        --sf-label:     clamp(9px,  1.3dvh,  12px);
+        --sf-row-pad:   clamp(5px,  0.85dvh,  9px);
+        --sf-strip-val: clamp(12px, 1.9dvh,  17px);
       }
       .scorer-info { flex-shrink: 0; max-width: 640px; margin: 0 auto; width: 100%; }
       .scorer-mid { flex-shrink: 0; overflow: hidden; }
@@ -887,7 +896,7 @@ function ScorerShellInner({
         display: grid;
         grid-template-columns: 1fr 38px 34px 28px 28px;
         gap: 0 6px;
-        padding: 6px 16px;
+        padding: var(--sf-row-pad) 16px;
         border-bottom: 1px solid var(--border);
       }
       .scorer-batter-col { text-align: center; align-self: center; }
@@ -895,11 +904,11 @@ function ScorerShellInner({
         width: 100%; padding: 0; border-radius: 10px;
         background: rgba(224,60,46,0.18); border: 1px solid var(--red);
         color: var(--red); font-family: var(--font-display); font-weight: 900;
-        font-size: 17px; cursor: pointer; letter-spacing: 0.08em; text-transform: uppercase;
+        font-size: clamp(15px, 2.3dvh, 20px); cursor: pointer; letter-spacing: 0.08em; text-transform: uppercase;
         display: flex; align-items: center; justify-content: center; gap: 8px;
-        min-height: 50px; touch-action: manipulation;
+        min-height: clamp(46px, 7dvh, 66px); touch-action: manipulation;
         box-shadow: 0 0 0 1px rgba(224,60,46,0.3), 0 4px 16px rgba(224,60,46,0.12);
-        margin-bottom: 10px;
+        margin-bottom: clamp(6px, 1dvh, 12px);
       }
       .scorer-wicket-btn:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
       .scorer-block-btn {
@@ -946,38 +955,38 @@ function ScorerShellInner({
 
       <div className="scorer-info">
         {/* Compact score strip — replaces full header bar */}
-        <div data-testid="score-header" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 16px 6px' }}>
-          <Link href="/admin/matches" style={{ color: 'var(--dim)', textDecoration: 'none', fontSize: 18, lineHeight: 1, flexShrink: 0, padding: '2px 4px 2px 0' }}>←</Link>
+        <div data-testid="score-header" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 'var(--sf-row-pad) 16px' }}>
+          <Link href="/admin/matches" style={{ color: 'var(--dim)', textDecoration: 'none', fontSize: 'var(--sf-stat)', lineHeight: 1, flexShrink: 0, padding: '2px 4px 2px 0' }}>←</Link>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: 30, fontWeight: 900, lineHeight: 1, flexShrink: 0 }}>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--sf-score)', fontWeight: 900, lineHeight: 1, flexShrink: 0 }}>
               <span style={{ color: 'var(--lime)' }}>{state.totalRuns}</span>
-              <span style={{ color: 'var(--muted)', fontSize: 22 }}>/{state.wickets}</span>
+              <span style={{ color: 'var(--muted)', fontSize: 'var(--sf-score-wkt)' }}>/{state.wickets}</span>
             </span>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--text)', fontSize: 13 }}>{state.oversDisplay} ov</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--text)', fontSize: 'var(--sf-body)' }}>{state.oversDisplay} ov</span>
             {state.legalBalls > 0 && (
-              <span style={{ color: 'var(--dim)', fontSize: 12 }}>RR <strong style={{ color: 'var(--text)' }}>{((state.totalRuns / state.legalBalls) * 6).toFixed(2)}</strong></span>
+              <span style={{ color: 'var(--dim)', fontSize: 'var(--sf-small)' }}>RR <strong style={{ color: 'var(--text)' }}>{((state.totalRuns / state.legalBalls) * 6).toFixed(2)}</strong></span>
             )}
             {(() => {
               const remaining = oversPerInnings * 6 - state.legalBalls
               if (remaining <= 0 || remaining > 6) return null
-              return <span style={{ color: 'var(--red)', fontWeight: 600, fontSize: 12 }}>Last over</span>
+              return <span style={{ color: 'var(--red)', fontWeight: 600, fontSize: 'var(--sf-small)' }}>Last over</span>
             })()}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            <span style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Inn {innings.innings_number}</span>
+            <span style={{ fontSize: 'var(--sf-label)', color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Inn {innings.innings_number}</span>
             {innings.target ? (
               state.totalRuns >= innings.target ? (
                 <div style={{ background: 'rgba(184,240,0,0.12)', border: '1px solid var(--lime)', borderRadius: 7, padding: '3px 7px', textAlign: 'center' }}>
-                  {innings.is_dls && <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--sky)', marginBottom: 1 }}>DLS</div>}
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 900, color: 'var(--lime)', fontSize: 13 }}>Target!</div>
+                  {innings.is_dls && <div style={{ fontSize: 'var(--sf-label)', fontWeight: 700, letterSpacing: '0.12em', color: 'var(--sky)', marginBottom: 1 }}>DLS</div>}
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 900, color: 'var(--lime)', fontSize: 'var(--sf-body)' }}>Target!</div>
                 </div>
               ) : (
                 <div style={{ background: 'rgba(255,200,0,0.1)', border: '1px solid rgba(255,200,0,0.35)', borderRadius: 7, padding: '3px 7px', textAlign: 'center' }}>
-                  {innings.is_dls && <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--sky)', marginBottom: 1 }}>DLS</div>}
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 900, color: 'var(--gold)', fontSize: 17, lineHeight: 1 }}>
+                  {innings.is_dls && <div style={{ fontSize: 'var(--sf-label)', fontWeight: 700, letterSpacing: '0.12em', color: 'var(--sky)', marginBottom: 1 }}>DLS</div>}
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 900, color: 'var(--gold)', fontSize: 'var(--sf-stat)', lineHeight: 1 }}>
                     {innings.target - state.totalRuns}
                   </div>
-                  <div style={{ color: 'var(--muted)', fontSize: 9, marginTop: 1 }}>to win</div>
+                  <div style={{ color: 'var(--muted)', fontSize: 'var(--sf-label)', marginTop: 1 }}>to win</div>
                 </div>
               )
             ) : null}
@@ -988,7 +997,7 @@ function ScorerShellInner({
         <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 0, borderLeft: 'none', borderRight: 'none', overflow: 'hidden' }}>
           <div className="scorer-batter-grid" style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border)' }}>
             {['Batter', 'R', 'B', '4s', '6s'].map((h, i) => (
-              <span key={h} style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: i > 0 ? 'center' : 'left' }}>{h}</span>
+              <span key={h} style={{ fontSize: 'var(--sf-label)', color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: i > 0 ? 'center' : 'left' }}>{h}</span>
             ))}
           </div>
           {Array.from(new Set([effectiveStrikerId, effectiveNonStrikerId].filter(Boolean))).map(id => {
@@ -999,18 +1008,18 @@ function ScorerShellInner({
               <div key={id} className="scorer-batter-grid" style={{
                 background: isStriker ? 'rgba(59,130,246,0.06)' : 'transparent',
               }}>
-                <span style={{ fontWeight: 700, color: isStriker ? 'var(--lime)' : 'var(--text)', display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
-                  {isStriker && <span style={{ color: 'var(--lime)', fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 15, flexShrink: 0 }}>*</span>}
+                <span style={{ fontWeight: 700, fontSize: 'var(--sf-body)', color: isStriker ? 'var(--lime)' : 'var(--text)', display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+                  {isStriker && <span style={{ color: 'var(--lime)', fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 'var(--sf-body)', flexShrink: 0 }}>*</span>}
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{playerName(id!)}</span>
-                  {mp?.is_captain && <span style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 700, flexShrink: 0 }}>(C)</span>}
-                  {mp?.is_keeper && <span style={{ fontSize: 12, color: 'var(--muted)', flexShrink: 0 }}>†</span>}
+                  {mp?.is_captain && <span style={{ fontSize: 'var(--sf-label)', color: 'var(--gold)', fontWeight: 700, flexShrink: 0 }}>(C)</span>}
+                  {mp?.is_keeper && <span style={{ fontSize: 'var(--sf-small)', color: 'var(--muted)', flexShrink: 0 }}>†</span>}
                 </span>
-                <span className="scorer-batter-col" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16, color: isStriker ? 'var(--lime)' : 'var(--text)' }}>
+                <span className="scorer-batter-col" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 'var(--sf-stat)', color: isStriker ? 'var(--lime)' : 'var(--text)' }}>
                   {b?.runs ?? 0}
                 </span>
-                <span className="scorer-batter-col" style={{ color: 'var(--muted)', fontSize: 14 }}>{b?.balls ?? 0}</span>
-                <span className="scorer-batter-col" style={{ color: 'var(--lime)', fontSize: 13, fontWeight: 700 }}>{b?.fours ?? 0}</span>
-                <span className="scorer-batter-col" style={{ color: 'var(--gold)', fontSize: 13, fontWeight: 700 }}>{b?.sixes ?? 0}</span>
+                <span className="scorer-batter-col" style={{ color: 'var(--muted)', fontSize: 'var(--sf-body)' }}>{b?.balls ?? 0}</span>
+                <span className="scorer-batter-col" style={{ color: 'var(--lime)', fontSize: 'var(--sf-body)', fontWeight: 700 }}>{b?.fours ?? 0}</span>
+                <span className="scorer-batter-col" style={{ color: 'var(--gold)', fontSize: 'var(--sf-body)', fontWeight: 700 }}>{b?.sixes ?? 0}</span>
               </div>
             )
           })}
@@ -1020,27 +1029,27 @@ function ScorerShellInner({
         {state.currentPartnership && (
           <div style={{
             display: 'flex', justifyContent: 'space-around', alignItems: 'center',
-            padding: '5px 16px', borderTop: '1px solid var(--border)',
+            padding: 'var(--sf-row-pad) 16px', borderTop: '1px solid var(--border)',
             background: 'rgba(255,255,255,0.015)',
           }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 9, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Partnership</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>
+              <div style={{ fontSize: 'var(--sf-label)', color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Partnership</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--sf-strip-val)', fontWeight: 800, color: 'var(--text)' }}>
                 {state.currentPartnership.runs}
-                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}> ({state.currentPartnership.balls})</span>
+                <span style={{ fontSize: 'var(--sf-small)', color: 'var(--muted)', fontWeight: 600 }}> ({state.currentPartnership.balls})</span>
               </div>
             </div>
             <div style={{ width: 1, height: 24, background: 'var(--border)' }} />
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 9, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>This over</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>
+              <div style={{ fontSize: 'var(--sf-label)', color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>This over</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--sf-strip-val)', fontWeight: 800, color: 'var(--text)' }}>
                 {state.currentOverBalls.reduce((s, b) => s + totalBallRuns(b), 0)}
               </div>
             </div>
             <div style={{ width: 1, height: 24, background: 'var(--border)' }} />
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 9, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Balls left</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>
+              <div style={{ fontSize: 'var(--sf-label)', color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Balls left</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--sf-strip-val)', fontWeight: 800, color: 'var(--text)' }}>
                 {6 - (state.currentOverLegalBalls ?? 0)}
               </div>
             </div>
@@ -1050,22 +1059,22 @@ function ScorerShellInner({
         {/* Bowler + This over — two-line layout to prevent name clipping */}
         <div style={{ borderTop: '1px solid var(--border)' }}>
           {/* Line 1: bowler name + stats */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 16px 3px', gap: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--sf-row-pad) 16px calc(var(--sf-row-pad) / 2)', gap: 8 }}>
             {effectiveBowlerId ? (() => {
               const bs = state.bowlerStats[effectiveBowlerId]
               const bowlerMp = matchPlayers.find(p => p.id === effectiveBowlerId)
               return (
                 <>
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 1 }}>Bowling</div>
-                    <div style={{ fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
+                    <div style={{ fontSize: 'var(--sf-label)', color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 1 }}>Bowling</div>
+                    <div style={{ fontWeight: 700, fontSize: 'var(--sf-body)', display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{playerName(effectiveBowlerId)}</span>
-                      {bowlerMp?.is_captain && <span style={{ fontSize: 10, color: 'var(--gold)', fontWeight: 700, flexShrink: 0 }}>(C)</span>}
-                      {bowlerMp?.is_keeper && <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0 }}>†</span>}
+                      {bowlerMp?.is_captain && <span style={{ fontSize: 'var(--sf-label)', color: 'var(--gold)', fontWeight: 700, flexShrink: 0 }}>(C)</span>}
+                      {bowlerMp?.is_keeper && <span style={{ fontSize: 'var(--sf-small)', color: 'var(--muted)', flexShrink: 0 }}>†</span>}
                     </div>
                   </div>
                   {bs && (
-                    <div style={{ textAlign: 'right', flexShrink: 0, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13, letterSpacing: '0.01em' }}>
+                    <div style={{ textAlign: 'right', flexShrink: 0, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--sf-body)', letterSpacing: '0.01em' }}>
                       <span style={{ color: 'var(--text)' }}>{bs.overs}</span>
                       <span style={{ color: 'var(--dim)' }}>–</span>
                       <span style={{ color: bs.maidens > 0 ? 'var(--sky)' : 'var(--muted)' }}>{bs.maidens}</span>
@@ -1078,12 +1087,12 @@ function ScorerShellInner({
                 </>
               )
             })() : (
-              <div style={{ color: 'var(--dim)', fontSize: 12 }}>Awaiting bowler</div>
+              <div style={{ color: 'var(--dim)', fontSize: 'var(--sf-small)' }}>Awaiting bowler</div>
             )}
           </div>
           {/* Line 2: this over dots */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 12px 4px' }}>
-            <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 12px var(--sf-row-pad)' }}>
+            <div style={{ fontSize: 'var(--sf-label)', color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 4 }}>
               This over{state.currentOverBalls.length > 0 && <span style={{ color: 'rgba(147,197,253,0.25)', textTransform: 'none', letterSpacing: 0 }}>·tap</span>}
             </div>
             <OverDots balls={state.currentOverBalls} onBallTap={setCorrectingBall} compact />

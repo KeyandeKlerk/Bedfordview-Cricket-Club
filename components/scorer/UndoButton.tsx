@@ -39,10 +39,10 @@ export default function UndoButton({ lastBall, playerName, onUndo, disabled }: P
         disabled={disabled}
         onClick={() => setConfirming(true)}
         style={{
-          fontSize: 12,
+          fontSize: 'clamp(11px, 1.7dvh, 14px)' as any,
           color: 'var(--red)',
           borderColor: 'rgba(224,60,46,0.4)',
-          minHeight: 36,
+          minHeight: 'clamp(34px, 5dvh, 44px)' as any,
           width: '100%',
           justifyContent: 'center',
           opacity: 0.75,
