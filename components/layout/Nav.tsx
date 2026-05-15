@@ -46,6 +46,8 @@ export default function Nav() {
     window.location.href = '/'
   }
 
+  if (/\/admin\/matches\/[^/]+\/score/.test(pathname)) return null
+
   return (
     <>
       <style>{`

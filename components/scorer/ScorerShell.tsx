@@ -299,7 +299,7 @@ function ScorerShellInner({
   // ── PHASE: setup_bcc_xi ───────────────────────────────────────
   if (phase === 'setup_bcc_xi') {
     return (
-      <div style={{ paddingTop: 'var(--nav-h)', minHeight: '100vh' }}>
+      <div style={{ minHeight: '100vh' }}>
         <SetupPhaseHeader step={1} title="BCC XI" />
         <SetupBccXi
           matchId={match.id}
@@ -317,7 +317,7 @@ function ScorerShellInner({
   // ── PHASE: setup_opp_xi ───────────────────────────────────────
   if (phase === 'setup_opp_xi') {
     return (
-      <div style={{ paddingTop: 'var(--nav-h)', minHeight: '100vh' }}>
+      <div style={{ minHeight: '100vh' }}>
         <SetupPhaseHeader step={2} title="Opposition XI" />
         <SetupOppXi
           matchId={match.id}
@@ -350,7 +350,7 @@ function ScorerShellInner({
   // ── PHASE: toss ───────────────────────────────────────────────
   if (phase === 'toss') {
     return (
-      <div style={{ paddingTop: 'var(--nav-h)', minHeight: '100vh' }}>
+      <div style={{ minHeight: '100vh' }}>
         <SetupPhaseHeader step={4} title="Toss" />
       <div style={{ maxWidth: 500, margin: '0 auto', padding: '32px 20px 40px' }}>
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 900, textTransform: 'uppercase', marginBottom: 24 }}>Toss</h2>
@@ -417,7 +417,7 @@ function ScorerShellInner({
     const bowlers = matchPlayers.filter(p => p.side !== battingSide)
 
     return (
-      <div style={{ paddingTop: 'var(--nav-h)', minHeight: '100vh' }}>
+      <div style={{ minHeight: '100vh' }}>
         <SetupPhaseHeader step={5} title="Select Openers" />
       <div style={{ maxWidth: 600, margin: '0 auto', padding: '24px 20px 40px' }}>
         <div style={{ marginBottom: 24 }}>
@@ -538,7 +538,7 @@ function ScorerShellInner({
   // ── PHASE: match_complete ─────────────────────────────────────
   if (phase === 'match_complete') {
     return (
-      <div style={{ textAlign: 'center', padding: '80px 24px' }}>
+      <div style={{ textAlign: 'center', padding: '48px 24px' }}>
         <div style={{ fontFamily: 'var(--font-display)', fontSize: 48, fontWeight: 900, color: 'var(--lime)', marginBottom: 16 }}>
           Match Complete
         </div>
@@ -875,7 +875,7 @@ function ScorerShellInner({
     <>
     <style>{`
       .scorer-shell {
-        position: fixed; top: var(--nav-h); left: 0; right: 0; bottom: 0;
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
         display: flex; flex-direction: column; overflow: hidden;
       }
       .scorer-info { flex-shrink: 0; max-width: 640px; margin: 0 auto; width: 100%; }

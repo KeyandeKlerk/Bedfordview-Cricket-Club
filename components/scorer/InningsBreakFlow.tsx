@@ -142,7 +142,7 @@ export default function InningsBreakFlow({
   }
 
   return (
-    <div style={{ maxWidth: 560, margin: '0 auto', padding: 'calc(var(--nav-h) + 24px) 20px 48px' }}>
+    <div style={{ maxWidth: 560, margin: '0 auto', padding: '24px 20px 48px' }}>
 
       {/* Phase: result — innings 1 summary + single CTA */}
       {phase === 'result' && (
