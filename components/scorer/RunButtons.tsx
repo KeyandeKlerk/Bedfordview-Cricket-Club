@@ -4,9 +4,10 @@ import { useRef } from 'react'
 interface Props {
   onRun: (runs: number, isBoundaryFour: boolean, isBoundarySix: boolean) => void
   disabled?: boolean
+  fill?: boolean
 }
 
-function RunBtn({ r, disabled, onClick }: { r: number; disabled?: boolean; onClick: () => void }) {
+function RunBtn({ r, disabled, onClick, fill }: { r: number; disabled?: boolean; onClick: () => void; fill?: boolean }) {
   const isFour = r === 4
   const isSix  = r === 6
   const isFive = r === 5
@@ -16,7 +17,7 @@ function RunBtn({ r, disabled, onClick }: { r: number; disabled?: boolean; onCli
       disabled={disabled}
       onClick={onClick}
       style={{
-        height: 'clamp(60px, 11vw, 72px)',
+        height: fill ? '100%' : 'clamp(60px, 11vw, 72px)',
         borderRadius: 10,
         border: isFour
           ? '2px solid var(--lime)'
@@ -53,7 +54,7 @@ function RunBtn({ r, disabled, onClick }: { r: number; disabled?: boolean; onCli
   )
 }
 
-export default function RunButtons({ onRun, disabled }: Props) {
+export default function RunButtons({ onRun, disabled, fill }: Props) {
   const lastClickTime = useRef(0)
   const DEBOUNCE_MS = 400
 
@@ -65,17 +66,17 @@ export default function RunButtons({ onRun, disabled }: Props) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, ...(fill ? { flex: 1, minHeight: 0 } : {}) }}>
       {/* Top row: 0–3 (most common, equal width) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, ...(fill ? { flex: 1, minHeight: 0 } : {}) }}>
         {[0, 1, 2, 3].map(r => (
-          <RunBtn key={r} r={r} disabled={disabled} onClick={() => handleClick(r)} />
+          <RunBtn key={r} r={r} disabled={disabled} onClick={() => handleClick(r)} fill={fill} />
         ))}
       </div>
       {/* Bottom row: 4 and 6 take 2/5 each, 5 takes 1/5 (visually de-prioritised) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr', gap: 8, ...(fill ? { flex: 1, minHeight: 0 } : {}) }}>
         {[4, 5, 6].map(r => (
-          <RunBtn key={r} r={r} disabled={disabled} onClick={() => handleClick(r)} />
+          <RunBtn key={r} r={r} disabled={disabled} onClick={() => handleClick(r)} fill={fill} />
         ))}
       </div>
     </div>

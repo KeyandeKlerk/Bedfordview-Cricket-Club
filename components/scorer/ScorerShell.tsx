@@ -880,9 +880,8 @@ function ScorerShellInner({
       }
       .scorer-info { flex-shrink: 0; max-width: 640px; margin: 0 auto; width: 100%; }
       .scorer-mid { flex-shrink: 0; overflow: hidden; }
-      .scorer-spacer { flex: 1; }
       .scorer-secondary { flex-shrink: 0; padding: 8px 16px 0; max-width: 640px; margin: 0 auto; width: 100%; box-sizing: border-box; }
-      .scorer-primary { flex-shrink: 0; padding: 10px 16px 0; max-width: 640px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+      .scorer-primary { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 10px 16px 0; max-width: 640px; margin: 0 auto; width: 100%; box-sizing: border-box; }
       .scorer-actions-bar { flex-shrink: 0; padding: 6px 16px; padding-bottom: max(8px, env(safe-area-inset-bottom)); border-top: 1px solid var(--border); max-width: 640px; margin: 0 auto; width: 100%; box-sizing: border-box; }
       .scorer-batter-grid {
         display: grid;
@@ -1138,18 +1137,16 @@ function ScorerShellInner({
             End Innings →
           </button>
         ) : (
-          <div style={{ opacity: submitting ? 0.3 : 1, pointerEvents: submitting ? 'none' : 'auto' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', opacity: submitting ? 0.3 : 1, pointerEvents: submitting ? 'none' : 'auto' }}>
             {/* Wicket — full width, above run buttons, in the hot zone */}
             <button onClick={() => setShowWicketModal(true)} disabled={submitting} className="scorer-wicket-btn">
               <span style={{ fontSize: 22, fontWeight: 900 }}>W</span>
               {freeHit ? 'WICKET (RO only)' : 'WICKET'}
             </button>
-            <RunButtons onRun={(runs, isFour, isSix) => submitBall({ runs_off_bat: runs, is_boundary_four: isFour, is_boundary_six: isSix })} />
+            <RunButtons onRun={(runs, isFour, isSix) => submitBall({ runs_off_bat: runs, is_boundary_four: isFour, is_boundary_six: isSix })} fill />
           </div>
         )}
       </div>
-
-      <div className="scorer-spacer" />
 
       {/* Zone E — Match options button, always accessible */}
       {!needsNewBatter && !needsNewBowler && !isNaturalEnd(state, oversPerInnings, innings.target) && (
