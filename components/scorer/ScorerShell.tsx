@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import type { BallEvent, DismissalType, ExtrasType, InningsState, MatchPlayer } from '@/lib/cricket/types'
-import { computeInningsState, isNaturalEnd, deriveResultText } from '@/lib/cricket/engine'
+import { computeInningsState, isNaturalEnd, deriveResultText, totalBallRuns } from '@/lib/cricket/engine'
 import { deriveEffectivePositions } from '@/lib/cricket/positions'
 import { detectPhase as _detectPhase, type Phase } from '@/lib/cricket/phases'
 import { validateBall } from '@/lib/cricket/validators'
@@ -879,10 +879,11 @@ function ScorerShellInner({
         display: flex; flex-direction: column; overflow: hidden;
       }
       .scorer-info { flex-shrink: 0; max-width: 640px; margin: 0 auto; width: 100%; }
-      .scorer-mid { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
+      .scorer-mid { flex-shrink: 0; overflow: hidden; }
+      .scorer-spacer { flex: 1; }
       .scorer-secondary { flex-shrink: 0; padding: 8px 16px 0; max-width: 640px; margin: 0 auto; width: 100%; box-sizing: border-box; }
       .scorer-primary { flex-shrink: 0; padding: 10px 16px 0; max-width: 640px; margin: 0 auto; width: 100%; box-sizing: border-box; }
-      .scorer-actions-bar { flex-shrink: 0; padding: 6px 16px; padding-bottom: max(8px, env(safe-area-inset-bottom)); max-width: 640px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+      .scorer-actions-bar { flex-shrink: 0; padding: 6px 16px; padding-bottom: max(8px, env(safe-area-inset-bottom)); border-top: 1px solid var(--border); max-width: 640px; margin: 0 auto; width: 100%; box-sizing: border-box; }
       .scorer-batter-grid {
         display: grid;
         grid-template-columns: 1fr 38px 34px 28px 28px;
@@ -1016,43 +1017,77 @@ function ScorerShellInner({
           })}
         </div>
 
-        {/* Bowler + This over — inline row to save vertical space */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 0, borderTop: '1px solid var(--border)' }}>
-          {effectiveBowlerId ? (() => {
-            const bs = state.bowlerStats[effectiveBowlerId]
-            const bowlerMp = matchPlayers.find(p => p.id === effectiveBowlerId)
-            return (
-              <div style={{ flex: 1, padding: '5px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, borderRight: '1px solid var(--border)', minWidth: 0 }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 1 }}>Bowling</div>
-                  <div style={{ fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{playerName(effectiveBowlerId)}</span>
-                    {bowlerMp?.is_captain && <span style={{ fontSize: 10, color: 'var(--gold)', fontWeight: 700, flexShrink: 0 }}>(C)</span>}
-                    {bowlerMp?.is_keeper && <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0 }}>†</span>}
-                  </div>
-                </div>
-                {bs && (
-                  <div style={{ textAlign: 'right', flexShrink: 0, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13, letterSpacing: '0.01em' }}>
-                    <span style={{ color: 'var(--text)' }}>{bs.overs}</span>
-                    <span style={{ color: 'var(--dim)' }}>–</span>
-                    <span style={{ color: bs.maidens > 0 ? 'var(--sky)' : 'var(--muted)' }}>{bs.maidens}</span>
-                    <span style={{ color: 'var(--dim)' }}>–</span>
-                    <span style={{ color: 'var(--text)' }}>{bs.runs}</span>
-                    <span style={{ color: 'var(--dim)' }}>–</span>
-                    <span style={{ color: bs.wickets > 0 ? 'var(--lime)' : 'var(--text)' }}>{bs.wickets}</span>
-                  </div>
-                )}
+        {/* Partnership & over info strip */}
+        {state.currentPartnership && (
+          <div style={{
+            display: 'flex', justifyContent: 'space-around', alignItems: 'center',
+            padding: '5px 16px', borderTop: '1px solid var(--border)',
+            background: 'rgba(255,255,255,0.015)',
+          }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 9, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Partnership</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>
+                {state.currentPartnership.runs}
+                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}> ({state.currentPartnership.balls})</span>
               </div>
-            )
-          })() : (
-            <div style={{ flex: 1, padding: '5px 16px', borderRight: '1px solid var(--border)', color: 'var(--dim)', fontSize: 12 }}>Awaiting bowler</div>
-          )}
-          {/* This over */}
-          <div style={{ padding: '5px 12px', flexShrink: 0 }}>
-            <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>
-              This over{state.currentOverBalls.length > 0 && <span style={{ color: 'rgba(147,197,253,0.25)', marginLeft: 4, textTransform: 'none', letterSpacing: 0 }}>·tap</span>}
             </div>
-            <OverDots balls={state.currentOverBalls} onBallTap={setCorrectingBall} />
+            <div style={{ width: 1, height: 24, background: 'var(--border)' }} />
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 9, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>This over</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>
+                {state.currentOverBalls.reduce((s, b) => s + totalBallRuns(b), 0)}
+              </div>
+            </div>
+            <div style={{ width: 1, height: 24, background: 'var(--border)' }} />
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 9, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Balls left</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>
+                {6 - (state.currentOverLegalBalls ?? 0)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bowler + This over — two-line layout to prevent name clipping */}
+        <div style={{ borderTop: '1px solid var(--border)' }}>
+          {/* Line 1: bowler name + stats */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 16px 3px', gap: 8 }}>
+            {effectiveBowlerId ? (() => {
+              const bs = state.bowlerStats[effectiveBowlerId]
+              const bowlerMp = matchPlayers.find(p => p.id === effectiveBowlerId)
+              return (
+                <>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 1 }}>Bowling</div>
+                    <div style={{ fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{playerName(effectiveBowlerId)}</span>
+                      {bowlerMp?.is_captain && <span style={{ fontSize: 10, color: 'var(--gold)', fontWeight: 700, flexShrink: 0 }}>(C)</span>}
+                      {bowlerMp?.is_keeper && <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0 }}>†</span>}
+                    </div>
+                  </div>
+                  {bs && (
+                    <div style={{ textAlign: 'right', flexShrink: 0, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13, letterSpacing: '0.01em' }}>
+                      <span style={{ color: 'var(--text)' }}>{bs.overs}</span>
+                      <span style={{ color: 'var(--dim)' }}>–</span>
+                      <span style={{ color: bs.maidens > 0 ? 'var(--sky)' : 'var(--muted)' }}>{bs.maidens}</span>
+                      <span style={{ color: 'var(--dim)' }}>–</span>
+                      <span style={{ color: 'var(--text)' }}>{bs.runs}</span>
+                      <span style={{ color: 'var(--dim)' }}>–</span>
+                      <span style={{ color: bs.wickets > 0 ? 'var(--lime)' : 'var(--text)' }}>{bs.wickets}</span>
+                    </div>
+                  )}
+                </>
+              )
+            })() : (
+              <div style={{ color: 'var(--dim)', fontSize: 12 }}>Awaiting bowler</div>
+            )}
+          </div>
+          {/* Line 2: this over dots */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 12px 4px' }}>
+            <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 4 }}>
+              This over{state.currentOverBalls.length > 0 && <span style={{ color: 'rgba(147,197,253,0.25)', textTransform: 'none', letterSpacing: 0 }}>·tap</span>}
+            </div>
+            <OverDots balls={state.currentOverBalls} onBallTap={setCorrectingBall} compact />
           </div>
         </div>
       </div>
@@ -1114,7 +1149,8 @@ function ScorerShellInner({
         )}
       </div>
 
-      {/* Zone E — End innings button + match options toggle */}
+      <div className="scorer-spacer" />
+
       {/* Zone E — Match options button, always accessible */}
       {!needsNewBatter && !needsNewBowler && !isNaturalEnd(state, oversPerInnings, innings.target) && (
         <div className="scorer-actions-bar">

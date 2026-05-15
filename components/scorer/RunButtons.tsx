@@ -16,7 +16,7 @@ function RunBtn({ r, disabled, onClick }: { r: number; disabled?: boolean; onCli
       disabled={disabled}
       onClick={onClick}
       style={{
-        height: 'clamp(52px, 10vw, 64px)',
+        height: 'clamp(60px, 11vw, 72px)',
         borderRadius: 10,
         border: isFour
           ? '2px solid var(--lime)'
@@ -36,7 +36,7 @@ function RunBtn({ r, disabled, onClick }: { r: number; disabled?: boolean; onCli
           ? 'var(--gold)'
           : 'var(--text)',
         fontFamily: 'var(--font-display)',
-        fontSize: isFive ? 18 : r === 0 ? 26 : 30,
+        fontSize: isFive ? 20 : r === 0 ? 28 : 34,
         fontWeight: 900,
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.5 : isFive ? 0.55 : 1,
