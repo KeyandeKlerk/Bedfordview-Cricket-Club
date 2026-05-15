@@ -137,8 +137,17 @@ export function computeStrikeAfterBall(
   nonStrikerId: string
 ): { striker: string; nonStriker: string } {
   const isEndOfOver = legalBallsAfterThisBall > 0 && legalBallsAfterThisBall % 6 === 0
-  const runsCompleted = totalBallRuns(ball)
-  const crossForRuns = runsCompleted % 2 === 1
+
+  // Physical runs determine crossing — penalty runs (wide +1, no-ball +1) don't count
+  let physicalRuns: number
+  if (ball.extras_type === 'wide') {
+    physicalRuns = Math.max(0, ball.extras_runs - 1)
+  } else if (ball.extras_type === 'no_ball') {
+    physicalRuns = ball.runs_off_bat
+  } else {
+    physicalRuns = ball.runs_off_bat + ball.extras_runs
+  }
+  const crossForRuns = physicalRuns % 2 === 1
 
   // Apply crossing-for-runs first, then end-of-over swap
   let striker    = currentBatterId
