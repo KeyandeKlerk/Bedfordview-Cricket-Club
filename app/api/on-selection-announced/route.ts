@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${serviceKey}`,
+      'x-webhook-secret': process.env.WEBHOOK_SECRET ?? '',
     },
     body: JSON.stringify({ match_id }),
   })
