@@ -22,6 +22,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 })
   }
 
+  if (!email.includes('@')) {
+    return NextResponse.json({ error: 'A valid email address is required.' }, { status: 400 })
+  }
+
+  if (password.length < 8) {
+    return NextResponse.json({ error: 'Password must be at least 8 characters.' }, { status: 400 })
+  }
+
   // Split full name: first word = first_name, rest = last_name
   const nameParts = full_name.trim().split(/\s+/)
   const first_name = nameParts[0]
@@ -47,7 +55,8 @@ export async function POST(req: NextRequest) {
     if (isDuplicate) {
       return NextResponse.json({ error: 'An account with this email already exists.' }, { status: 409 })
     }
-    return NextResponse.json({ error: authError.message }, { status: 400 })
+    console.error('Auth user creation failed:', authError)
+    return NextResponse.json({ error: 'Registration failed. Please try again.' }, { status: 400 })
   }
 
   const userId = authData.user.id

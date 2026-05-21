@@ -9,7 +9,10 @@ export async function GET(req: NextRequest) {
   if (category) query = query.eq('category', category)
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('Products fetch failed:', error)
+    return NextResponse.json({ error: 'An internal error occurred.' }, { status: 500 })
+  }
   return NextResponse.json(data)
 }
 
@@ -32,8 +35,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const body = await req.json()
-  const { data, error } = await serverSupabase.from('products').insert(body).select().single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  const { name, description, image_url, category, price_zar, sizes, benefits, is_active, sort_order } = await req.json()
+  const { data, error } = await serverSupabase
+    .from('products')
+    .insert({ name, description, image_url, category, price_zar, sizes, benefits, is_active, sort_order })
+    .select()
+    .single()
+  if (error) {
+    console.error('Product insert failed:', error)
+    return NextResponse.json({ error: 'An internal error occurred.' }, { status: 500 })
+  }
   return NextResponse.json(data, { status: 201 })
 }

@@ -23,7 +23,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   await adminClient.from('players').update({ is_active: false }).eq('user_id', targetId)
 
   const { error } = await adminClient.auth.admin.deleteUser(targetId)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('User delete failed:', error)
+    return NextResponse.json({ error: 'An internal error occurred.' }, { status: 500 })
+  }
 
   await adminClient.from('audit_log').insert({
     user_id: caller.id,

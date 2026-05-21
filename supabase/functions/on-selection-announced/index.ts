@@ -14,6 +14,15 @@ const supabase = createClient(
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 })
 
+  // Verify webhook secret
+  const webhookSecret = Deno.env.get('WEBHOOK_SECRET')
+  if (!webhookSecret) {
+    return new Response('Webhook secret not configured', { status: 500 })
+  }
+  if (req.headers.get('x-webhook-secret') !== webhookSecret) {
+    return new Response('Unauthorized', { status: 401 })
+  }
+
   let body: { match_id: string }
   try {
     body = await req.json()

@@ -10,6 +10,11 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const webhookSecret = process.env.WEBHOOK_SECRET
+  if (!webhookSecret || _req.headers.get('x-webhook-secret') !== webhookSecret) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const { id: matchId } = await params
 
   // Fetch match metadata

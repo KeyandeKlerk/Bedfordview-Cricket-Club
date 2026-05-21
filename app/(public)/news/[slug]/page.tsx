@@ -22,6 +22,13 @@ function formatDate(iso: string) {
   })
 }
 
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, '') // remove event handlers
+    .replace(/javascript\s*:/gi, '')                  // remove javascript: URLs
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // remove script tags
+}
+
 /** Very simple markdown → HTML: paragraphs, bold, italic, headings */
 function renderMarkdown(md: string): string {
   const escaped = md
@@ -54,7 +61,7 @@ function renderMarkdown(md: string): string {
     }
   }
   if (inParagraph) html.push('</p>')
-  return html.join('')
+  return sanitizeHtml(html.join(''))
 }
 
 function inline(s: string): string {

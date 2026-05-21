@@ -31,7 +31,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .eq('id', id)
     .select()
     .single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('Order update failed:', error)
+    return NextResponse.json({ error: 'An internal error occurred.' }, { status: 500 })
+  }
 
   // Activate membership if this is a membership order being paid
   if (action === 'paid' && order.order_type === 'membership' && order.user_id) {

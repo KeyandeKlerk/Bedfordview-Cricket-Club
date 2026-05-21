@@ -10,17 +10,23 @@ function corsHeaders(origin: string) {
 }
 
 serve(async (req) => {
-  const origin = req.headers.get('origin') ?? '*'
+  const ALLOWED_ORIGINS = [
+    'https://bedfordviewcc.co.za',
+    'https://www.bedfordviewcc.co.za',
+    'http://localhost:3000',
+  ]
+  const requestOrigin = req.headers.get('origin') ?? ''
+  const allowedOrigin = ALLOWED_ORIGINS.includes(requestOrigin) ? requestOrigin : ALLOWED_ORIGINS[0]
 
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders(origin) })
+    return new Response(null, { headers: corsHeaders(allowedOrigin) })
   }
 
   const authHeader = req.headers.get('authorization')
   if (!authHeader) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
-      headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders(allowedOrigin), 'Content-Type': 'application/json' },
     })
   }
 
@@ -40,42 +46,28 @@ serve(async (req) => {
   if (userError || !user) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
-      headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders(allowedOrigin), 'Content-Type': 'application/json' },
     })
   }
   const { data: roles } = await userClient.from('user_roles').select('role').eq('user_id', user.id).in('role', ['admin']).limit(1)
   if (!roles || roles.length === 0) {
     return new Response(JSON.stringify({ error: 'Forbidden' }), {
       status: 403,
-      headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders(allowedOrigin), 'Content-Type': 'application/json' },
     })
   }
 
-  // Refresh all four materialized views CONCURRENTLY
-  const views = [
-    'season_batting_stats',
-    'season_bowling_stats',
-    'career_batting_stats',
-    'career_bowling_stats',
-  ]
-
-  const errors: string[] = []
-  for (const view of views) {
-    const { error } = await supabase.rpc('exec_sql', {
-      sql: `REFRESH MATERIALIZED VIEW CONCURRENTLY ${view}`
-    })
-    if (error) errors.push(`${view}: ${error.message}`)
-  }
-
-  if (errors.length > 0) {
-    return new Response(JSON.stringify({ ok: false, errors }), {
+  // Refresh all materialized views via dedicated DB function
+  const { error: refreshError } = await supabase.rpc('refresh_stats_views')
+  if (refreshError) {
+    return new Response(JSON.stringify({ ok: false, error: refreshError.message }), {
       status: 500,
-      headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders(allowedOrigin), 'Content-Type': 'application/json' },
     })
   }
 
-  return new Response(JSON.stringify({ ok: true, refreshed: views }), {
+  return new Response(JSON.stringify({ ok: true }), {
     status: 200,
-    headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(allowedOrigin), 'Content-Type': 'application/json' },
   })
 })

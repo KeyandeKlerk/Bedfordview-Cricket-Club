@@ -14,11 +14,14 @@ const supabase = createClient(
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 })
 
-  // Optional: validate a shared secret header to prevent unauthorized calls
+  // Validate CRON_SECRET — must be configured and must match the Authorization header
   const cronSecret = Deno.env.get('CRON_SECRET')
-  if (cronSecret) {
-    const authHeader = req.headers.get('x-cron-secret')
-    if (authHeader !== cronSecret) return new Response('Unauthorized', { status: 401 })
+  if (!cronSecret) {
+    return new Response('CRON_SECRET not configured', { status: 500 })
+  }
+  const authHeader = req.headers.get('authorization')
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return new Response('Unauthorized', { status: 401 })
   }
 
   const now = new Date()

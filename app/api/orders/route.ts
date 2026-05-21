@@ -36,10 +36,20 @@ export async function GET(req: NextRequest) {
   if (type && type !== 'all') query = query.eq('order_type', type)
   if (from) query = query.gte('created_at', from)
   if (to) query = query.lte('created_at', to + 'T23:59:59')
-  if (search) query = query.or(`customer_name.ilike.%${search}%,reference.ilike.%${search}%,customer_email.ilike.%${search}%`)
+  if (search) {
+    const safeSearch = search.replace(/[%_,().'"`\\]/g, '')
+    if (safeSearch) {
+      query = query.or(
+        `customer_name.ilike.%${safeSearch}%,reference.ilike.%${safeSearch}%,customer_email.ilike.%${safeSearch}%`
+      )
+    }
+  }
 
   const { data, error, count } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('Orders fetch failed:', error)
+    return NextResponse.json({ error: 'An internal error occurred.' }, { status: 500 })
+  }
   return NextResponse.json({ orders: data, total: count, page, limit })
 }
 
@@ -67,9 +77,15 @@ export async function POST(req: NextRequest) {
     .select('id, price_zar, is_active')
     .in('id', productIds)
 
-  if (prodError) return NextResponse.json({ error: prodError.message }, { status: 500 })
+  if (prodError) {
+    console.error('Product lookup failed:', prodError)
+    return NextResponse.json({ error: 'An internal error occurred.' }, { status: 500 })
+  }
 
   for (const item of lineItems) {
+    if (!item.qty || item.qty < 1 || !Number.isInteger(item.qty)) {
+      return NextResponse.json({ error: 'Invalid item quantity.' }, { status: 400 })
+    }
     const product = products?.find((p) => p.id === item.productId)
     if (!product || !product.is_active) {
       return NextResponse.json({ error: `Product ${item.productId} not found or inactive` }, { status: 400 })
@@ -108,7 +124,10 @@ export async function POST(req: NextRequest) {
     .select()
     .single()
 
-  if (orderError) return NextResponse.json({ error: orderError.message }, { status: 500 })
+  if (orderError) {
+    console.error('Order insert failed:', orderError)
+    return NextResponse.json({ error: 'An internal error occurred.' }, { status: 500 })
+  }
 
   // If membership order with logged-in user, create pending membership
   if (orderType === 'membership' && userId) {

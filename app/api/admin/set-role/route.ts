@@ -31,7 +31,10 @@ export async function POST(req: NextRequest) {
     .upsert({ user_id: userId, role }, { onConflict: 'user_id,role' })
     .select()
     .single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('Role upsert failed:', error)
+    return NextResponse.json({ error: 'An internal error occurred.' }, { status: 500 })
+  }
 
   // Audit log
   await adminClient.from('audit_log').insert({

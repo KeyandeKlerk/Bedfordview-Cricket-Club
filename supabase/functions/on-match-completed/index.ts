@@ -22,6 +22,15 @@ function slugify(s: string) {
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 })
 
+  // Verify webhook secret
+  const webhookSecret = Deno.env.get('WEBHOOK_SECRET')
+  if (!webhookSecret) {
+    return new Response('Webhook secret not configured', { status: 500 })
+  }
+  if (req.headers.get('x-webhook-secret') !== webhookSecret) {
+    return new Response('Unauthorized', { status: 401 })
+  }
+
   let body: { record?: { id: string; status: string } }
   try {
     body = await req.json()
@@ -119,7 +128,10 @@ Deno.serve(async (req) => {
       try {
         const reportRes = await fetch(`${siteUrl}/api/match-report/${match.id}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-webhook-secret': Deno.env.get('WEBHOOK_SECRET') ?? '',
+          },
         })
 
         if (reportRes.ok) {

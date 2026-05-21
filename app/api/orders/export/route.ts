@@ -22,14 +22,17 @@ export async function GET(req: NextRequest) {
   const from = searchParams.get('from')
   const to = searchParams.get('to')
 
-  let query = serverSupabase.from('orders').select('*').order('created_at', { ascending: false })
+  let query = serverSupabase.from('orders').select('*').order('created_at', { ascending: false }).limit(10000)
   if (status && status !== 'all') query = query.eq('status', status)
   if (type && type !== 'all') query = query.eq('order_type', type)
   if (from) query = query.gte('created_at', from)
   if (to) query = query.lte('created_at', to + 'T23:59:59')
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('Orders export failed:', error)
+    return NextResponse.json({ error: 'An internal error occurred.' }, { status: 500 })
+  }
 
   const rows = (data || []).map((o) => {
     const items = (o.line_items as Array<{ name?: string; size?: string; qty: number; unitPrice: number }> || [])

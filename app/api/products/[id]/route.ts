@@ -22,14 +22,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!roles || roles.length === 0) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await params
-  const body = await req.json()
+  const { name, description, image_url, category, price_zar, sizes, benefits, is_active, sort_order } = await req.json()
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  if (name !== undefined) updates.name = name
+  if (description !== undefined) updates.description = description
+  if (image_url !== undefined) updates.image_url = image_url
+  if (category !== undefined) updates.category = category
+  if (price_zar !== undefined) updates.price_zar = price_zar
+  if (sizes !== undefined) updates.sizes = sizes
+  if (benefits !== undefined) updates.benefits = benefits
+  if (is_active !== undefined) updates.is_active = is_active
+  if (sort_order !== undefined) updates.sort_order = sort_order
   const { data, error } = await serverSupabase
     .from('products')
-    .update({ ...body, updated_at: new Date().toISOString() })
+    .update(updates)
     .eq('id', id)
     .select()
     .single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('Product update failed:', error)
+    return NextResponse.json({ error: 'An internal error occurred.' }, { status: 500 })
+  }
   return NextResponse.json(data)
 }
 
@@ -48,6 +61,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params
 
   const { error } = await serverSupabase.from('products').delete().eq('id', id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('Product delete failed:', error)
+    return NextResponse.json({ error: 'An internal error occurred.' }, { status: 500 })
+  }
   return NextResponse.json({ success: true })
 }

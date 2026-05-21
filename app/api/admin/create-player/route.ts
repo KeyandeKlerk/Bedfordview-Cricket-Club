@@ -24,7 +24,10 @@ export async function POST(req: NextRequest) {
     .select()
     .single()
 
-  if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 })
+  if (dbError) {
+    console.error('Player insert failed:', dbError)
+    return NextResponse.json({ error: 'An internal error occurred.' }, { status: 500 })
+  }
 
   await adminClient.from('audit_log').insert({
     user_id: user.id,

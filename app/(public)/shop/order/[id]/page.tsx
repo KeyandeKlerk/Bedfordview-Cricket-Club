@@ -1,4 +1,4 @@
-import { serverSupabase } from '@/lib/supabase/server'
+import { anonSupabase } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import CopyButton from './CopyButton'
@@ -18,13 +18,14 @@ function formatPrice(cents: number) {
 export default async function ShopOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
-  const { data: order, error } = await serverSupabase
+  // Use anonSupabase so RLS enforces ownership (orders_own_select policy)
+  const { data: order } = await anonSupabase
     .from('orders')
     .select('*')
     .eq('id', id)
     .single()
 
-  if (error || !order) notFound()
+  if (!order) return notFound()
 
   const lineItems: LineItem[] = Array.isArray(order.line_items) ? order.line_items : []
 

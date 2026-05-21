@@ -37,7 +37,10 @@ export async function POST(req: NextRequest) {
       .eq('id', claim.player_id)
       .is('user_id', null)
 
-    if (linkError) return NextResponse.json({ error: linkError.message }, { status: 500 })
+    if (linkError) {
+      console.error('Player link failed:', linkError)
+      return NextResponse.json({ error: 'An internal error occurred.' }, { status: 500 })
+    }
   }
 
   // Mark claim reviewed

@@ -729,15 +729,24 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
   )
 }
 
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, '') // remove event handlers
+    .replace(/javascript\s*:/gi, '')                  // remove javascript: URLs
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // remove script tags
+}
+
 /** Minimal markdown → HTML: paragraphs only (no headings needed for auto reports) */
 function renderArticle(md: string): string {
-  return md
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .split(/\n{2,}/)
-    .map(p => p.trim())
-    .filter(Boolean)
-    .map(p => `<p>${p.replace(/\n/g, '<br />')}</p>`)
-    .join('')
+  return sanitizeHtml(
+    md
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .split(/\n{2,}/)
+      .map(p => p.trim())
+      .filter(Boolean)
+      .map(p => `<p>${p.replace(/\n/g, '<br />')}</p>`)
+      .join('')
+  )
 }

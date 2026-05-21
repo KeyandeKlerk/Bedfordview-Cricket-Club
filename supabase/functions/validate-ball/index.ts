@@ -30,17 +30,23 @@ function corsHeaders(origin: string) {
 }
 
 serve(async (req) => {
-  const origin = req.headers.get('origin') ?? '*'
+  const ALLOWED_ORIGINS = [
+    'https://bedfordviewcc.co.za',
+    'https://www.bedfordviewcc.co.za',
+    'http://localhost:3000',
+  ]
+  const requestOrigin = req.headers.get('origin') ?? ''
+  const allowedOrigin = ALLOWED_ORIGINS.includes(requestOrigin) ? requestOrigin : ALLOWED_ORIGINS[0]
 
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders(origin) })
+    return new Response(null, { headers: corsHeaders(allowedOrigin) })
   }
 
   const authHeader = req.headers.get('authorization')
   if (!authHeader) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
-      headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders(allowedOrigin), 'Content-Type': 'application/json' },
     })
   }
 
@@ -55,7 +61,7 @@ serve(async (req) => {
   if (userError || !user) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
-      headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders(allowedOrigin), 'Content-Type': 'application/json' },
     })
   }
 
@@ -70,7 +76,7 @@ serve(async (req) => {
   if (!roles || roles.length === 0) {
     return new Response(JSON.stringify({ error: 'Forbidden — scorer or admin role required' }), {
       status: 403,
-      headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders(allowedOrigin), 'Content-Type': 'application/json' },
     })
   }
 
@@ -97,7 +103,7 @@ serve(async (req) => {
   if (!innings) {
     return new Response(JSON.stringify({ error: 'Innings not found' }), {
       status: 400,
-      headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders(allowedOrigin), 'Content-Type': 'application/json' },
     })
   }
 
@@ -120,7 +126,7 @@ serve(async (req) => {
     if (!validIds.has(id)) {
       return new Response(JSON.stringify({ error: `Player ${id} does not belong to this match` }), {
         status: 400,
-        headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders(allowedOrigin), 'Content-Type': 'application/json' },
       })
     }
   }
@@ -129,26 +135,26 @@ serve(async (req) => {
   if (ball.extras_type === 'wide' && (ball.runs_off_bat ?? 0) > 0) {
     return new Response(JSON.stringify({ error: 'Bat runs cannot be scored off a wide' }), {
       status: 400,
-      headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders(allowedOrigin), 'Content-Type': 'application/json' },
     })
   }
 
   if (ball.fielder_id && ball.fielder_substitute_name) {
     return new Response(JSON.stringify({ error: 'Cannot have both fielder_id and fielder_substitute_name' }), {
       status: 400,
-      headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders(allowedOrigin), 'Content-Type': 'application/json' },
     })
   }
 
   if (ball.is_boundary_four && ball.is_boundary_six) {
     return new Response(JSON.stringify({ error: 'Cannot be both a four and a six' }), {
       status: 400,
-      headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders(allowedOrigin), 'Content-Type': 'application/json' },
     })
   }
 
   return new Response(JSON.stringify({ valid: true, expectedSequenceNumber: expectedSeq }), {
     status: 200,
-    headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(allowedOrigin), 'Content-Type': 'application/json' },
   })
 })
