@@ -4,6 +4,7 @@ import { anonSupabase as supabase } from '@/lib/supabase/server'
 import { computeInningsState, oversDisplay, deriveResultText } from '@/lib/cricket/engine'
 import type { BallEvent } from '@/lib/cricket/types'
 import ShareButton from '@/components/ShareButton'
+import { getClubConfig } from '@/lib/club-config'
 
 export const revalidate = 30
 
@@ -194,8 +195,11 @@ async function getScorecard(matchId: string) {
 
 export default async function ResultPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  const [config, scorecard] = await Promise.allSettled([getClubConfig(), getScorecard(id)])
+  if (scorecard.status === 'rejected') notFound()
+  const clubShortName = config.status === 'fulfilled' ? config.value.club_short_name : 'BCC'
   let data: any
-  try { data = await getScorecard(id) } catch { notFound() }
+  data = scorecard.value
 
   const { match, inningsWithState, playerNameMap, article } = data
 
@@ -536,7 +540,7 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
               Match Scorecard
             </div>
             <div className="result-title">
-              BCC
+              {clubShortName}
               <span className="result-title-vs">vs</span>
               {match.opponent?.canonical_name}
             </div>
@@ -551,7 +555,7 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>
               {match.result_text && <div className="result-outcome">{match.result_text}</div>}
               <ShareButton
-                title={`BCC vs ${match.opponent?.canonical_name}`}
+                title={`${clubShortName} vs ${match.opponent?.canonical_name}`}
                 text={match.result_text ?? undefined}
               />
             </div>
@@ -581,7 +585,7 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
                     <div>
                       <div className="innings-number">Innings {inn.innings_number}</div>
                       <div className="innings-team">
-                        {inn.batting_side === 'home' ? 'BCC' : match.opponent?.canonical_name}
+                        {inn.batting_side === 'home' ? clubShortName : match.opponent?.canonical_name}
                         <span className="innings-collapse-icon">▼</span>
                       </div>
                     </div>

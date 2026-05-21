@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
+import type { ClubConfig } from '@/lib/club-config'
 
 const NAV_LINKS = [
   { href: '/fixtures', label: 'Fixtures' },
@@ -16,7 +17,11 @@ const NAV_LINKS = [
   { href: '/shop',     label: 'Shop' },
 ]
 
-export default function Nav() {
+interface NavProps {
+  config: ClubConfig
+}
+
+export default function Nav({ config }: NavProps) {
   const pathname = usePathname()
   const [user, setUser] = useState<User | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -61,7 +66,7 @@ export default function Nav() {
         }
         .nav.scrolled {
           background: rgba(5,12,26,0.92);
-          border-color: rgba(59,130,246,0.15);
+          border-color: var(--border);
           backdrop-filter: blur(16px);
           -webkit-backdrop-filter: blur(16px);
         }
@@ -129,11 +134,11 @@ export default function Nav() {
         }
         .nav-links a:hover {
           color: #e2eeff;
-          background: rgba(37,99,235,0.1);
+          background: var(--blue-dim);
         }
         .nav-links a.active {
           color: #60a5fa;
-          background: rgba(37,99,235,0.12);
+          background: var(--blue-dim);
         }
         .nav-links a.live-link {
           display: flex;
@@ -171,11 +176,11 @@ export default function Nav() {
         }
         .nav-dropdown-trigger:hover, .nav-dropdown-wrap:hover .nav-dropdown-trigger {
           color: #e2eeff;
-          background: rgba(37,99,235,0.1);
+          background: var(--blue-dim);
         }
         .nav-dropdown-trigger.active {
           color: #60a5fa;
-          background: rgba(37,99,235,0.12);
+          background: var(--blue-dim);
         }
         .nav-dropdown-arrow {
           font-size: 9px;
@@ -190,7 +195,7 @@ export default function Nav() {
           top: calc(100% + 6px);
           left: 0;
           background: rgba(6,15,34,0.97);
-          border: 1px solid rgba(59,130,246,0.2);
+          border: 1px solid var(--border);
           border-radius: 10px;
           padding: 6px;
           min-width: 180px;
@@ -224,17 +229,17 @@ export default function Nav() {
         }
         .nav-dropdown-menu a:hover {
           color: #e2eeff;
-          background: rgba(37,99,235,0.12);
+          background: var(--blue-dim);
         }
         .nav-dropdown-menu a.active {
           color: #60a5fa;
-          background: rgba(37,99,235,0.12);
+          background: var(--blue-dim);
         }
         .dropdown-item-dot {
           width: 6px; height: 6px; border-radius: 50%;
           flex-shrink: 0;
         }
-        .dropdown-item-dot.senior { background: #3b82f6; }
+        .dropdown-item-dot.senior { background: var(--blue-mid); }
         .dropdown-item-dot.junior { background: #10b981; }
 
         /* Right side */
@@ -274,17 +279,17 @@ export default function Nav() {
           border: 1px solid rgba(59,130,246,0.18);
         }
         .nav-btn-ghost:hover {
-          background: rgba(37,99,235,0.15);
+          background: var(--blue-dim);
           border-color: rgba(96,165,250,0.35);
         }
         .nav-btn-primary {
-          background: linear-gradient(135deg, #2563eb, #0ea5e9);
+          background: linear-gradient(135deg, var(--blue), #0ea5e9);
           color: #fff;
-          box-shadow: 0 2px 10px rgba(37,99,235,0.3);
+          box-shadow: 0 2px 10px var(--blue-glow);
         }
         .nav-btn-primary:hover {
           opacity: 0.9;
-          box-shadow: 0 4px 14px rgba(37,99,235,0.4);
+          box-shadow: 0 4px 14px var(--blue-glow);
         }
 
         /* Hamburger */
@@ -304,7 +309,7 @@ export default function Nav() {
           align-items: center;
           justify-content: center;
         }
-        .nav-hamburger:hover { background: rgba(37,99,235,0.1); }
+        .nav-hamburger:hover { background: var(--blue-dim); }
         .nav-hamburger span {
           display: block;
           width: 22px; height: 2px;
@@ -321,7 +326,7 @@ export default function Nav() {
           left: 0; right: 0;
           bottom: 0;
           background: rgba(6,15,34,0.98);
-          border-bottom: 1px solid rgba(59,130,246,0.15);
+          border-bottom: 1px solid var(--border);
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
           padding: 8px 20px 40px;
@@ -339,7 +344,7 @@ export default function Nav() {
           letter-spacing: -0.01em;
           color: #e2eeff;
           padding: 16px 8px;
-          border-bottom: 1px solid rgba(59,130,246,0.1);
+          border-bottom: 1px solid var(--border);
           text-decoration: none;
           background: none;
           border-left: none;
@@ -359,7 +364,7 @@ export default function Nav() {
         .mobile-menu-group { display: contents; }
         .mobile-menu-sub {
           padding: 10px 8px 10px 24px;
-          border-bottom: 1px solid rgba(59,130,246,0.08);
+          border-bottom: 1px solid var(--border);
           display: flex;
           flex-direction: column;
           gap: 2px;
@@ -410,10 +415,13 @@ export default function Nav() {
       <nav className={`nav${scrolled ? ' scrolled' : ''}`}>
         <div className="nav-inner">
           <Link href="/" className="nav-logo">
-            <Image src="/bcc-logo.jpg" alt="BCC logo" width={36} height={36} className="nav-logo-img" priority />
+            {config.logo_url
+              ? <Image src={config.logo_url} alt={`${config.club_name} logo`} width={36} height={36} className="nav-logo-img" priority />
+              : null
+            }
             <div className="nav-logo-text">
-              Bedfordview
-              <span>Cricket Club</span>
+              {config.club_short_name}
+              <span>{config.club_name}</span>
             </div>
           </Link>
 

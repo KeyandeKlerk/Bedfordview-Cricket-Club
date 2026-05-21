@@ -260,7 +260,9 @@ export default function RegisterPage() {
       <div className="auth-page">
         <div className="auth-wrap">
           <Link href="/" className="auth-logo">
+            {/* TODO: use config.club_short_name */}
             <div className="auth-logo-icon">BCC</div>
+            {/* TODO: use config.club_name */}
             <div className="auth-logo-text">Bedfordview CC</div>
           </Link>
 
@@ -268,6 +270,7 @@ export default function RegisterPage() {
             {success ? (
               <div className="success-card">
                 <div className="success-icon">🏏</div>
+                {/* TODO: use config.club_short_name */}
                 <div className="success-title">Welcome to BCC!</div>
                 <p className="success-sub">
                   Your account has been created. Sign in to access your dashboard.

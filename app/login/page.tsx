@@ -177,7 +177,9 @@ export default function LoginPage() {
       <div className="auth-page">
         <div className="auth-wrap">
           <Link href="/" className="auth-logo">
+            {/* TODO: use config.club_short_name */}
             <div className="auth-logo-icon">BCC</div>
+            {/* TODO: use config.club_name */}
             <div className="auth-logo-text">Bedfordview CC</div>
           </Link>
 

@@ -22,6 +22,7 @@ const ADMIN_LINKS = [
   { href: '/admin/opponents',    icon: '🏏', label: 'Opponents',    sub: 'Opposition clubs',       },
   { href: '/admin/grounds',      icon: '📍', label: 'Grounds',      sub: 'Match venues',           },
   { href: '/admin/competitions', icon: '🏆', label: 'Competitions', sub: 'Leagues & cups',         },
+  { href: '/admin/settings',    icon: '🎨', label: 'Branding',     sub: 'Logo, colours & name',   },
 ]
 
 const SCORER_LINKS = [

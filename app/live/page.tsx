@@ -492,6 +492,7 @@ export default function LivePage() {
               <div>
                 <div className="live-eyebrow">
                   <span className="live-eyebrow-line" />
+                  {/* TODO: use config.club_name */}
                   Bedfordview Cricket Club
                 </div>
                 <div className="live-hero-title">
@@ -548,6 +549,7 @@ export default function LivePage() {
                         In progress
                       </div>
                       <div className="lmc-teams">
+                        {/* TODO: use config.club_short_name */}
                         BCC
                         <span className="lmc-vs">vs</span>
                         {m.opponent?.canonical_name ?? 'Opposition'}

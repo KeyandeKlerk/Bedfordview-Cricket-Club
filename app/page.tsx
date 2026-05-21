@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { getMatches } from '@/lib/queries'
 import { anonSupabase as supabase } from '@/lib/supabase/server'
+import { getClubConfig } from '@/lib/club-config'
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-ZA', {
@@ -9,6 +10,7 @@ function formatDate(dateStr: string) {
 }
 
 export default async function HomePage() {
+  const config = await getClubConfig()
   let upcoming: any[] = []
   let recent: any[] = []
   let heroStats = [
@@ -469,9 +471,7 @@ export default async function HomePage() {
             <span className="hero-eyebrow-text">Officially the best 50-over club in South Africa</span>
           </div>
           <div className="hero-title fade-up fade-up-1">
-            <span className="dim">Bedfordview</span><br />
-            <span className="accent">Cricket</span><br />
-            Club
+            {config.club_name}
           </div>
           <p className="hero-sub fade-up fade-up-2">
             Competitive cricket in the heart of Bedfordview, Gauteng — proudly competing in the Easterns Cricket League.
@@ -494,10 +494,10 @@ export default async function HomePage() {
       {/* ABOUT */}
       <section className="section about-section">
         <div className="container">
-          <div className="section-label">About BCC</div>
+          <div className="section-label">About {config.club_short_name}</div>
           <h2>More Than Just Cricket</h2>
           <p className="about-lead">
-            Bedfordview Cricket Club is a competitive club based in Bedfordview, Gauteng,
+            {config.club_name} is a competitive club based in Bedfordview, Gauteng,
             proudly competing in the Easterns Cricket League. We've established ourselves
             as South Africa's premier 50-over cricket club — a team that plays hard,
             wins together, and welcomes anyone who shares a passion for the game.
@@ -594,14 +594,14 @@ export default async function HomePage() {
         <div className="footer-inner">
           <div className="footer-logo">
             <div className="footer-logo-dot" />
-            Bedfordview CC
+            {config.club_name}
           </div>
           <ul className="footer-links">
             {['Fixtures', 'Results', 'Stats', 'Gallery', 'Contact'].map(l => (
               <li key={l}><Link href={`/${l.toLowerCase()}`}>{l}</Link></li>
             ))}
           </ul>
-          <div className="footer-copy">© {new Date().getFullYear()} Bedfordview Cricket Club. All rights reserved.</div>
+          <div className="footer-copy">© {new Date().getFullYear()} {config.club_name}. All rights reserved.</div>
         </div>
       </footer>
     </>
