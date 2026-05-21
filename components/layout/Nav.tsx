@@ -12,7 +12,6 @@ const NAV_LINKS = [
   { href: '/results',  label: 'Results' },
   { href: '/stats',    label: 'Stats' },
   { href: '/records',  label: 'Records' },
-  { href: '/live',     label: 'Live' },
   { href: '/news',     label: 'News' },
   { href: '/shop',     label: 'Shop' },
 ]
@@ -26,12 +25,25 @@ export default function Nav({ config }: NavProps) {
   const [user, setUser] = useState<User | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [isLive, setIsLive] = useState(false)
+  const [userInitials, setUserInitials] = useState('')
+  const [firstName, setFirstName] = useState('')
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setUser(session?.user ?? null)
+      const name = session?.user?.user_metadata?.full_name ?? session?.user?.email?.split('@')[0] ?? ''
+      setFirstName(name.split(' ')[0])
+      const initials = name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+      setUserInitials(initials || name.slice(0, 2).toUpperCase())
     })
     return () => subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    supabase.from('innings').select('id', { count: 'exact', head: true })
+      .eq('status', 'in_progress')
+      .then(({ count }) => setIsLive((count ?? 0) > 0))
   }, [])
 
   useEffect(() => {
@@ -398,6 +410,57 @@ export default function Nav({ config }: NavProps) {
           .nav-logo-text { display: none; }
         }
 
+        /* Live pill */
+        .nav-live-pill {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 5px 12px; border-radius: 20px;
+          background: rgba(239,68,68,0.12);
+          border: 1px solid rgba(239,68,68,0.3);
+          font-family: 'Outfit', sans-serif;
+          font-size: 11px; font-weight: 700;
+          letter-spacing: 0.06em;
+          color: #fca5a5;
+          text-decoration: none;
+          transition: background 0.15s, border-color 0.15s;
+        }
+        .nav-live-pill:hover { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.5); }
+
+        /* User avatar circle */
+        .nav-avatar {
+          width: 28px; height: 28px; border-radius: 50%;
+          background: linear-gradient(135deg, #1d4ed8, #0ea5e9);
+          display: inline-flex; align-items: center; justify-content: center;
+          font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 800;
+          color: #fff; flex-shrink: 0;
+        }
+
+        /* Mobile: live row */
+        .mobile-live-row {
+          display: flex; align-items: center; gap: 10px;
+          padding: 14px 8px;
+          border-bottom: 1px solid var(--border);
+          color: #fca5a5 !important;
+          font-size: 16px !important;
+          text-decoration: none;
+        }
+
+        /* Mobile: user identity row */
+        .mobile-user-row {
+          display: flex; align-items: center; gap: 12px;
+          padding: 14px 8px; border-bottom: 1px solid var(--border);
+        }
+        .mobile-avatar {
+          width: 36px; height: 36px; border-radius: 50%;
+          background: linear-gradient(135deg, #1d4ed8, #0ea5e9);
+          display: flex; align-items: center; justify-content: center;
+          font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 800;
+          color: #fff; flex-shrink: 0;
+        }
+        .mobile-user-name {
+          font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 700;
+          color: #e2eeff;
+        }
+
         /* Backdrop overlay — only rendered in DOM when menuOpen=true */
         .mobile-overlay {
           position: fixed;
@@ -443,24 +506,22 @@ export default function Nav({ config }: NavProps) {
           </ul>
 
           <div className="nav-right">
+            {isLive && (
+              <Link href="/live" className="nav-live-pill">
+                <span className="nav-live-dot" /> Live
+              </Link>
+            )}
             {user ? (
               <>
-                <span className="nav-user">{user.email?.split('@')[0]}</span>
-                <Link href="/dashboard" className="nav-btn nav-btn-ghost">
-                  Dashboard
-                </Link>
-                <button onClick={handleSignOut} className="nav-btn nav-btn-ghost">
-                  Sign Out
-                </button>
+                {userInitials && <span className="nav-avatar">{userInitials}</span>}
+                {firstName && <span className="nav-user">{firstName}</span>}
+                <Link href="/dashboard" className="nav-btn nav-btn-ghost">Dashboard</Link>
+                <button onClick={handleSignOut} className="nav-btn nav-btn-ghost">Sign Out</button>
               </>
             ) : (
               <>
-                <Link href="/login" className="nav-btn nav-btn-ghost">
-                  Sign In
-                </Link>
-                <Link href="/register" className="nav-btn nav-btn-primary">
-                  Join Club
-                </Link>
+                <Link href="/login" className="nav-btn nav-btn-ghost">Sign In</Link>
+                <Link href="/register" className="nav-btn nav-btn-primary">Join Club</Link>
               </>
             )}
           </div>
@@ -474,6 +535,17 @@ export default function Nav({ config }: NavProps) {
       {menuOpen && <div className="mobile-overlay" onClick={() => setMenuOpen(false)} />}
 
       <div className={`mobile-menu${menuOpen ? ' open' : ''}`}>
+        {isLive && (
+          <Link href="/live" className="mobile-live-row" onClick={() => setMenuOpen(false)}>
+            <span className="nav-live-dot" /> Live Match
+          </Link>
+        )}
+        {user && (
+          <div className="mobile-user-row">
+            {userInitials && <span className="mobile-avatar">{userInitials}</span>}
+            <span className="mobile-user-name">{firstName || user.email?.split('@')[0]}</span>
+          </div>
+        )}
         {NAV_LINKS.map(l => (
           <Link key={l.href} href={l.href} onClick={() => setMenuOpen(false)}>{l.label}</Link>
         ))}
