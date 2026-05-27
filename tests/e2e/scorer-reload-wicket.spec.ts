@@ -12,10 +12,9 @@
  * ball_events that already include a dismissal as the last ball.
  */
 import { test, expect } from '@playwright/test'
-import { MATCH_FIXTURE, INNINGS_FIXTURE } from './helpers/supabase-mock'
+import { MATCH_FIXTURE, INNINGS_FIXTURE, mockE2eAuth } from './helpers/supabase-mock'
 
 const SCORER_URL = `/admin/matches/${MATCH_FIXTURE.id}/score`
-const NEEDS_AUTH = 'Requires TEST_USER_EMAIL + TEST_USER_PASSWORD env vars'
 
 const BASE_INNINGS = {
   ...INNINGS_FIXTURE,
@@ -145,18 +144,17 @@ async function setupCommonRoutes(page: import('@playwright/test').Page, balls: o
 
 test.describe('Reload mid-innings — last ball was a striker wicket', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     await setupCommonRoutes(page, [...NORMAL_BALLS, WICKET_BALL])
   })
 
   test('does NOT show "Waiting for innings setup..." after reload with wicket as last ball', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toContainText('Waiting for innings setup...')
   })
 
   test('shows "Choose next batter" prompt after reload with striker wicket', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     // needsNewBatter=true → "Wicket — Choose next batter →" button is shown
@@ -166,14 +164,12 @@ test.describe('Reload mid-innings — last ball was a striker wicket', () => {
   })
 
   test('does not show a crash or error boundary after reload + wicket', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toContainText(/something went wrong|error boundary|500|internal server error/i)
   })
 
   test('run buttons 0-6 are NOT shown while new batter is required', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     // Run buttons are hidden when needsNewBatter=true
@@ -186,18 +182,17 @@ test.describe('Reload mid-innings — last ball was a striker wicket', () => {
 
 test.describe('Reload mid-innings — last ball was a non-striker run-out', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     await setupCommonRoutes(page, [...NORMAL_BALLS, NON_STRIKER_RUNOUT_BALL])
   })
 
   test('does NOT show "Waiting for innings setup..." when non-striker is out after reload', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toContainText('Waiting for innings setup...')
   })
 
   test('shows "Choose next batter" prompt after non-striker run-out on reload', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     await expect(
@@ -210,12 +205,12 @@ test.describe('Reload mid-innings — last ball was a non-striker run-out', () =
 
 test.describe('Reload mid-innings — normal ball as last delivery (no wicket)', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     // Only normal balls — last ball is a dot, no dismissal
     await setupCommonRoutes(page, NORMAL_BALLS)
   })
 
   test('shows scoring run buttons (0-6) after a normal reload', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     // With 6 normal balls (1 completed over), legalBalls=6 → needsNewBowler=true
@@ -226,14 +221,12 @@ test.describe('Reload mid-innings — normal ball as last delivery (no wicket)',
   })
 
   test('does NOT show "Waiting for innings setup..." after a normal reload', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toContainText('Waiting for innings setup...')
   })
 
   test('does NOT show "Choose next batter" prompt after a normal reload (no wicket)', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     await expect(

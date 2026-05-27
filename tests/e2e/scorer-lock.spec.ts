@@ -3,10 +3,9 @@
  * Verifies that the UI correctly shows when a match is locked and by whom.
  */
 import { test, expect } from '@playwright/test'
-import { MATCH_FIXTURE, INNINGS_FIXTURE } from './helpers/supabase-mock'
+import { MATCH_FIXTURE, INNINGS_FIXTURE, mockE2eAuth } from './helpers/supabase-mock'
 
 const SCORER_URL = `/admin/matches/${MATCH_FIXTURE.id}/score`
-const NEEDS_AUTH = 'Requires TEST_USER_EMAIL + TEST_USER_PASSWORD env vars'
 
 const LOCKED_MATCH = {
   ...MATCH_FIXTURE,
@@ -78,11 +77,11 @@ function setupLockMocks(page: import('@playwright/test').Page, matchData: object
 
 test.describe('Scorer lock — free match', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     setupLockMocks(page, FREE_MATCH)
   })
 
   test('loads scorer without lock warning when match is free', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     // No "locked by" warning should appear
@@ -92,6 +91,7 @@ test.describe('Scorer lock — free match', () => {
 
 test.describe('Scorer lock — match locked by another user', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     setupLockMocks(page, LOCKED_MATCH)
     // Acquire lock fails — another session holds it
     page.route('**/rest/v1/rpc/acquire_scoring_lock**', async route => {
@@ -100,7 +100,6 @@ test.describe('Scorer lock — match locked by another user', () => {
   })
 
   test('shows lock warning when another session holds lock', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     // Should show that the match is locked
@@ -110,11 +109,11 @@ test.describe('Scorer lock — match locked by another user', () => {
 
 test.describe('Scorer lock — expired lock', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     setupLockMocks(page, EXPIRED_MATCH)
   })
 
   test('expired lock treated as free (no lock warning)', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     // Expired lock → should be able to score, no blocking warning
@@ -124,11 +123,11 @@ test.describe('Scorer lock — expired lock', () => {
 
 test.describe('Scorer: handover', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     setupLockMocks(page, FREE_MATCH)
   })
 
   test('handover button visible on scoring screen', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 

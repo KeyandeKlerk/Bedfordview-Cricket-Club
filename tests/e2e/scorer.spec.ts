@@ -3,7 +3,7 @@
  * Mocks all Supabase calls so tests run offline.
  */
 import { test, expect } from '@playwright/test'
-import { MATCH_FIXTURE, INNINGS_FIXTURE } from './helpers/supabase-mock'
+import { MATCH_FIXTURE, INNINGS_FIXTURE, mockE2eAuth } from './helpers/supabase-mock'
 
 const SCORER_URL = `/admin/matches/${MATCH_FIXTURE.id}/score`
 
@@ -75,15 +75,13 @@ function setupScorerMocks(page: import('@playwright/test').Page) {
   })
 }
 
-const NEEDS_AUTH = 'Requires TEST_USER_EMAIL + TEST_USER_PASSWORD env vars (real session)'
-
 test.describe('Scorer setup phases', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     setupScorerMocks(page)
   })
 
   test('shows back link to matches on setup phase', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -92,7 +90,6 @@ test.describe('Scorer setup phases', () => {
   })
 
   test('shows step indicator on setup', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -100,7 +97,6 @@ test.describe('Scorer setup phases', () => {
   })
 
   test('BCC XI setup phase visible', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -110,6 +106,7 @@ test.describe('Scorer setup phases', () => {
 
 test.describe('Active scoring UI', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     setupScorerMocks(page)
 
     // Override innings to return in-progress innings
@@ -136,7 +133,6 @@ test.describe('Active scoring UI', () => {
   })
 
   test('shows run buttons 0–6', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -153,7 +149,6 @@ test.describe('Active scoring UI', () => {
   })
 
   test('has extras buttons', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -165,7 +160,6 @@ test.describe('Active scoring UI', () => {
   })
 
   test('has wicket button', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -175,7 +169,6 @@ test.describe('Active scoring UI', () => {
   })
 
   test('has undo button', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -187,7 +180,7 @@ test.describe('Active scoring UI', () => {
 
 test.describe('Ball submission', () => {
   test('clicking run button does not show error', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
+    await mockE2eAuth(page)
     setupScorerMocks(page)
 
     // In-progress innings

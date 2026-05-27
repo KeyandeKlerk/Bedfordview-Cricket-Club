@@ -12,10 +12,9 @@
  * so the "Waiting for innings setup..." guard is never triggered.
  */
 import { test, expect } from '@playwright/test'
-import { MATCH_FIXTURE, INNINGS_FIXTURE } from './helpers/supabase-mock'
+import { MATCH_FIXTURE, INNINGS_FIXTURE, mockE2eAuth } from './helpers/supabase-mock'
 
 const SCORER_URL = `/admin/matches/${MATCH_FIXTURE.id}/score`
-const NEEDS_AUTH = 'Requires TEST_USER_EMAIL + TEST_USER_PASSWORD env vars'
 
 const BASE_INNINGS = {
   ...INNINGS_FIXTURE,
@@ -119,17 +118,15 @@ async function setupRoutes(page: import('@playwright/test').Page) {
 // ── Score header presence ─────────────────────────────────────────────────────
 
 test.describe('Score header — presence and initial value', () => {
-  test.beforeEach(async ({ page }) => { await setupRoutes(page) })
+  test.beforeEach(async ({ page }) => { await mockE2eAuth(page); await setupRoutes(page) })
 
   test('score header is visible on load', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     await expect(page.getByTestId('score-header')).toBeVisible()
   })
 
   test('score header shows 1/0 from the pre-existing single', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     const header = page.getByTestId('score-header')
@@ -139,7 +136,6 @@ test.describe('Score header — presence and initial value', () => {
   })
 
   test('does NOT show "Waiting for innings setup..." when balls exist', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toContainText('Waiting for innings setup...')
@@ -149,10 +145,9 @@ test.describe('Score header — presence and initial value', () => {
 // ── Run button score updates ──────────────────────────────────────────────────
 
 test.describe('Run button clicks update the score display', () => {
-  test.beforeEach(async ({ page }) => { await setupRoutes(page) })
+  test.beforeEach(async ({ page }) => { await mockE2eAuth(page); await setupRoutes(page) })
 
   test('dot ball (0) keeps score at 1/0', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -167,7 +162,6 @@ test.describe('Run button clicks update the score display', () => {
   })
 
   test('clicking "1" updates score to 2/0', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -180,7 +174,6 @@ test.describe('Run button clicks update the score display', () => {
   })
 
   test('clicking "4" updates score to 5/0', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -193,7 +186,6 @@ test.describe('Run button clicks update the score display', () => {
   })
 
   test('clicking "6" updates score to 7/0', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -209,10 +201,9 @@ test.describe('Run button clicks update the score display', () => {
 // ── Wicket ────────────────────────────────────────────────────────────────────
 
 test.describe('Wicket updates score and shows batter picker', () => {
-  test.beforeEach(async ({ page }) => { await setupRoutes(page) })
+  test.beforeEach(async ({ page }) => { await mockE2eAuth(page); await setupRoutes(page) })
 
   test('Bowled dismissal increments wickets to /1', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -232,7 +223,6 @@ test.describe('Wicket updates score and shows batter picker', () => {
   })
 
   test('Bowled dismissal shows "Choose next batter" button', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -251,7 +241,6 @@ test.describe('Wicket updates score and shows batter picker', () => {
   })
 
   test('run buttons are hidden while "Choose next batter" is required', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -275,10 +264,9 @@ test.describe('Wicket updates score and shows batter picker', () => {
 // ── Extras ────────────────────────────────────────────────────────────────────
 
 test.describe('Extras update the score without crashing', () => {
-  test.beforeEach(async ({ page }) => { await setupRoutes(page) })
+  test.beforeEach(async ({ page }) => { await mockE2eAuth(page); await setupRoutes(page) })
 
   test('Wide adds 1 extra to total runs', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -294,7 +282,6 @@ test.describe('Extras update the score without crashing', () => {
   })
 
   test('No Ball adds to runs and shows free-hit indicator', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -312,17 +299,15 @@ test.describe('Extras update the score without crashing', () => {
 // ── No errors on scoring screen load ─────────────────────────────────────────
 
 test.describe('Scoring screen loads without errors', () => {
-  test.beforeEach(async ({ page }) => { await setupRoutes(page) })
+  test.beforeEach(async ({ page }) => { await mockE2eAuth(page); await setupRoutes(page) })
 
   test('no error boundary shown on load', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toContainText(/something went wrong|error boundary|500|internal server error/i)
   })
 
   test('run buttons 0–6 are all visible in scoring phase', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 

@@ -1,13 +1,12 @@
 /**
  * Scorer complete flow — phase walkthrough, over end, wicket modal, undo, extras, innings break.
  * Extends the basic scorer.spec.ts checks with the full 8-phase journey.
- * Requires TEST_USER_EMAIL + TEST_USER_PASSWORD.
+ * Uses mock auth — no real credentials required.
  */
 import { test, expect } from '@playwright/test'
-import { MATCH_FIXTURE, INNINGS_FIXTURE } from './helpers/supabase-mock'
+import { MATCH_FIXTURE, INNINGS_FIXTURE, mockE2eAuth } from './helpers/supabase-mock'
 
 const SCORER_URL = `/admin/matches/${MATCH_FIXTURE.id}/score`
-const NEEDS_AUTH = 'Requires TEST_USER_EMAIL + TEST_USER_PASSWORD env vars'
 
 /** 15 BCC players + 11 opposition players */
 const BCC_PLAYERS = Array.from({ length: 11 }, (_, i) => ({
@@ -91,25 +90,23 @@ function setupScorerMocks(page: import('@playwright/test').Page, inningsData = [
 
 test.describe('Scorer: setup_bcc_xi phase', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     setupScorerMocks(page, []) // empty innings → setup phase
   })
 
   test('BCC XI setup shows player checkboxes or names', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).toContainText(/BCC|squad|select|XI/i)
   })
 
   test('step indicator shows current step', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).toContainText(/STEP \d|step \d/i)
   })
 
   test('back link to matches present', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('a[href="/admin/matches"]')).toBeVisible({ timeout: 10_000 })
@@ -120,6 +117,7 @@ test.describe('Scorer: setup_bcc_xi phase', () => {
 
 test.describe('Scorer: scoring phase — run buttons', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     setupScorerMocks(page, [{
       ...INNINGS_FIXTURE,
       status: 'in_progress',
@@ -140,7 +138,6 @@ test.describe('Scorer: scoring phase — run buttons', () => {
   })
 
   test('run buttons 0–6 are visible', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -153,7 +150,6 @@ test.describe('Scorer: scoring phase — run buttons', () => {
   })
 
   test('clicking "1" does not crash the app', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -165,7 +161,6 @@ test.describe('Scorer: scoring phase — run buttons', () => {
   })
 
   test('clicking "4" marks boundary', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -181,6 +176,7 @@ test.describe('Scorer: scoring phase — run buttons', () => {
 
 test.describe('Scorer: extras buttons', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     setupScorerMocks(page, [{ ...INNINGS_FIXTURE, status: 'in_progress' }])
     page.route('**/rest/v1/match_players**', async route => {
       await route.fulfill({
@@ -196,7 +192,6 @@ test.describe('Scorer: extras buttons', () => {
   })
 
   test('wide button visible', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     const wide = page.locator('button:has-text("Wide"), button:has-text("Wd")')
@@ -206,7 +201,6 @@ test.describe('Scorer: extras buttons', () => {
   })
 
   test('no-ball button visible', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     const nb = page.locator('button:has-text("No Ball"), button:has-text("NB"), button:has-text("No·Ball")')
@@ -216,7 +210,6 @@ test.describe('Scorer: extras buttons', () => {
   })
 
   test('bye button visible', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     const bye = page.locator('button:has-text("Bye")')
@@ -226,7 +219,6 @@ test.describe('Scorer: extras buttons', () => {
   })
 
   test('leg bye button visible', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
     const lb = page.locator('button:has-text("Leg Bye"), button:has-text("LB"), button:has-text("Leg·Bye")')
@@ -240,6 +232,7 @@ test.describe('Scorer: extras buttons', () => {
 
 test.describe('Scorer: wicket flow', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     setupScorerMocks(page, [{ ...INNINGS_FIXTURE, status: 'in_progress' }])
     page.route('**/rest/v1/match_players**', async route => {
       await route.fulfill({
@@ -255,7 +248,6 @@ test.describe('Scorer: wicket flow', () => {
   })
 
   test('wicket button opens WicketModal', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -268,7 +260,6 @@ test.describe('Scorer: wicket flow', () => {
   })
 
   test('wicket modal has dismissal type buttons', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -284,6 +275,7 @@ test.describe('Scorer: wicket flow', () => {
 
 test.describe('Scorer: undo', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     setupScorerMocks(page, [{ ...INNINGS_FIXTURE, status: 'in_progress' }])
     page.route('**/rest/v1/match_players**', async route => {
       await route.fulfill({
@@ -299,7 +291,6 @@ test.describe('Scorer: undo', () => {
   })
 
   test('undo button is present on scoring screen', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -310,7 +301,6 @@ test.describe('Scorer: undo', () => {
   })
 
   test('undo does not crash after no balls to undo', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -332,7 +322,7 @@ test.describe('Scorer: undo', () => {
 
 test.describe('Scorer: innings break phase', () => {
   test('innings break UI shows when first innings completed', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
+    await mockE2eAuth(page)
     setupScorerMocks(page, [
       { ...INNINGS_FIXTURE, innings_number: 1, status: 'completed', runs: 156, wickets: 10 },
     ])
