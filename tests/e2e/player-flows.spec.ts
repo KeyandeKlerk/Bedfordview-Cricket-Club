@@ -1,6 +1,6 @@
 /**
  * Player-facing flows — availability, selection, notifications, profile claim.
- * Requires auth.
+ * Uses mock auth bypass — no real credentials needed.
  */
 import { test, expect } from '@playwright/test'
 import {
@@ -9,14 +9,14 @@ import {
   PLAYER_FIXTURE,
   NOTIFICATION_FIXTURE,
   SELECTION_FIXTURE,
+  mockE2eAuth,
 } from './helpers/supabase-mock'
-
-const NEEDS_AUTH = 'Requires TEST_USER_EMAIL + TEST_USER_PASSWORD env vars'
 
 // ─── Availability submission ──────────────────────────────────────────────────
 
 test.describe('Availability submission (/availability/[windowId])', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     await page.route('**/rest/v1/availability_windows**', async route => {
       await route.fulfill({
         status: 200,
@@ -42,14 +42,12 @@ test.describe('Availability submission (/availability/[windowId])', () => {
   })
 
   test('loads without error', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(`/availability/${AVAILABILITY_WINDOW_FIXTURE.id}`)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toContainText(/500|internal server error/i)
   })
 
   test('shows availability buttons', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(`/availability/${AVAILABILITY_WINDOW_FIXTURE.id}`)
     await page.waitForLoadState('networkidle')
     const body = page.locator('body')
@@ -57,14 +55,12 @@ test.describe('Availability submission (/availability/[windowId])', () => {
   })
 
   test('shows deadline countdown', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(`/availability/${AVAILABILITY_WINDOW_FIXTURE.id}`)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).toContainText(/deadline|closes|due/i)
   })
 
   test('note textarea is present', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(`/availability/${AVAILABILITY_WINDOW_FIXTURE.id}`)
     await page.waitForLoadState('networkidle')
     // Note input may be a textarea or input
@@ -74,7 +70,6 @@ test.describe('Availability submission (/availability/[windowId])', () => {
   })
 
   test('buttons fit screen without overflow on iPhone SE', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.setViewportSize({ width: 375, height: 667 })
     await page.goto(`/availability/${AVAILABILITY_WINDOW_FIXTURE.id}`)
     await page.waitForLoadState('networkidle')
@@ -88,6 +83,7 @@ test.describe('Availability submission (/availability/[windowId])', () => {
 
 test.describe('Selection confirmation (/selection/[matchId])', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     await page.route('**/rest/v1/matches**', async route => {
       await route.fulfill({
         status: 200,
@@ -121,21 +117,18 @@ test.describe('Selection confirmation (/selection/[matchId])', () => {
   })
 
   test('loads without error', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(`/selection/${MATCH_FIXTURE.id}`)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toContainText(/500|internal server error/i)
   })
 
   test('shows match info', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(`/selection/${MATCH_FIXTURE.id}`)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).toContainText(/edenvale|match|selected/i)
   })
 
   test('confirm or withdraw buttons visible', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(`/selection/${MATCH_FIXTURE.id}`)
     await page.waitForLoadState('networkidle')
     const btn = page.locator('button:has-text("Confirm"), button:has-text("Withdraw"), button:has-text("Accept")')
@@ -143,7 +136,6 @@ test.describe('Selection confirmation (/selection/[matchId])', () => {
   })
 
   test('no overflow on mobile', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.setViewportSize({ width: 375, height: 667 })
     await page.goto(`/selection/${MATCH_FIXTURE.id}`)
     await page.waitForLoadState('networkidle')
@@ -157,6 +149,7 @@ test.describe('Selection confirmation (/selection/[matchId])', () => {
 
 test.describe('Notifications page (/notifications)', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     await page.route('**/rest/v1/notifications**', async route => {
       const method = route.request().method()
       if (method === 'GET') {
@@ -172,21 +165,18 @@ test.describe('Notifications page (/notifications)', () => {
   })
 
   test('loads without error', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/notifications')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toContainText(/500|internal server error/i)
   })
 
   test('shows notification title', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/notifications')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).toContainText(/notification|selected|you have been/i)
   })
 
   test('has mark all read button', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/notifications')
     await page.waitForLoadState('networkidle')
     const btn = page.locator('button:has-text("Mark all"), button:has-text("mark all")')
@@ -198,6 +188,7 @@ test.describe('Notifications page (/notifications)', () => {
 
 test.describe('Profile claim (/admin/profile/claim)', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     await page.route('**/rest/v1/players**', async route => {
       const method = route.request().method()
       if (method === 'GET') {
@@ -213,14 +204,12 @@ test.describe('Profile claim (/admin/profile/claim)', () => {
   })
 
   test('loads without error', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/profile/claim')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toContainText(/500|internal server error/i)
   })
 
   test('shows player search or list', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/profile/claim')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).toContainText(/claim|profile|player|alice/i)

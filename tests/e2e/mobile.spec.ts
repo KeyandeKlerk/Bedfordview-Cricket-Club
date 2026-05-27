@@ -6,7 +6,7 @@
  * breaks live match scoring.
  */
 import { test, expect } from '@playwright/test'
-import { MATCH_FIXTURE, INNINGS_FIXTURE } from './helpers/supabase-mock'
+import { MATCH_FIXTURE, INNINGS_FIXTURE, mockE2eAuth } from './helpers/supabase-mock'
 
 const SCORER_URL = `/admin/matches/${MATCH_FIXTURE.id}/score`
 
@@ -62,15 +62,13 @@ function setupScorerMocks(page: import('@playwright/test').Page) {
   })
 }
 
-const NEEDS_AUTH = 'Requires TEST_USER_EMAIL + TEST_USER_PASSWORD env vars (real session)'
-
 test.describe('Scorer mobile layout — no scroll', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     setupScorerMocks(page)
   })
 
   test('scorer shell uses fixed positioning — no scroll', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -85,7 +83,6 @@ test.describe('Scorer mobile layout — no scroll', () => {
   })
 
   test('page body scroll height equals viewport height', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -98,7 +95,6 @@ test.describe('Scorer mobile layout — no scroll', () => {
   })
 
   test('controls section is visible in viewport', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -114,7 +110,6 @@ test.describe('Scorer mobile layout — no scroll', () => {
   })
 
   test('run buttons are visible without scrolling', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -132,7 +127,6 @@ test.describe('Scorer mobile layout — no scroll', () => {
   })
 
   test('no horizontal overflow on scorer', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -182,7 +176,7 @@ test.describe('Public pages on mobile', () => {
 
 test.describe('Touch interactions', () => {
   test('run buttons have sufficient tap target size', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
+    await mockE2eAuth(page)
     setupScorerMocks(page)
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')

@@ -6,9 +6,7 @@
  * Note: auth-required pages skip without credentials.
  */
 import { test, expect } from '@playwright/test'
-import { MATCH_FIXTURE, PLAYER_FIXTURE, PRODUCT_FIXTURE } from './helpers/supabase-mock'
-
-const NEEDS_AUTH = 'Requires TEST_USER_EMAIL + TEST_USER_PASSWORD env vars'
+import { MATCH_FIXTURE, PLAYER_FIXTURE, PRODUCT_FIXTURE, mockE2eAuth } from './helpers/supabase-mock'
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
@@ -192,6 +190,7 @@ test.describe('Register page — mobile', () => {
 
 test.describe('Admin match list — mobile', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     await page.route('**/rest/v1/matches**', async route => {
       await route.fulfill({
         status: 200,
@@ -208,7 +207,6 @@ test.describe('Admin match list — mobile', () => {
   })
 
   test('no horizontal overflow', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/matches')
     await page.waitForLoadState('networkidle')
     await noHorizontalOverflow(page)
@@ -217,13 +215,13 @@ test.describe('Admin match list — mobile', () => {
 
 test.describe('New match form — mobile', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     await page.route('**/rest/v1/**', async route => {
       await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify([]) })
     })
   })
 
   test('form controls accessible and no overflow', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/matches/new')
     await page.waitForLoadState('networkidle')
     await noHorizontalOverflow(page)
@@ -235,6 +233,7 @@ test.describe('New match form — mobile', () => {
 
 test.describe('Admin players — mobile', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     await page.route('**/rest/v1/players**', async route => {
       await route.fulfill({
         status: 200,
@@ -245,7 +244,6 @@ test.describe('Admin players — mobile', () => {
   })
 
   test('no horizontal overflow', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/players')
     await page.waitForLoadState('networkidle')
     await noHorizontalOverflow(page)
@@ -254,6 +252,7 @@ test.describe('Admin players — mobile', () => {
 
 test.describe('Dashboard — mobile', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     await page.route('**/rest/v1/matches**', async route => {
       await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify([]) })
     })
@@ -266,14 +265,12 @@ test.describe('Dashboard — mobile', () => {
   })
 
   test('no horizontal overflow', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/dashboard')
     await page.waitForLoadState('networkidle')
     await noHorizontalOverflow(page)
   })
 
   test('admin grid links not overflowing', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/dashboard')
     await page.waitForLoadState('networkidle')
     const viewport = page.viewportSize()
