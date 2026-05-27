@@ -134,6 +134,7 @@ function ScorerShellInner({
   const [showWicketModal, setShowWicketModal]       = useState(false)
   const [showNewBatter, setShowNewBatter]           = useState(false)
   const [showChangeBowler, setShowChangeBowler]     = useState(false)
+  const [changeBowlerPending, setChangeBowlerPending] = useState(false)
   const [matchOptionsSheet, setMatchOptionsSheet]   = useState<null | 'menu' | 'end_innings'>(null)
   const [endEarlyReason, setEndEarlyReason]               = useState('')
   const [endEarlyOtherText, setEndEarlyOtherText]         = useState('')
@@ -270,13 +271,18 @@ function ScorerShellInner({
   }, [])
 
   // Over boundary → prompt new bowler (must be before any early returns)
+  // In professional mode, defer until annotation panel is dismissed
   const prevLegalBalls = useRef(state.legalBalls)
   useEffect(() => {
     if (state.legalBalls > 0 && state.legalBalls % 6 === 0 && state.legalBalls !== prevLegalBalls.current) {
-      setShowChangeBowler(true)
+      if (match.scoring_mode === 'professional') {
+        setChangeBowlerPending(true)
+      } else {
+        setShowChangeBowler(true)
+      }
     }
     prevLegalBalls.current = state.legalBalls
-  }, [state.legalBalls])
+  }, [state.legalBalls, match.scoring_mode])
 
   // Wicket → prompt new batter (must be before any early returns)
   // Don't prompt if the innings is already naturally over (saves no purpose and blocks UI)
@@ -1589,6 +1595,7 @@ function ScorerShellInner({
             setPendingAnnotationBallId(null)
             setPendingAnnotationBowlerId(null)
             setPendingAnnotationBatterId(null)
+            if (changeBowlerPending) { setChangeBowlerPending(false); setShowChangeBowler(true) }
           }}
           onSkip={(handedness: 'right' | 'left') => {
             if (pendingAnnotationBatterId) {
@@ -1597,6 +1604,7 @@ function ScorerShellInner({
             setPendingAnnotationBallId(null)
             setPendingAnnotationBowlerId(null)
             setPendingAnnotationBatterId(null)
+            if (changeBowlerPending) { setChangeBowlerPending(false); setShowChangeBowler(true) }
           }}
         />
       )}
