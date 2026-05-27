@@ -97,19 +97,34 @@ export default function WagonWheelPicker({ wagX, wagY, onChange }: Props) {
           )
         })}
 
+        {/* Off-side shading (right half) — subtle so it doesn't overpower */}
+        <path
+          d={`M ${CX} ${CY - R_BOUNDARY} A ${R_BOUNDARY} ${R_BOUNDARY} 0 0 1 ${CX} ${CY + R_BOUNDARY} Z`}
+          fill="rgba(37,99,235,0.06)"
+        />
+        {/* Off-side label */}
+        <text x={CX + R_BOUNDARY * 0.55} y={CY + 4} textAnchor="middle" fontSize={8} fill="rgba(96,165,250,0.5)" fontStyle="italic">off</text>
+        {/* Leg-side label */}
+        <text x={CX - R_BOUNDARY * 0.55} y={CY + 4} textAnchor="middle" fontSize={8} fill="rgba(148,163,184,0.4)" fontStyle="italic">leg</text>
+
         {/* Pitch rectangle */}
         <rect x={CX - 8} y={CY - 40} width={16} height={80} fill="#3d2b12" rx={2} />
 
-        {/* Batter crease */}
-        <line x1={CX - 14} y1={BATTER_Y + 30} x2={CX + 14} y2={BATTER_Y + 30} stroke="#94a3b8" strokeWidth={1} />
+        {/* Bowler's end stumps — muted grey */}
+        {[-4, 0, 4].map(dx => (
+          <line key={dx} x1={CX + dx} y1={BATTER_Y - 30} x2={CX + dx} y2={BATTER_Y - 22} stroke="#475569" strokeWidth={1.2} />
+        ))}
+        {/* Bowler's popping crease */}
+        <line x1={CX - 14} y1={BATTER_Y - 30} x2={CX + 14} y2={BATTER_Y - 30} stroke="#475569" strokeWidth={0.8} />
 
-        {/* Stumps */}
+        {/* Batter's end stumps — bright gold so the batter's position is obvious */}
         {[-4, 0, 4].map(dx => (
-          <line key={dx} x1={CX + dx} y1={BATTER_Y + 30} x2={CX + dx} y2={BATTER_Y + 22} stroke="#94a3b8" strokeWidth={1.2} />
+          <line key={dx} x1={CX + dx} y1={BATTER_Y + 30} x2={CX + dx} y2={BATTER_Y + 22} stroke="#f59e0b" strokeWidth={1.8} />
         ))}
-        {[-4, 0, 4].map(dx => (
-          <line key={dx} x1={CX + dx} y1={BATTER_Y - 30} x2={CX + dx} y2={BATTER_Y - 22} stroke="#94a3b8" strokeWidth={1.2} />
-        ))}
+        {/* Batter crease — also gold */}
+        <line x1={CX - 16} y1={BATTER_Y + 30} x2={CX + 16} y2={BATTER_Y + 30} stroke="#f59e0b" strokeWidth={1} />
+        {/* "bat" micro-label under the stumps */}
+        <text x={CX} y={BATTER_Y + 42} textAnchor="middle" fontSize={7} fill="#f59e0b" opacity={0.8}>bat</text>
 
         {/* Sector labels */}
         {SECTOR_LABELS.map(({ deg, label }) => {
