@@ -3,9 +3,7 @@
  * Requires auth.
  */
 import { test, expect } from '@playwright/test'
-import { MATCH_FIXTURE, PLAYER_FIXTURE, SELECTION_FIXTURE, AVAILABILITY_WINDOW_FIXTURE, mockAllAdmin } from './helpers/supabase-mock'
-
-const NEEDS_AUTH = 'Requires TEST_USER_EMAIL + TEST_USER_PASSWORD env vars'
+import { MATCH_FIXTURE, PLAYER_FIXTURE, SELECTION_FIXTURE, AVAILABILITY_WINDOW_FIXTURE, mockAllAdmin, mockE2eAuth } from './helpers/supabase-mock'
 const SELECT_URL = `/admin/matches/${MATCH_FIXTURE.id}/select`
 
 function setupSelectionMocks(page: import('@playwright/test').Page) {
@@ -81,25 +79,23 @@ function setupSelectionMocks(page: import('@playwright/test').Page) {
 
 test.describe('XI selection page', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     setupSelectionMocks(page)
   })
 
   test('loads without error', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SELECT_URL)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toContainText(/500|internal server error/i)
   })
 
   test('shows match context (opponent)', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SELECT_URL)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).toContainText(/edenvale|select|XI/i)
   })
 
   test('player pool renders', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SELECT_URL)
     await page.waitForLoadState('networkidle')
     // At least some player names should be shown
@@ -107,7 +103,6 @@ test.describe('XI selection page', () => {
   })
 
   test('selected count indicator present', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SELECT_URL)
     await page.waitForLoadState('networkidle')
     // Shows something like "0 / 11" or "Selected: 0"
@@ -115,7 +110,6 @@ test.describe('XI selection page', () => {
   })
 
   test('announce button present', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(SELECT_URL)
     await page.waitForLoadState('networkidle')
     const announceBtn = page.locator('button:has-text("Announce"), button:has-text("announce")')
@@ -123,7 +117,6 @@ test.describe('XI selection page', () => {
   })
 
   test('no horizontal overflow on mobile', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.setViewportSize({ width: 375, height: 667 })
     await page.goto(SELECT_URL)
     await page.waitForLoadState('networkidle')

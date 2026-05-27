@@ -3,14 +3,13 @@
  * Requires auth.
  */
 import { test, expect } from '@playwright/test'
-import { PRODUCT_FIXTURE, ORDER_FIXTURE, mockAllAdmin } from './helpers/supabase-mock'
-
-const NEEDS_AUTH = 'Requires TEST_USER_EMAIL + TEST_USER_PASSWORD env vars'
+import { PRODUCT_FIXTURE, ORDER_FIXTURE, mockAllAdmin, mockE2eAuth } from './helpers/supabase-mock'
 
 // ─── Products ─────────────────────────────────────────────────────────────────
 
 test.describe('Products list', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     await mockAllAdmin(page)
     await page.route('**/rest/v1/products**', async route => {
       const method = route.request().method()
@@ -34,21 +33,18 @@ test.describe('Products list', () => {
   })
 
   test('loads without error', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/products')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toContainText(/500|internal server error/i)
   })
 
   test('product name shown in list', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/products')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).toContainText(/playing shirt|product/i)
   })
 
   test('has new/add product button', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/products')
     await page.waitForLoadState('networkidle')
     const btn = page.locator('button:has-text("New"), button:has-text("Add Product"), button:has-text("Create")')
@@ -56,7 +52,6 @@ test.describe('Products list', () => {
   })
 
   test('product form has required fields', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/products')
     await page.waitForLoadState('networkidle')
 
@@ -74,6 +69,7 @@ test.describe('Products list', () => {
 
 test.describe('Orders list', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     await mockAllAdmin(page)
     await page.route('**/rest/v1/orders**', async route => {
       await route.fulfill({
@@ -92,21 +88,18 @@ test.describe('Orders list', () => {
   })
 
   test('loads without error', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/orders')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toContainText(/500|internal server error/i)
   })
 
   test('shows orders content', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/orders')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).toContainText(/order|status|pending/i)
   })
 
   test('no horizontal overflow on mobile', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.setViewportSize({ width: 375, height: 667 })
     await page.goto('/admin/orders')
     await page.waitForLoadState('networkidle')

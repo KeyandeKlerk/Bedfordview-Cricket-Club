@@ -3,12 +3,11 @@
  * Requires auth.
  */
 import { test, expect } from '@playwright/test'
-import { mockAllAdmin } from './helpers/supabase-mock'
-
-const NEEDS_AUTH = 'Requires TEST_USER_EMAIL + TEST_USER_PASSWORD env vars'
+import { mockAllAdmin, mockE2eAuth } from './helpers/supabase-mock'
 
 test.describe('Users page', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     await mockAllAdmin(page)
     await page.route('**/rest/v1/user_roles**', async route => {
       const method = route.request().method()
@@ -35,21 +34,18 @@ test.describe('Users page', () => {
   })
 
   test('loads without error', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/users')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toContainText(/500|internal server error/i)
   })
 
   test('shows user roles list', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/users')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).toContainText(/role|admin|scorer/i)
   })
 
   test('has role assignment form', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/users')
     await page.waitForLoadState('networkidle')
     // Should have a select or input for role assignment
@@ -57,7 +53,6 @@ test.describe('Users page', () => {
   })
 
   test('role select has scorer and admin options', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/users')
     await page.waitForLoadState('networkidle')
     const roleSelect = page.locator('select').filter({ hasText: /scorer|admin/i }).first()
@@ -70,7 +65,6 @@ test.describe('Users page', () => {
   })
 
   test('revoke/remove button present', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/users')
     await page.waitForLoadState('networkidle')
     const revokeBtn = page.locator('button:has-text("Revoke"), button:has-text("Remove"), button:has-text("Delete")')

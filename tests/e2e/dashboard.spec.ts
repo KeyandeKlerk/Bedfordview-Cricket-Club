@@ -3,12 +3,11 @@
  * Requires auth (storageState from auth.setup.ts).
  */
 import { test, expect } from '@playwright/test'
-import { MATCH_FIXTURE } from './helpers/supabase-mock'
-
-const NEEDS_AUTH = 'Requires TEST_USER_EMAIL + TEST_USER_PASSWORD env vars'
+import { MATCH_FIXTURE, mockE2eAuth } from './helpers/supabase-mock'
 
 test.describe('Dashboard — structure', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     // Mock matches query used by dashboard
     await page.route('**/rest/v1/matches**', async route => {
       await route.fulfill({
@@ -37,7 +36,6 @@ test.describe('Dashboard — structure', () => {
   })
 
   test('loads and shows dashboard heading', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/dashboard')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toContainText(/500|internal server error/i)
@@ -45,42 +43,36 @@ test.describe('Dashboard — structure', () => {
   })
 
   test('shows Matches admin link', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/dashboard')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('a[href="/admin/matches"]')).toBeVisible()
   })
 
   test('shows Players admin link', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/dashboard')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('a[href="/admin/players"]')).toBeVisible()
   })
 
   test('shows Availability admin link', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/dashboard')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('a[href="/admin/availability"]')).toBeVisible()
   })
 
   test('upcoming fixtures section present', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/dashboard')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).toContainText(/upcoming|fixture/i)
   })
 
   test('recent results section present', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/dashboard')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).toContainText(/result|recent|completed/i)
   })
 
   test('no horizontal overflow on mobile', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.setViewportSize({ width: 375, height: 667 })
     await page.goto('/dashboard')
     await page.waitForLoadState('networkidle')
