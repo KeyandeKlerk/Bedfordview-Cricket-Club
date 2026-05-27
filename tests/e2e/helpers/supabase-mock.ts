@@ -253,3 +253,56 @@ export async function mockAllAdmin(page: Page) {
     }
   })
 }
+
+/**
+ * Sets the E2E bypass cookie (middleware) and mocks auth/v1/user (client-side SessionGuard).
+ * Call in beforeEach for any test that navigates to a protected route (/admin, /dashboard, etc.).
+ */
+export async function mockE2eAuth(
+  page: Page,
+  userId = 'test-user-uuid',
+  email = 'admin@bcc.test'
+) {
+  // 1. Bypass server-side middleware redirect
+  await page.context().addCookies([{
+    name: 'e2e-auth-bypass',
+    value: 'e2e-test-mode',
+    domain: 'localhost',
+    path: '/',
+    httpOnly: false,
+    secure: false,
+    sameSite: 'Lax',
+  }])
+
+  // 2. Mock client-side getUser() so SessionGuard doesn't redirect
+  await page.route('**/auth/v1/user**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: userId,
+        email,
+        app_metadata: {},
+        user_metadata: {},
+        aud: 'authenticated',
+        role: 'authenticated',
+        created_at: new Date().toISOString(),
+      }),
+    })
+  })
+
+  // 3. Mock token refresh so session doesn't expire mid-test
+  await page.route('**/auth/v1/token**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        access_token: 'mock-access-token',
+        refresh_token: 'mock-refresh-token',
+        expires_in: 3600,
+        token_type: 'bearer',
+        user: { id: userId, email, aud: 'authenticated', role: 'authenticated', created_at: new Date().toISOString() },
+      }),
+    })
+  })
+}
