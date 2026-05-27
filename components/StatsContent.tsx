@@ -31,9 +31,10 @@ export default function StatsContent() {
   const [fielding, setFielding] = useState<any[]>([])
   const [loading, setLoading]   = useState(true)
 
-  const [search, setSearch]   = useState('')
-  const [sortKey, setSortKey] = useState<string>('total_runs')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [search, setSearch]       = useState('')
+  const [sortKey, setSortKey]     = useState<string>('total_runs')
+  const [sortDir, setSortDir]     = useState<SortDir>('desc')
+  const [showAllCols, setShowAllCols] = useState(false)
 
   // Load seasons + competitions once
   useEffect(() => {
@@ -54,10 +55,11 @@ export default function StatsContent() {
   // Reset competition when season or category changes
   useEffect(() => { setSelectedCompId(null) }, [selectedSeasonId, category])
 
-  // Reset sort when tab changes
+  // Reset sort and column mode when tab changes
   useEffect(() => {
     setSortKey(TAB_DEFAULTS[tab])
     setSortDir('desc')
+    setShowAllCols(false)
   }, [tab])
 
   // Fetch stats whenever the active filter or category changes
@@ -151,7 +153,15 @@ export default function StatsContent() {
     else { setSortKey(key); setSortDir('desc') }
   }
 
-  const cols = tab === 'batting' ? BATTING_COLS : tab === 'bowling' ? BOWLING_COLS : FIELDING_COLS
+  const BATTING_CORE_KEYS = new Set(['matches', 'innings', 'total_runs', 'highest_score', 'average', 'strike_rate', 'fifties'])
+  const BOWLING_CORE_KEYS = new Set(['matches', 'legal_balls', 'wickets', 'runs_conceded', 'best_bowling', 'bowling_avg', 'economy'])
+
+  const allCols = tab === 'batting' ? BATTING_COLS : tab === 'bowling' ? BOWLING_COLS : FIELDING_COLS
+  const cols = (tab === 'batting' && !showAllCols)
+    ? BATTING_COLS.filter(c => BATTING_CORE_KEYS.has(c.key))
+    : (tab === 'bowling' && !showAllCols)
+      ? BOWLING_COLS.filter(c => BOWLING_CORE_KEYS.has(c.key))
+      : allCols
 
   return (
     <>
@@ -567,8 +577,25 @@ export default function StatsContent() {
                       </span>
                     )}
                   </div>
-                  <div className="stats-panel-count">
-                    {rows.length} player{rows.length !== 1 ? 's' : ''}{search && ` matching "${search}"`}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {tab !== 'fielding' && (
+                      <button
+                        onClick={() => setShowAllCols(v => !v)}
+                        style={{
+                          fontFamily: 'Outfit, sans-serif', fontSize: 11, fontWeight: 600,
+                          color: showAllCols ? '#60a5fa' : 'rgba(147,197,253,0.45)',
+                          background: showAllCols ? 'rgba(37,99,235,0.15)' : 'transparent',
+                          border: `1px solid ${showAllCols ? 'rgba(59,130,246,0.4)' : 'rgba(59,130,246,0.15)'}`,
+                          borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
+                          letterSpacing: '0.04em', transition: 'all 0.15s', whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {showAllCols ? 'Fewer columns' : 'All columns'}
+                      </button>
+                    )}
+                    <div className="stats-panel-count">
+                      {rows.length} player{rows.length !== 1 ? 's' : ''}{search && ` matching "${search}"`}
+                    </div>
                   </div>
                 </div>
 
@@ -617,32 +644,32 @@ export default function StatsContent() {
                             {tab === 'batting' && <>
                               <td>{fmt(p.matches, 0)}</td>
                               <td>{fmt(p.innings, 0)}</td>
-                              <td>{fmt(p.not_outs, 0)}</td>
+                              {showAllCols && <td>{fmt(p.not_outs, 0)}</td>}
                               <td><span className="key-stat">{fmt(p.total_runs, 0)}</span></td>
                               <td>{fmt(p.highest_score, 0)}</td>
                               <td>{fmt(p.average)}</td>
                               <td>{fmt(p.strike_rate)}</td>
                               <td>{fmt(p.fifties, 0)}</td>
-                              <td>{fmt(p.hundreds, 0)}</td>
-                              <td>{fmt(p.ducks, 0)}</td>
-                              <td>{fmt(p.fours, 0)}</td>
-                              <td>{fmt(p.sixes, 0)}</td>
-                              <td>{fmt(p.balls_faced, 0)}</td>
-                              <td>{fmt(p.balls_per_boundary, 1)}</td>
+                              {showAllCols && <td>{fmt(p.hundreds, 0)}</td>}
+                              {showAllCols && <td>{fmt(p.ducks, 0)}</td>}
+                              {showAllCols && <td>{fmt(p.fours, 0)}</td>}
+                              {showAllCols && <td>{fmt(p.sixes, 0)}</td>}
+                              {showAllCols && <td>{fmt(p.balls_faced, 0)}</td>}
+                              {showAllCols && <td>{fmt(p.balls_per_boundary, 1)}</td>}
                             </>}
 
                             {tab === 'bowling' && <>
                               <td>{fmt(p.matches, 0)}</td>
                               <td>{overs(p.legal_balls)}</td>
-                              <td>{fmt(p.maidens, 0)}</td>
+                              {showAllCols && <td>{fmt(p.maidens, 0)}</td>}
                               <td><span className="key-stat">{fmt(p.wickets, 0)}</span></td>
                               <td>{fmt(p.runs_conceded, 0)}</td>
                               <td><span className="best-figures">{bestFigures(p.best_bowling_wickets, p.best_bowling_runs)}</span></td>
                               <td>{fmt(p.bowling_avg)}</td>
                               <td>{fmt(p.economy)}</td>
-                              <td>{fmt(p.wd_po)}</td>
-                              <td>{fmt(p.nb_po)}</td>
-                              <td>{fmt(p.bdry_po)}</td>
+                              {showAllCols && <td>{fmt(p.wd_po)}</td>}
+                              {showAllCols && <td>{fmt(p.nb_po)}</td>}
+                              {showAllCols && <td>{fmt(p.bdry_po)}</td>}
                             </>}
 
                             {tab === 'fielding' && <>

@@ -13,6 +13,7 @@ import FormGuide from '@/components/stats/charts/FormGuide'
 import ScatterPlot from '@/components/stats/charts/ScatterPlot'
 import WinLossPanel from '@/components/stats/charts/WinLossPanel'
 import RollingFormChart from '@/components/stats/charts/RollingFormChart'
+import CollapsiblePanel from '@/components/stats/CollapsiblePanel'
 import WagonWheel from '@/components/analytics/charts/WagonWheel'
 import LengthHeatmap from '@/components/analytics/charts/LengthHeatmap'
 import ShotTypeBreakdown from '@/components/analytics/charts/ShotTypeBreakdown'
@@ -1469,8 +1470,7 @@ export default function PlayerProfilePage() {
                     </div>
 
                     {/* Batting Metrics chips */}
-                    <div className="profile-panel">
-                      <div className="panel-header"><div className="panel-title">Batting Metrics</div></div>
+                    <CollapsiblePanel title="Batting Metrics">
                       <div className="stat-chips">
                         {boundaryRate != null && (
                           <div className="stat-chip">
@@ -1527,30 +1527,25 @@ export default function PlayerProfilePage() {
                           </div>
                         )}
                       </div>
-                    </div>
+                    </CollapsiblePanel>
 
                     {/* Recent Form */}
                     {filteredBattingLog.length > 0 && (
-                      <div className="profile-panel">
-                        <div className="panel-header"><div className="panel-title">Recent Form</div></div>
+                      <CollapsiblePanel title="Recent Form" defaultOpen>
                         <FormGuide innings={filteredBattingLog} average={careerBat?.average ?? null} />
-                      </div>
+                      </CollapsiblePanel>
                     )}
 
                     {/* Rolling Form (8-innings moving average) */}
                     {filteredBattingLog.length >= 8 && (
-                      <div className="profile-panel">
-                        <div className="panel-header"><div className="panel-title">Rolling Form</div></div>
+                      <CollapsiblePanel title="Rolling Form">
                         <RollingFormChart innings={filteredBattingLog} />
-                      </div>
+                      </CollapsiblePanel>
                     )}
 
                     {/* Season-by-season table */}
                     {filteredSeasonBat.length > 0 && (
-                      <div className="profile-panel">
-                        <div className="panel-header">
-                          <div className="panel-title">Season by Season</div>
-                        </div>
+                      <CollapsiblePanel title="Season by Season" defaultOpen>
                         <div className="table-scroll">
                           <table className="season-table">
                             <thead>
@@ -1585,23 +1580,19 @@ export default function PlayerProfilePage() {
                             </tbody>
                           </table>
                         </div>
-                      </div>
+                      </CollapsiblePanel>
                     )}
 
                     {/* Runs progression chart */}
                     {filteredSeasonBat.length >= 2 && (
-                      <div className="profile-panel">
-                        <div className="panel-header">
-                          <div className="panel-title">Runs Progression</div>
-                        </div>
+                      <CollapsiblePanel title="Runs Progression">
                         <SVGLineChart data={filteredSeasonBat} valueKey="total_runs" label="Runs per season" />
-                      </div>
+                      </CollapsiblePanel>
                     )}
 
                     {/* Phase analysis */}
                     {battingPhase.length > 0 && (
-                      <div className="profile-panel">
-                        <div className="panel-header"><div className="panel-title">Batting by Phase</div></div>
+                      <CollapsiblePanel title="Batting by Phase">
                         <div className="phase-wrap table-scroll">
                           <table className="phase-table">
                             <thead><tr><th>Phase</th><th>Balls</th><th>Runs</th><th>Wkts Lost</th><th>SR</th></tr></thead>
@@ -1616,26 +1607,22 @@ export default function PlayerProfilePage() {
                             </tbody>
                           </table>
                         </div>
-                      </div>
+                      </CollapsiblePanel>
                     )}
 
                     {/* Scoring profile */}
                     {scoringBreakdown.length > 0 && (
-                      <div className="profile-panel">
-                        <div className="panel-header"><div className="panel-title">Scoring Profile</div></div>
+                      <CollapsiblePanel title="Scoring Profile">
                         <ColorBarChart
                           items={scoringBreakdown.map(x => ({ label: `${x.label} (${x.pct}%)`, value: x.count, color: x.color }))}
                           maxVal={Math.max(...scoringBreakdown.map(x => x.count), 1)}
                         />
-                      </div>
+                      </CollapsiblePanel>
                     )}
 
                     {/* Batting position chart */}
                     {positionData.length > 0 && (
-                      <div className="profile-panel">
-                        <div className="panel-header">
-                          <div className="panel-title">Average Runs by Batting Position</div>
-                        </div>
+                      <CollapsiblePanel title="Average Runs by Batting Position">
                         <CSSBarChart
                           items={positionData.map(p => ({
                             label: `No. ${p.position}`,
@@ -1644,36 +1631,31 @@ export default function PlayerProfilePage() {
                           }))}
                           maxVal={Math.max(...positionData.map(p => p.avg), 1)}
                         />
-                      </div>
+                      </CollapsiblePanel>
                     )}
 
                     {/* Dismissal breakdown */}
                     {dismissalCounts.length > 0 && (
-                      <div className="profile-panel">
-                        <div className="panel-header">
-                          <div className="panel-title">How Dismissed</div>
-                        </div>
+                      <CollapsiblePanel title="How Dismissed">
                         <CSSBarChart
                           items={dismissalCounts.map(d => ({ label: d.label, value: d.count }))}
                           maxVal={Math.max(...dismissalCounts.map(d => d.count), 1)}
                         />
-                      </div>
+                      </CollapsiblePanel>
                     )}
 
                     {/* Innings profile scatter */}
                     {filteredBattingLog.length >= 3 && (
-                      <div className="profile-panel">
-                        <div className="panel-header"><div className="panel-title">Innings Profile</div></div>
+                      <CollapsiblePanel title="Innings Profile">
                         <div className="chart-wrap">
                           <ScatterPlot innings={filteredBattingLog} />
                         </div>
-                      </div>
+                      </CollapsiblePanel>
                     )}
 
                     {/* vs Each Opponent */}
                     {oppPerformance.length > 0 && (
-                      <div className="profile-panel">
-                        <div className="panel-header"><div className="panel-title">vs Each Opponent</div></div>
+                      <CollapsiblePanel title="vs Each Opponent">
                         <div className="opp-scroll table-scroll">
                           <table className="season-table innings-table">
                             <thead><tr><th style={{ textAlign: 'left' }}>Opponent</th><th>Inn</th><th>Runs</th><th>Avg</th></tr></thead>
@@ -1689,21 +1671,17 @@ export default function PlayerProfilePage() {
                             </tbody>
                           </table>
                         </div>
-                      </div>
+                      </CollapsiblePanel>
                     )}
 
                     {/* Batting by Result */}
-                    <div className="profile-panel">
-                      <div className="panel-header"><div className="panel-title">Batting by Result</div></div>
+                    <CollapsiblePanel title="Batting by Result">
                       <WinLossPanel rows={batWinLoss} statCols={[{ key: 'avg', label: 'Avg' }, { key: 'sr', label: 'SR' }]} />
-                    </div>
+                    </CollapsiblePanel>
 
                     {/* Innings log */}
                     {filteredBattingLog.length > 0 && (
-                      <div className="profile-panel">
-                        <div className="panel-header">
-                          <div className="panel-title">Innings Log</div>
-                        </div>
+                      <CollapsiblePanel title="Innings Log">
                         <div className="table-scroll">
                           <table className="season-table innings-table">
                             <thead>
@@ -1749,7 +1727,7 @@ export default function PlayerProfilePage() {
                               : `Show all ${filteredBattingLog.length} innings`}
                           </button>
                         )}
-                      </div>
+                      </CollapsiblePanel>
                     )}
                   </>
                 )}
@@ -1812,8 +1790,7 @@ export default function PlayerProfilePage() {
                     </div>
 
                     {/* Bowling Metrics chips */}
-                    <div className="profile-panel">
-                      <div className="panel-header"><div className="panel-title">Bowling Metrics</div></div>
+                    <CollapsiblePanel title="Bowling Metrics">
                       <div className="stat-chips">
                         <div className="stat-chip">
                           <div className="stat-chip-val sky">
@@ -1869,14 +1846,11 @@ export default function PlayerProfilePage() {
                           </div>
                         )}
                       </div>
-                    </div>
+                    </CollapsiblePanel>
 
                     {/* Season table */}
                     {filteredSeasonBowl.length > 0 && (
-                      <div className="profile-panel">
-                        <div className="panel-header">
-                          <div className="panel-title">Season by Season</div>
-                        </div>
+                      <CollapsiblePanel title="Season by Season" defaultOpen>
                         <div className="table-scroll">
                           <table className="season-table">
                             <thead>
@@ -1914,13 +1888,12 @@ export default function PlayerProfilePage() {
                             </tbody>
                           </table>
                         </div>
-                      </div>
+                      </CollapsiblePanel>
                     )}
 
                     {/* Bowling phase analysis */}
                     {bowlingPhase.length > 0 && (
-                      <div className="profile-panel">
-                        <div className="panel-header"><div className="panel-title">Bowling by Phase</div></div>
+                      <CollapsiblePanel title="Bowling by Phase">
                         <div className="phase-wrap table-scroll">
                           <table className="phase-table">
                             <thead><tr><th>Phase</th><th>Balls</th><th>Runs</th><th>Wkts</th><th>Econ</th></tr></thead>
@@ -1934,56 +1907,47 @@ export default function PlayerProfilePage() {
                             </tbody>
                           </table>
                         </div>
-                      </div>
+                      </CollapsiblePanel>
                     )}
 
                     {/* Wicket type breakdown */}
                     {wicketTypes.length > 0 && (
-                      <div className="profile-panel">
-                        <div className="panel-header">
-                          <div className="panel-title">Wicket Types</div>
-                        </div>
+                      <CollapsiblePanel title="Wicket Types">
                         <CSSBarChart
                           items={wicketTypes.map(w => ({ label: w.label, value: w.count }))}
                           maxVal={Math.max(...wicketTypes.map(w => w.count), 1)}
                         />
-                      </div>
+                      </CollapsiblePanel>
                     )}
 
                     {/* When Do You Take Wickets */}
                     {wicketOvers.length > 0 && (
-                      <div className="profile-panel">
-                        <div className="panel-header"><div className="panel-title">When Do You Take Wickets?</div></div>
+                      <CollapsiblePanel title="When Do You Take Wickets?">
                         <ColorBarChart
                           items={wicketOvers.map(w => ({ label: `Over ${w.over}`, value: w.count }))}
                           maxVal={Math.max(...wicketOvers.map(w => w.count), 1)}
                         />
-                      </div>
+                      </CollapsiblePanel>
                     )}
 
                     {/* Wicket Quality */}
                     {impactWickets.length > 0 && (
-                      <div className="profile-panel">
-                        <div className="panel-header"><div className="panel-title">Wicket Quality</div></div>
+                      <CollapsiblePanel title="Wicket Quality">
                         <ColorBarChart
                           items={impactWickets.map(w => ({ label: w.label, value: w.count, color: w.color }))}
                           maxVal={Math.max(...impactWickets.map(w => w.count), 1)}
                         />
-                      </div>
+                      </CollapsiblePanel>
                     )}
 
                     {/* Bowling by Result */}
-                    <div className="profile-panel">
-                      <div className="panel-header"><div className="panel-title">Bowling by Result</div></div>
+                    <CollapsiblePanel title="Bowling by Result">
                       <WinLossPanel rows={bowlWinLoss} statCols={[{ key: 'wickets', label: 'Wkts' }, { key: 'economy', label: 'Econ' }]} />
-                    </div>
+                    </CollapsiblePanel>
 
                     {/* Bowling innings log */}
                     {filteredBowlingLog.length > 0 && (
-                      <div className="profile-panel">
-                        <div className="panel-header">
-                          <div className="panel-title">Bowling Log</div>
-                        </div>
+                      <CollapsiblePanel title="Bowling Log">
                         <div className="table-scroll">
                           <table className="season-table innings-table">
                             <thead>
@@ -2025,7 +1989,7 @@ export default function PlayerProfilePage() {
                               : `Show all ${filteredBowlingLog.length} innings`}
                           </button>
                         )}
-                      </div>
+                      </CollapsiblePanel>
                     )}
                   </>
                 )}
@@ -2063,8 +2027,7 @@ export default function PlayerProfilePage() {
 
                     {/* Fielding Metrics */}
                     {(fieldingPerMatch != null || matchImpactFrequency != null) && (
-                      <div className="profile-panel">
-                        <div className="panel-header"><div className="panel-title">Fielding Metrics</div></div>
+                      <CollapsiblePanel title="Fielding Metrics">
                         <div className="stat-chips">
                           {fieldingPerMatch != null && (
                             <div className="stat-chip">
@@ -2079,15 +2042,12 @@ export default function PlayerProfilePage() {
                             </div>
                           )}
                         </div>
-                      </div>
+                      </CollapsiblePanel>
                     )}
 
                     {/* Season table */}
                     {filteredSeasonField.length > 0 && (
-                      <div className="profile-panel">
-                        <div className="panel-header">
-                          <div className="panel-title">Season by Season</div>
-                        </div>
+                      <CollapsiblePanel title="Season by Season" defaultOpen>
                         <div className="table-scroll">
                           <table className="season-table">
                             <thead>
@@ -2122,7 +2082,7 @@ export default function PlayerProfilePage() {
                             </tbody>
                           </table>
                         </div>
-                      </div>
+                      </CollapsiblePanel>
                     )}
                   </>
                 )}
