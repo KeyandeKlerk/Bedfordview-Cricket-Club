@@ -862,7 +862,10 @@ export default function PlayerProfilePage() {
           display: flex; gap: 0;
           border-bottom: 1px solid rgba(59,130,246,0.12);
           margin: 32px 0 28px;
+          overflow-x: auto; -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
         }
+        .profile-tabs::-webkit-scrollbar { display: none; }
         .profile-tab {
           padding: 14px 28px;
           font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 800;
@@ -872,6 +875,7 @@ export default function PlayerProfilePage() {
           transition: color 0.15s, border-color 0.15s;
           display: flex; align-items: center; gap: 8px;
           letter-spacing: -0.01em; touch-action: manipulation;
+          flex-shrink: 0; white-space: nowrap;
         }
         .profile-tab:hover { color: rgba(147,197,253,0.75); }
         .profile-tab.active { color: #60a5fa; border-bottom-color: #3b82f6; }
