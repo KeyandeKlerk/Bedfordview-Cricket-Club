@@ -24,13 +24,11 @@ export async function middleware(request: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           response = NextResponse.next({ request })
+          // Use Supabase's own cookie options — do NOT force httpOnly here.
+          // Auth cookies must be JS-readable so the browser Supabase client
+          // can pick up the refreshed session via document.cookie.
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, {
-              ...options,
-              httpOnly: true,
-              secure: process.env.NODE_ENV === 'production',
-              sameSite: 'lax' as const,
-            })
+            response.cookies.set(name, value, options)
           )
         },
       },

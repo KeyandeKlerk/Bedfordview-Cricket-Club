@@ -20,10 +20,10 @@ export default function SessionGuard() {
       }
     })
 
-    // Also validate on mount — handles the case where the page loaded with a
-    // stale server cookie but the browser client has no valid session at all.
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) router.replace('/login')
+    // Validate against the server on mount — catches stale or forged cookies
+    // that pass the server layout check but are rejected by Supabase auth.
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) router.replace('/login')
     })
 
     return () => subscription.unsubscribe()
