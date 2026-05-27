@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 // ── Hoist mock variables so they are available inside vi.mock() factories ──────
@@ -55,19 +55,19 @@ beforeEach(() => {
   vi.mocked(queueModule.isInBallQueue).mockResolvedValue(false)
   vi.mocked(queueModule.mergeAnnotationIntoBallQueue).mockResolvedValue(undefined)
   vi.mocked(queueModule.queueAnnotation).mockResolvedValue(undefined)
-  const newMockEq = vi.fn().mockReturnValue({ then: vi.fn() })
-  mockUpdate.mockReturnValue({ eq: newMockEq })
+  // Fix: mutate mockEq directly so the outer variable stays in sync with assertions
+  mockEq.mockReturnValue({ then: vi.fn() })
+  mockUpdate.mockReturnValue({ eq: mockEq })
   mockFrom.mockReturnValue({ update: mockUpdate })
 })
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
 
 describe('BallAnnotationPanel — renders all pickers', () => {
-  it('renders wagon wheel SVG with outfield circle', () => {
-    const { container } = render(<BallAnnotationPanel {...makeProps()} />)
-    // WagonWheelPicker renders an SVG; outfield circle has fill="#0f2a1a"
-    const outfieldCircle = container.querySelector('circle[fill="#0f2a1a"]')
-    expect(outfieldCircle).toBeInTheDocument()
+  it('renders wagon wheel SVG with label text', () => {
+    render(<BallAnnotationPanel {...makeProps()} />)
+    // WagonWheelPicker renders a label above the SVG — use that instead of an internal fill color
+    expect(screen.getByText(/wagon wheel/i)).toBeInTheDocument()
   })
 
   it('renders pitch map with label text', () => {
@@ -179,13 +179,13 @@ describe('BallAnnotationPanel — Confirm button calls onAnnotated with annotati
     await user.click(screen.getByRole('button', { name: /^drive$/i }))
     await user.click(screen.getByRole('button', { name: /save annotation/i }))
 
-    expect(onAnnotated).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(onAnnotated).toHaveBeenCalledTimes(1))
     const [annotation, handedness] = onAnnotated.mock.calls[0] as [Record<string, unknown>, string]
     expect(annotation.shot_type).toBe('drive')
     expect(handedness).toBe('right')
   })
 
-  it('annotation object has all expected keys', async () => {
+  it('annotation object has all expected keys with correct values', async () => {
     const user = userEvent.setup()
     const onAnnotated = vi.fn()
     render(<BallAnnotationPanel {...makeProps({ onAnnotated })} />)
@@ -193,12 +193,15 @@ describe('BallAnnotationPanel — Confirm button calls onAnnotated with annotati
     await user.click(screen.getByRole('button', { name: /^cut$/i }))
     await user.click(screen.getByRole('button', { name: /save annotation/i }))
 
+    await waitFor(() => expect(onAnnotated).toHaveBeenCalledTimes(1))
     const [annotation] = onAnnotated.mock.calls[0] as [Record<string, unknown>]
-    expect(annotation).toHaveProperty('wagon_x')
-    expect(annotation).toHaveProperty('wagon_y')
-    expect(annotation).toHaveProperty('pitch_length')
-    expect(annotation).toHaveProperty('pitch_line')
-    expect(annotation).toHaveProperty('shot_type')
+    // wagon wheel was not tapped — coordinates should be null
+    expect(annotation).toHaveProperty('wagon_x', null)
+    expect(annotation).toHaveProperty('wagon_y', null)
+    expect(annotation).toHaveProperty('pitch_length', null)
+    expect(annotation).toHaveProperty('pitch_line', null)
+    // shot type was explicitly selected
+    expect(annotation).toHaveProperty('shot_type', 'cut')
     expect(annotation).toHaveProperty('bowling_type')
     expect(annotation).toHaveProperty('execution_quality')
     expect(annotation).toHaveProperty('decision_quality')
@@ -212,7 +215,7 @@ describe('BallAnnotationPanel — Confirm button calls onAnnotated with annotati
     await user.click(screen.getByRole('button', { name: /^excellent$/i }))
     await user.click(screen.getByRole('button', { name: /save annotation/i }))
 
-    expect(onAnnotated).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(onAnnotated).toHaveBeenCalledTimes(1))
     const [annotation] = onAnnotated.mock.calls[0] as [Record<string, unknown>]
     expect(annotation.execution_quality).toBe('excellent')
   })
@@ -228,8 +231,50 @@ describe('BallAnnotationPanel — Confirm button calls onAnnotated with annotati
     await user.click(screen.getByRole('button', { name: /^drive$/i }))
     await user.click(screen.getByRole('button', { name: /save annotation/i }))
 
+    await waitFor(() => expect(onAnnotated).toHaveBeenCalledTimes(1))
     const [, handedness] = onAnnotated.mock.calls[0] as [unknown, string]
     expect(handedness).toBe('left')
+  })
+
+  it('calls Supabase update with correct table and ballId when online and ball not queued', async () => {
+    const user = userEvent.setup()
+    const onAnnotated = vi.fn()
+    // isInBallQueue returns false (default from beforeEach) — ball is not in offline queue
+    // navigator.onLine is true in jsdom by default
+    render(<BallAnnotationPanel {...makeProps({ ballId: 'ball-abc-123', onAnnotated })} />)
+
+    await user.click(screen.getByRole('button', { name: /^cut$/i }))
+    await user.click(screen.getByRole('button', { name: /save annotation/i }))
+
+    await waitFor(() => expect(onAnnotated).toHaveBeenCalledTimes(1))
+
+    expect(mockFrom).toHaveBeenCalledWith('ball_events')
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ shot_type: 'cut' })
+    )
+    expect(mockEq).toHaveBeenCalledWith('id', 'ball-abc-123')
+  })
+
+  it('calls mergeAnnotationIntoBallQueue when ball is still in the offline queue', async () => {
+    const user = userEvent.setup()
+    const onAnnotated = vi.fn()
+    // Override for this test: ball IS in the queue
+    vi.mocked(queueModule.isInBallQueue).mockResolvedValueOnce(true)
+
+    render(<BallAnnotationPanel {...makeProps({ ballId: 'ball-queued-1', onAnnotated })} />)
+
+    await user.click(screen.getByRole('button', { name: /^drive$/i }))
+    await user.click(screen.getByRole('button', { name: /save annotation/i }))
+
+    await waitFor(() => expect(onAnnotated).toHaveBeenCalledTimes(1))
+
+    expect(queueModule.mergeAnnotationIntoBallQueue).toHaveBeenCalledWith(
+      'ball-queued-1',
+      expect.objectContaining({ shot_type: 'drive' })
+    )
+    // Supabase should NOT have been called since the offline queue path was taken
+    expect(mockFrom).not.toHaveBeenCalled()
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 })
 
