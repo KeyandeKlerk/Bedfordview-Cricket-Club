@@ -84,8 +84,9 @@ export default function BallAnnotationPanel({ ballId, knownBowlingType, onAnnota
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1101,
         background: 'var(--panel)', borderTop: '1px solid var(--border)',
         borderRadius: '16px 16px 0 0',
-        maxHeight: '90dvh', overflowY: 'auto',
-        padding: '0 0 env(safe-area-inset-bottom)',
+        maxHeight: '92dvh',
+        display: 'flex', flexDirection: 'column',
+        paddingBottom: 'env(safe-area-inset-bottom)',
       }}>
         {/* Header */}
         <div style={{
@@ -108,18 +109,18 @@ export default function BallAnnotationPanel({ ballId, knownBowlingType, onAnnota
           </button>
         </div>
 
-        {/* Content */}
-        <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {/* Row: Wagon wheel + Pitch map side by side */}
-          <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-            <div style={{ flex: '1 1 180px' }}>
+        {/* Content — flex column, no scroll needed on normal phones */}
+        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14, flex: 1 }}>
+          {/* Row: Wagon wheel + Pitch map — both pinned to 160px height */}
+          <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+            <div>
               <WagonWheelPicker
                 wagX={wagX}
                 wagY={wagY}
                 onChange={(wx, wy) => { setWagX(wx); setWagY(wy) }}
               />
             </div>
-            <div style={{ flex: '1 1 160px' }}>
+            <div>
               <PitchMapPicker
                 length={pitchLength}
                 line={pitchLine}
@@ -175,8 +176,8 @@ export default function BallAnnotationPanel({ ballId, knownBowlingType, onAnnota
           </div>
         </div>
 
-        {/* Footer */}
-        <div style={{ padding: '12px 20px 20px', display: 'flex', gap: 10, borderTop: '1px solid var(--border)' }}>
+        {/* Footer — stays pinned at bottom of sheet */}
+        <div style={{ padding: '10px 20px 16px', display: 'flex', gap: 10, borderTop: '1px solid var(--border)', flexShrink: 0 }}>
           <button
             type="button"
             className="btn btn-ghost"

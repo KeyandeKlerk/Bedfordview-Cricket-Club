@@ -63,7 +63,7 @@ export default function PitchMapPicker({ length, line, onSelect }: Props) {
       </div>
       <svg
         viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-        style={{ width: '100%', maxWidth: 220, display: 'block', touchAction: 'none' }}
+        style={{ height: 160, width: 160 * (VIEW_W / VIEW_H), display: 'block', touchAction: 'none', flexShrink: 0 }}
       >
         {/* Column labels */}
         {LINES.map((l, ci) => (

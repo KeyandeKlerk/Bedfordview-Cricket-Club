@@ -74,7 +74,7 @@ export default function WagonWheelPicker({ wagX, wagY, onChange }: Props) {
 
       <svg
         viewBox="0 0 300 300"
-        style={{ width: '100%', maxWidth: 240, display: 'block', touchAction: 'none', cursor: 'crosshair' }}
+        style={{ height: 160, width: 160, display: 'block', touchAction: 'none', cursor: 'crosshair', flexShrink: 0 }}
         onClick={handleTap}
       >
         {/* Outfield */}
