@@ -1,6 +1,15 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Routes that require a valid session
+const PROTECTED_PREFIXES = [
+  '/admin',
+  '/dashboard',
+  '/availability',
+  '/selection',
+  '/notifications',
+]
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } })
 
@@ -28,8 +37,18 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Refreshes the session if expired and writes updated cookies to the response
-  await supabase.auth.getUser()
+  // Refreshes the session if expired and writes updated cookies to the response.
+  // If both access and refresh tokens are expired, user is null.
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const path = request.nextUrl.pathname
+  const isProtected = PROTECTED_PREFIXES.some(p => path.startsWith(p))
+
+  if (!user && isProtected) {
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('next', path)
+    return NextResponse.redirect(loginUrl)
+  }
 
   return response
 }
