@@ -858,19 +858,15 @@ export default function PlayerProfilePage() {
         }
 
         /* ── TABS ── */
-        .profile-tabs-wrap {
-          position: relative; margin: 32px 0 28px;
-        }
-        .profile-tabs-wrap::after {
-          content: ''; pointer-events: none;
-          position: absolute; top: 0; right: 0; bottom: 0; width: 48px;
-          background: linear-gradient(to right, transparent, var(--bg, #050c1a));
-        }
         .profile-tabs {
           display: flex; gap: 0;
           border-bottom: 1px solid rgba(59,130,246,0.12);
-          overflow-x: auto; -webkit-overflow-scrolling: touch;
+          margin: 32px 0 28px;
+          overflow-x: auto; overflow-y: hidden;
+          -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
+          mask-image: linear-gradient(to right, black calc(100% - 56px), transparent 100%);
+          -webkit-mask-image: linear-gradient(to right, black calc(100% - 56px), transparent 100%);
         }
         .profile-tabs::-webkit-scrollbar { display: none; }
         .profile-tab {
@@ -1370,7 +1366,6 @@ export default function PlayerProfilePage() {
             )}
 
             {/* Tabs */}
-            <div className="profile-tabs-wrap">
             <div className="profile-tabs">
               <button
                 className={`profile-tab${tab === 'batting' ? ' active' : ''}`}
@@ -1402,7 +1397,6 @@ export default function PlayerProfilePage() {
               >
                 <span className="profile-tab-icon">📊</span> Advanced
               </button>
-            </div>
             </div>
 
             {/* Category pills — only shown when player has both senior and junior data */}
