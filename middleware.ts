@@ -13,8 +13,9 @@ const PROTECTED_PREFIXES = [
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } })
 
-  // E2E test bypass — never set in production; only tests send this cookie.
-  const isE2eTest = request.cookies.get('e2e-auth-bypass')?.value === 'e2e-test-mode'
+  // E2E test bypass — only active when E2E_AUTH_BYPASS_ENABLED=true (never set in production).
+  const bypassEnabled = process.env.E2E_AUTH_BYPASS_ENABLED === 'true'
+  const isE2eTest = bypassEnabled && request.cookies.get('e2e-bypass')?.value === 'e2e-test-mode'
   if (isE2eTest) {
     return NextResponse.next({ request: { headers: request.headers } })
   }
