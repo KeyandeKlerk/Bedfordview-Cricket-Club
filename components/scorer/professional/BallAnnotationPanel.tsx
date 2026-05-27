@@ -23,11 +23,12 @@ const BOWLING_TYPE_LABELS: Record<BowlingType, string> = {
 interface Props {
   ballId: string
   knownBowlingType: BowlingType | null
-  onAnnotated: (annotation: BallAnnotation) => void
-  onSkip: () => void
+  knownBatterHandedness: 'right' | 'left' | null
+  onAnnotated: (annotation: BallAnnotation, handedness: 'right' | 'left') => void
+  onSkip: (handedness: 'right' | 'left') => void
 }
 
-export default function BallAnnotationPanel({ ballId, knownBowlingType, onAnnotated, onSkip }: Props) {
+export default function BallAnnotationPanel({ ballId, knownBowlingType, knownBatterHandedness, onAnnotated, onSkip }: Props) {
   const [wagX, setWagX] = useState<number | null>(null)
   const [wagY, setWagY] = useState<number | null>(null)
   const [pitchLength, setPitchLength] = useState<PitchLength | null>(null)
@@ -35,6 +36,7 @@ export default function BallAnnotationPanel({ ballId, knownBowlingType, onAnnota
   const [shotType, setShotType]       = useState<ShotType | null>(null)
   const [bowlingType, setBowlingType] = useState<BowlingType | null>(knownBowlingType)
   const [changingBowlingType, setChangingBowlingType] = useState(knownBowlingType === null)
+  const [handedness, setHandedness]   = useState<'right' | 'left'>(knownBatterHandedness ?? 'right')
   const [execQuality, setExecQuality] = useState<string | null>(null)
   const [decQuality, setDecQuality]   = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -67,7 +69,7 @@ export default function BallAnnotationPanel({ ballId, knownBowlingType, onAnnota
       // Annotation is non-critical — never block the scorer on failure
     }
 
-    onAnnotated(annotation)
+    onAnnotated(annotation, handedness)
     setSaving(false)
   }
 
@@ -76,7 +78,7 @@ export default function BallAnnotationPanel({ ballId, knownBowlingType, onAnnota
       {/* Overlay */}
       <div
         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1100 }}
-        onClick={onSkip}
+        onClick={() => onSkip(handedness)}
       />
 
       {/* Bottom sheet */}
@@ -97,16 +99,36 @@ export default function BallAnnotationPanel({ ballId, knownBowlingType, onAnnota
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14, letterSpacing: '0.04em' }}>
             ANNOTATE BALL
           </span>
-          <button
-            type="button"
-            onClick={onSkip}
-            style={{
-              background: 'none', border: 'none', color: 'var(--muted)',
-              fontSize: 14, cursor: 'pointer', padding: '4px 8px',
-            }}
-          >
-            Skip →
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* Batter handedness toggle — compact, always visible */}
+            <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+              {(['right', 'left'] as const).map(h => (
+                <button
+                  key={h}
+                  type="button"
+                  onClick={() => setHandedness(h)}
+                  style={{
+                    padding: '4px 10px', fontSize: 12, cursor: 'pointer', border: 'none',
+                    background: handedness === h ? 'var(--highlight)' : 'transparent',
+                    color: handedness === h ? '#000' : 'var(--muted)',
+                    fontWeight: handedness === h ? 600 : 400,
+                  }}
+                >
+                  {h === 'right' ? 'RHB' : 'LHB'}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => onSkip(handedness)}
+              style={{
+                background: 'none', border: 'none', color: 'var(--muted)',
+                fontSize: 14, cursor: 'pointer', padding: '4px 8px',
+              }}
+            >
+              Skip →
+            </button>
+          </div>
         </div>
 
         {/* Content — flex column, no scroll needed on normal phones */}
@@ -117,6 +139,7 @@ export default function BallAnnotationPanel({ ballId, knownBowlingType, onAnnota
               <WagonWheelPicker
                 wagX={wagX}
                 wagY={wagY}
+                handedness={handedness}
                 onChange={(wx, wy) => { setWagX(wx); setWagY(wy) }}
               />
             </div>
@@ -124,6 +147,7 @@ export default function BallAnnotationPanel({ ballId, knownBowlingType, onAnnota
               <PitchMapPicker
                 length={pitchLength}
                 line={pitchLine}
+                handedness={handedness}
                 onSelect={(len, ln) => { setPitchLength(len); setPitchLine(ln) }}
               />
             </div>
@@ -181,7 +205,7 @@ export default function BallAnnotationPanel({ ballId, knownBowlingType, onAnnota
           <button
             type="button"
             className="btn btn-ghost"
-            onClick={onSkip}
+            onClick={() => onSkip(handedness)}
             style={{ flex: 1, justifyContent: 'center' }}
           >
             Skip

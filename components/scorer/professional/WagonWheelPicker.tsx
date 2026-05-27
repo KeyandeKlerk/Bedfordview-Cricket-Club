@@ -41,10 +41,11 @@ function svgToNorm(svgX: number, svgY: number): { wx: number; wy: number } {
 interface Props {
   wagX: number | null
   wagY: number | null
+  handedness?: 'right' | 'left'
   onChange: (wx: number, wy: number) => void
 }
 
-export default function WagonWheelPicker({ wagX, wagY, onChange }: Props) {
+export default function WagonWheelPicker({ wagX, wagY, handedness = 'right', onChange }: Props) {
   function handleTap(e: React.MouseEvent<SVGElement>) {
     const svg = e.currentTarget.closest('svg') as SVGSVGElement
     const rect = svg.getBoundingClientRect()
@@ -54,11 +55,15 @@ export default function WagonWheelPicker({ wagX, wagY, onChange }: Props) {
     // Only register taps inside the boundary circle
     const dist = Math.hypot(svgX - CX, svgY - CY)
     if (dist > R_BOUNDARY) return
-    const { wx, wy } = svgToNorm(svgX, svgY)
+    let { wx, wy } = svgToNorm(svgX, svgY)
+    // For left-handed batters, off side is on the left (negate wx so stored value is always off=positive)
+    if (handedness === 'left') wx = -wx
     onChange(wx, wy)
   }
 
-  const dotPos = wagX != null && wagY != null ? normToSvg(wagX, wagY) : null
+  // For display: left-handed batter's off side is on the left, so negate wx for rendering
+  const displayWx = wagX != null && handedness === 'left' ? -wagX : wagX
+  const dotPos = displayWx != null && wagY != null ? normToSvg(displayWx, wagY) : null
 
   return (
     <div>
@@ -97,15 +102,22 @@ export default function WagonWheelPicker({ wagX, wagY, onChange }: Props) {
           )
         })}
 
-        {/* Off-side shading (right half) — subtle so it doesn't overpower */}
-        <path
-          d={`M ${CX} ${CY - R_BOUNDARY} A ${R_BOUNDARY} ${R_BOUNDARY} 0 0 1 ${CX} ${CY + R_BOUNDARY} Z`}
-          fill="rgba(37,99,235,0.06)"
-        />
+        {/* Off-side shading — right half for RHB, left half for LHB */}
+        {handedness === 'right' ? (
+          <path
+            d={`M ${CX} ${CY - R_BOUNDARY} A ${R_BOUNDARY} ${R_BOUNDARY} 0 0 1 ${CX} ${CY + R_BOUNDARY} Z`}
+            fill="rgba(37,99,235,0.06)"
+          />
+        ) : (
+          <path
+            d={`M ${CX} ${CY - R_BOUNDARY} A ${R_BOUNDARY} ${R_BOUNDARY} 0 0 0 ${CX} ${CY + R_BOUNDARY} Z`}
+            fill="rgba(37,99,235,0.06)"
+          />
+        )}
         {/* Off-side label */}
-        <text x={CX + R_BOUNDARY * 0.55} y={CY + 4} textAnchor="middle" fontSize={8} fill="rgba(96,165,250,0.5)" fontStyle="italic">off</text>
+        <text x={handedness === 'right' ? CX + R_BOUNDARY * 0.55 : CX - R_BOUNDARY * 0.55} y={CY + 4} textAnchor="middle" fontSize={8} fill="rgba(96,165,250,0.5)" fontStyle="italic">off</text>
         {/* Leg-side label */}
-        <text x={CX - R_BOUNDARY * 0.55} y={CY + 4} textAnchor="middle" fontSize={8} fill="rgba(148,163,184,0.4)" fontStyle="italic">leg</text>
+        <text x={handedness === 'right' ? CX - R_BOUNDARY * 0.55 : CX + R_BOUNDARY * 0.55} y={CY + 4} textAnchor="middle" fontSize={8} fill="rgba(148,163,184,0.4)" fontStyle="italic">leg</text>
 
         {/* Pitch rectangle */}
         <rect x={CX - 8} y={CY - 40} width={16} height={80} fill="#3d2b12" rx={2} />

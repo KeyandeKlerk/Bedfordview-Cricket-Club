@@ -35,10 +35,15 @@ const VIEW_H  = PAD_T + PITCH_H + 8
 interface Props {
   length: PitchLength | null
   line: PitchLine | null
+  handedness?: 'right' | 'left'
   onSelect: (length: PitchLength, line: PitchLine) => void
 }
 
-export default function PitchMapPicker({ length, line, onSelect }: Props) {
+export default function PitchMapPicker({ length, line, handedness = 'right', onSelect }: Props) {
+  // For left-handed batters, off side is on the left, so visual column order reverses
+  // but stored PitchLine values remain semantically correct (outside_off = batter's off side)
+  const orderedLines = handedness === 'left' ? [...LINES].reverse() : LINES
+
   function handleTap(e: React.MouseEvent<SVGRectElement>) {
     const svg = (e.currentTarget.closest('svg') as SVGSVGElement)
     const rect = svg.getBoundingClientRect()
@@ -48,7 +53,7 @@ export default function PitchMapPicker({ length, line, onSelect }: Props) {
     const svgY = (e.clientY - rect.top)  * scaleY - PAD_T
     const col = Math.max(0, Math.min(2, Math.floor(svgX / CELL_W)))
     const row = Math.max(0, Math.min(5, Math.floor(svgY / CELL_H)))
-    onSelect(LENGTHS[row], LINES[col])
+    onSelect(LENGTHS[row], orderedLines[col])
   }
 
   return (
@@ -66,7 +71,7 @@ export default function PitchMapPicker({ length, line, onSelect }: Props) {
         style={{ height: 160, width: 160 * (VIEW_W / VIEW_H), display: 'block', touchAction: 'none', flexShrink: 0 }}
       >
         {/* Column labels */}
-        {LINES.map((l, ci) => (
+        {orderedLines.map((l, ci) => (
           <text
             key={l}
             x={PAD_L + ci * CELL_W + CELL_W / 2}
@@ -118,7 +123,7 @@ export default function PitchMapPicker({ length, line, onSelect }: Props) {
 
         {/* Grid cells (tap targets + highlight) */}
         {LENGTHS.map((len, ri) =>
-          LINES.map((ln, ci) => {
+          orderedLines.map((ln, ci) => {
             const isSelected = length === len && line === ln
             return (
               <rect

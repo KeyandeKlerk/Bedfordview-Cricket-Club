@@ -154,8 +154,11 @@ function ScorerShellInner({
   // Professional scoring mode — annotation panel shown after each ball
   const [pendingAnnotationBallId, setPendingAnnotationBallId] = useState<string | null>(null)
   const [pendingAnnotationBowlerId, setPendingAnnotationBowlerId] = useState<string | null>(null)
+  const [pendingAnnotationBatterId, setPendingAnnotationBatterId] = useState<string | null>(null)
   // Bowling type remembered per bowler for the duration of the match (set once on first ball)
   const [bowlerTypeMap, setBowlerTypeMap] = useState<Record<string, BowlingType>>({})
+  // Batter handedness remembered per batter for the duration of the match
+  const [batterHandednessMap, setBatterHandednessMap] = useState<Record<string, 'right' | 'left'>>({})
   const [correctingBall, setCorrectingBall] = useState<BallEvent | null>(null)
   // Pending selections: hold chosen player until the next ball is submitted
   const [pendingNewBatterId, setPendingNewBatterId] = useState<string | null>(null)
@@ -690,6 +693,7 @@ function ScorerShellInner({
       if (match.scoring_mode === 'professional') {
         setPendingAnnotationBallId(newBall.id)
         setPendingAnnotationBowlerId(effectiveBowlerId ?? null)
+        setPendingAnnotationBatterId(effectiveStrikerId ?? null)
       }
 
       // Prompt scorer to confirm end — they may want to undo a misclick
@@ -1574,16 +1578,25 @@ function ScorerShellInner({
         <BallAnnotationPanel
           ballId={pendingAnnotationBallId}
           knownBowlingType={pendingAnnotationBowlerId ? (bowlerTypeMap[pendingAnnotationBowlerId] ?? null) : null}
-          onAnnotated={(annotation: BallAnnotation) => {
+          knownBatterHandedness={pendingAnnotationBatterId ? (batterHandednessMap[pendingAnnotationBatterId] ?? null) : null}
+          onAnnotated={(annotation: BallAnnotation, handedness: 'right' | 'left') => {
             if (annotation.bowling_type && pendingAnnotationBowlerId) {
               setBowlerTypeMap(prev => ({ ...prev, [pendingAnnotationBowlerId]: annotation.bowling_type! }))
             }
+            if (pendingAnnotationBatterId) {
+              setBatterHandednessMap(prev => ({ ...prev, [pendingAnnotationBatterId]: handedness }))
+            }
             setPendingAnnotationBallId(null)
             setPendingAnnotationBowlerId(null)
+            setPendingAnnotationBatterId(null)
           }}
-          onSkip={() => {
+          onSkip={(handedness: 'right' | 'left') => {
+            if (pendingAnnotationBatterId) {
+              setBatterHandednessMap(prev => ({ ...prev, [pendingAnnotationBatterId]: handedness }))
+            }
             setPendingAnnotationBallId(null)
             setPendingAnnotationBowlerId(null)
+            setPendingAnnotationBatterId(null)
           }}
         />
       )}
