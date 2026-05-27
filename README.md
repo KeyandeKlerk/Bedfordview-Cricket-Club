@@ -1,55 +1,54 @@
-# Bedfordview Cricket Club — Setup Guide
+# Bedfordview Cricket Club — Web App
 
-## Prerequisites
-- Node.js 18+
-- A Supabase account (free at supabase.com)
-- A Vercel account (free at vercel.com)
+A full-featured cricket club management platform built with Next.js 15 and Supabase. Covers live scoring, player stats, analytics, team selection, availability tracking, membership, shop, and notifications.
 
 ---
 
-## Step 1: Install dependencies
+## Prerequisites
+
+- Node.js 18+
+- Supabase account (free at supabase.com)
+- Vercel account (free at vercel.com)
+
+---
+
+## Setup
+
+### 1. Install dependencies
 
 ```bash
 npm install
 ```
 
----
-
-## Step 2: Connect Supabase
-
-1. Go to supabase.com → New Project
-2. Once created, go to **Settings → API**
-3. Copy your **Project URL** and **anon public** key
-4. Copy `.env.local.example` to `.env.local` and fill in your values:
+### 2. Environment variables
 
 ```bash
 cp .env.local.example .env.local
 ```
 
----
+Fill in:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXT_PUBLIC_SITE_URL`
 
-## Step 3: Run the database SQL
+### 3. Run migrations
 
-In your Supabase dashboard, go to **SQL Editor** and run:
+In the Supabase SQL Editor, run all files in `supabase/migrations/` in numeric order (001 → 031).
 
-1. First, the schema from Phase 1 (the tables you already created)
-2. Then run `supabase-setup.sql` (this file) — adds RLS policies and stats views
+### 4. Grant admin access
 
----
-
-## Step 4: Grant yourself admin access
-
-After registering on the site, go to Supabase SQL Editor and run:
+After registering, find your auth UUID and insert a role:
 
 ```sql
-update players set role = 'admin' where email = 'your@email.com';
+SELECT id, email FROM auth.users;
+
+INSERT INTO user_roles (user_id, role)
+VALUES ('<your-uuid>', 'admin')
+ON CONFLICT (user_id, role) DO NOTHING;
 ```
 
-This gives you access to create matches, manage players, and score.
-
----
-
-## Step 5: Run locally
+### 5. Run locally
 
 ```bash
 npm run dev
@@ -57,63 +56,85 @@ npm run dev
 
 Open http://localhost:3000
 
----
-
-## Step 6: Deploy to Vercel
+### 6. Deploy
 
 ```bash
 npx vercel
 ```
 
-Then go to Vercel dashboard → your project → **Settings → Environment Variables**
-and add the same variables from your `.env.local`.
+Add the same environment variables in the Vercel dashboard.
 
 ---
 
-## File Structure
+## What's built
+
+### Scoring
+- **Club mode** — streamlined ball-by-ball scoring, no extra input required
+- **Professional mode** — post-ball annotation panel (wagon wheel, pitch map, shot type, bowling type, quality ratings) with full offline support via IndexedDB queue
+- Scoring lock — only one session can score at a time; HandoverModal transfers control without losing state
+- Free hit, DLS, penalty runs, no-ball/wide crossing logic, undo
+- Pre-populated XI from coach selections
+
+### Analytics
+- **Match analytics** (`/analytics/match/[id]`) — run rate chart, fall of wickets, partnerships, required rate, phase breakdown (powerplay/middle/death)
+- **Player stats** (`/stats/[id]`) — career batting/bowling/fielding, season-by-season tables, matchups, head-to-head, phase splits, scoring intent, dismissal analysis
+- **Tier 2 professional charts** — wagon wheel scatter plot, pitch map heatmap, shot type breakdown, quality score panel (shown when professional data is present)
+- Seven analytics SQL views: `batter_bowler_matchups`, `phase_batting_stats`, `phase_bowling_stats`, `partnership_stats`, `dismissal_analysis`, `scoring_intent`, `bowling_pair_stats`
+
+### Club management
+- Availability windows — collect player availability per weekend; edge function notifies all active players
+- Coach XI selection — filter by competition category, override unavailable players, announce to squad
+- Player confirmations — 1-tap accept/withdraw via `/selection/[matchId]`
+- Notifications — real-time in-app feed with idempotency-keyed deduplication
+- Membership purchase and order management
+- Club shop with product management
+- News articles
+
+### Public pages
+- Live scores (`/live`) — polls every 30s
+- Real-time scorecard (`/matches/[id]`) — Supabase Realtime + polling fallback
+- Fixtures, results, full scorecards, squad, junior section equivalents
+- Career stats tables and individual player profiles
+
+---
+
+## Commands
+
+```bash
+npm run dev          # Dev server at http://localhost:3000
+npm run build        # Production build
+npm run lint         # ESLint
+npm test             # Unit tests (vitest)
+npm run test:e2e     # Playwright e2e tests
+```
+
+---
+
+## Key directories
 
 ```
 app/
-  page.tsx              ← Homepage
-  fixtures/page.tsx     ← Upcoming fixtures
-  results/page.tsx      ← Past results list
-  results/[id]/page.tsx ← Individual scorecard (Phase 4)
-  stats/page.tsx        ← Batting & bowling tables
-  squad/page.tsx        ← Player profiles
-  register/page.tsx     ← Join the club
-  login/page.tsx        ← Sign in
-  dashboard/page.tsx    ← Member portal (role-aware)
-  match/[id]/
-    live/page.tsx       ← Public live scoreboard (Phase 4)
-    score/page.tsx      ← Scorer interface (Phase 4)
+  admin/              ← Scorer, match management, player admin, settings
+  analytics/          ← Match analytics + overview charts
+  stats/[id]/         ← Individual player stats (5 tabs including Matchups + Advanced)
+  matches/[id]/       ← Real-time public scorecard
+  live/               ← Live scores list
+  results/[id]/       ← Full match scorecard
+  junior/             ← Junior section fixtures/results/stats
 
 components/
-  Nav.tsx               ← Responsive navigation
+  scorer/             ← ScorerShell + all scoring sub-components
+  scorer/professional/← Annotation panel, wagon wheel, pitch map, shot/bowling pickers
+  analytics/charts/   ← SVG chart components (run rate, wagon wheel, heatmap, etc.)
+  layout/             ← SessionGuard, nav, notification bell
 
 lib/
-  supabase.ts           ← Supabase client + typed queries
+  cricket/            ← engine, validators, phases, types, commentary, DLS
+  offline/queue.ts    ← Dexie IndexedDB queue + annotation queuing
+  scoring-lock.ts     ← Optimistic scoring lock
+  stats/              ← Formatters and TypeScript types for stats views
+
+supabase/
+  migrations/         ← 031 migrations (run in order)
+  functions/          ← Edge functions for notifications, validation, stats refresh
 ```
-
----
-
-## What's built (Phase 2-3)
-
-- ✅ Homepage with fixtures/results panels
-- ✅ Fixtures page
-- ✅ Results list page
-- ✅ Stats page (batting + bowling tables)
-- ✅ Squad page
-- ✅ Register / Login
-- ✅ Member dashboard (role-aware: member / scorer / admin)
-- ✅ Supabase connection + typed helpers
-- ✅ RLS policies
-- ✅ Stats SQL views
-
-## What's next (Phase 4-5)
-
-- [ ] `match/[id]/score` — Scoring interface wired to Supabase
-- [ ] `match/[id]/live` — Real-time public scoreboard via Supabase Realtime
-- [ ] `results/[id]` — Full scorecard page
-- [ ] `dashboard/new-match` — Admin: create a fixture
-- [ ] `dashboard/players` — Admin: manage squad + roles
-- [ ] `dashboard/opposition` — Manage opposition teams

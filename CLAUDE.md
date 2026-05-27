@@ -29,14 +29,16 @@ Copy `.env.local.example` to `.env.local` and fill in:
 - `SUPABASE_SERVICE_ROLE_KEY` (server-side only)
 - `NEXT_PUBLIC_SITE_URL`
 
-Run migrations in order in the Supabase SQL Editor:
-1. `supabase/migrations/001_initial_schema.sql`
-2. `supabase/migrations/013_identity_bridge.sql`
-3. `supabase/migrations/014_availability_selection.sql`
-4. `supabase/migrations/015_notifications.sql`
-5. `supabase/migrations/016_attended_flag.sql`
-6. `supabase/migrations/017_reliability_view.sql`
-7. `supabase/migrations/018_fix_selection_rls.sql`
+Run all migrations in order in the Supabase SQL Editor (`supabase/migrations/001` → `031`). Key milestones:
+- `001` — initial schema
+- `013` — identity bridge (players ↔ auth.users)
+- `014` — availability + selections
+- `015` — notifications
+- `027` — security hardening (RLS, headers, cookies)
+- `028` — club_config (white-label branding)
+- `029` — scoring_mode per match (club / professional)
+- `030` — Tier 2 ball_events columns (wagon_x/y, pitch_length/line, shot_type, bowling_type, quality)
+- `031` — analytics SQL views (7 views for matchups, phases, partnerships, dismissals, scoring intent)
 
 ### Granting roles
 Roles are stored in the **`user_roles` table** (not `players`). The `has_role()` DB function checks `user_roles` with hierarchy: `admin > coach > scorer > shop > player`. To grant a role:
@@ -70,7 +72,8 @@ WHERE id IN (SELECT match_id FROM innings WHERE status = 'in_progress');
 - `lib/cricket/phases.ts` — detectPhase (scorer UI state machine)
 - `lib/cricket/commentary.ts` — ball-by-ball commentary generator
 - `lib/cricket/reportGenerator.ts` — match report text generation
-- `lib/offline/queue.ts` — Dexie IndexedDB queue with memory fallback
+- `lib/offline/queue.ts` — Dexie IndexedDB queue (v2 schema: `balls` + `pendingAnnotations`) with memory fallback; exports `queueAnnotation`, `flushAnnotations`, `mergeAnnotationIntoBallQueue`
+- `lib/cricket/partnerships.ts` — `computePartnerships` extracted from results page, shared with analytics
 - `lib/scoring-lock.ts` — optimistic lock for multi-scorer concurrency (acquireLock, renewLock, releaseLock, initiateHandover, acceptHandover)
 - `lib/stats/formatters.ts` — shared stat formatters: overs(), fmt(), bestFigures(), formatDate()
 - `lib/stats/types.ts` — TypeScript types for stats views
@@ -82,7 +85,9 @@ WHERE id IN (SELECT match_id FROM innings WHERE status = 'in_progress');
 
 **Auth & roles:** Supabase Auth (email/password). Role hierarchy: `admin > coach > scorer > shop > player > member`. Stored in `user_roles` table. `has_role()` DB function enforces hierarchy. `getCurrentPlayerServer()` returns the highest-privilege role and linked player record (if claimed).
 
-**Middleware (`middleware.ts`):** Runs on all non-static routes. Calls `supabase.auth.getUser()` to refresh expired sessions and write updated cookies. Does not enforce route protection — that happens in `app/admin/layout.tsx` and individual server components.
+**Middleware (`middleware.ts`):** Runs on all non-static routes. Calls `supabase.auth.getUser()` to refresh expired sessions and write updated cookies. Also redirects unauthenticated users away from protected prefixes (`/admin`, `/dashboard`, `/availability`, `/selection`, `/notifications`) to `/login?next=<path>`. **Critical:** must pass Supabase's original cookie options unchanged — do NOT force `httpOnly: true` or the browser Supabase client cannot read auth cookies, breaking client-side auth state.
+
+**SessionGuard (`components/layout/SessionGuard.tsx`):** Client component mounted in admin and dashboard layouts. Validates the session against the Supabase server on mount (`getUser()`) and watches for `SIGNED_OUT` events — redirects to `/login` if either fires. Catches the split-session edge case where the server cookie is valid but the browser JWT has expired.
 
 **Database tables (core):** `players`, `matches`, `innings`, `ball_events`, `match_players`, `opponents`, `competitions`, `seasons`, `grounds`, `user_roles`, `audit_log`
 
@@ -102,6 +107,12 @@ WHERE id IN (SELECT match_id FROM innings WHERE status = 'in_progress');
 **Views:**
 - `career_batting_stats`, `career_bowling_stats` — per-player career aggregates
 - `player_reliability` — availability_rate + commitment_rate per player per season
+- `batter_bowler_matchups` — head-to-head stats per (batter, bowler) pair
+- `phase_batting_stats`, `phase_bowling_stats` — powerplay/middle/death splits per player/season
+- `partnership_stats` — runs + balls per batting pair per innings
+- `dismissal_analysis` — dismissal type counts per player
+- `scoring_intent` — dots/singles/twos/threes/fours/sixes counts per player
+- `bowling_pair_stats` — combined economy/wickets for bowling partnerships
 
 ## Identity Bridge (players ↔ auth.users)
 
@@ -121,7 +132,7 @@ WHERE id IN (SELECT match_id FROM innings WHERE status = 'in_progress');
 - `/results` — Completed matches list
 - `/results/[id]` — Full match scorecard (innings, batting, bowling, FoW)
 - `/stats` — Career batting and bowling tables
-- `/stats/[id]` — Individual player career stats
+- `/stats/[id]` — Individual player career stats (5 tabs: Batting, Bowling, Fielding, Matchups, Advanced)
 - `/squad` — Player grid
 - `/live` — **Live scores page** — polls every 30s, queries `innings.status = 'in_progress'` (not `matches.status`), shows score and chasing target
 - `/matches/[id]` — Real-time public scorecard (Supabase Realtime + polling fallback)
@@ -130,13 +141,14 @@ WHERE id IN (SELECT match_id FROM innings WHERE status = 'in_progress');
 - `/(public)/shop` — Club shop
 - `/gallery`, `/contact` — Static content pages
 - `/junior/fixtures`, `/junior/results`, `/junior/stats` — Junior section equivalents
-- `/analytics` — Match analytics and charts
+- `/analytics` — Season analytics overview: run rate, phase breakdown, partnerships, match links
+- `/analytics/match/[id]` — Full match analytics: run rate chart, fall of wickets, required rate, phase breakdown, Tier 2 professional charts (wagon wheel, pitch map, shot type, quality)
 - `/login`, `/register` — Auth pages
 
 ### Admin (require scorer/admin/coach/shop role — enforced in `app/admin/layout.tsx`)
 - `/admin/matches` — Match list with Score/View/Delete actions
 - `/admin/matches/new` — Create fixture
-- `/admin/matches/[id]/score` — **Scorer interface** (ScorerShell) — pre-populated from coach selections
+- `/admin/matches/[id]/score` — **Scorer interface** (ScorerShell) — pre-populated from coach selections; supports club and professional scoring modes
 - `/admin/matches/[id]/select` — **Coach XI selection** — filter by competitions.category, override modal for unavailable players
 - `/admin/players` — Player management
 - `/admin/seasons` — Season management
@@ -192,6 +204,26 @@ All in `supabase/functions/`. Deploy via `supabase functions deploy <name>`.
 | `refresh-stats` | HTTP POST | Manually trigger stats view refresh |
 
 All notifications use `idempotency_key TEXT UNIQUE` in format `{type}:{entity_id}:{user_id}` to prevent duplicates on retry.
+
+## Professional Scoring Mode
+
+Matches have a `scoring_mode` column (`'club' | 'professional'`). Set per match at creation; defaults come from `club_config.default_scoring_mode`.
+
+**Club mode:** standard ball-by-ball scoring, no annotation panel.
+
+**Professional mode:** after each ball, a bottom-sheet `BallAnnotationPanel` appears (always skippable). Contains:
+- `WagonWheelPicker` — tap-on-SVG field; stores raw normalised coordinates (`wagon_x`, `wagon_y` in -1 to 1)
+- `PitchMapPicker` — tap-on-SVG pitch; snaps to `pitch_length` × `pitch_line` cell
+- `ShotTypePicker`, `BowlingTypePicker`, `QualityPicker`
+- RHB/LHB toggle — mirrors wagon wheel off-side shading and pitch column order for left-handed batters
+
+**Persistence:** bowling type and batter handedness are remembered per player for the match session (`bowlerTypeMap`, `batterHandednessMap` in ScorerShell, keyed by match_player_id).
+
+**End-of-over:** in professional mode the change-bowler prompt is deferred until after the annotation panel is dismissed (via `changeBowlerPending` flag).
+
+**Offline annotation safety:**
+- Ball still in Dexie queue → annotation merged directly into the queued ball row
+- Ball already synced, scorer offline → annotation stored in `pendingAnnotations` Dexie table, flushed after connectivity restored (called at end of `flushQueue()`)
 
 ## Scorer Shell (`components/scorer/ScorerShell.tsx`)
 
