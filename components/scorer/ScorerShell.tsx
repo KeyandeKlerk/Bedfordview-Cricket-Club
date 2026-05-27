@@ -153,7 +153,9 @@ function ScorerShellInner({
   const [endInningsBallId, setEndInningsBallId] = useState<string | null>(null)
   // Professional scoring mode — annotation panel shown after each ball
   const [pendingAnnotationBallId, setPendingAnnotationBallId] = useState<string | null>(null)
-  const [currentOverBowlingType, setCurrentOverBowlingType] = useState<BowlingType | null>(null)
+  const [pendingAnnotationBowlerId, setPendingAnnotationBowlerId] = useState<string | null>(null)
+  // Bowling type remembered per bowler for the duration of the match (set once on first ball)
+  const [bowlerTypeMap, setBowlerTypeMap] = useState<Record<string, BowlingType>>({})
   const [correctingBall, setCorrectingBall] = useState<BallEvent | null>(null)
   // Pending selections: hold chosen player until the next ball is submitted
   const [pendingNewBatterId, setPendingNewBatterId] = useState<string | null>(null)
@@ -269,7 +271,6 @@ function ScorerShellInner({
   useEffect(() => {
     if (state.legalBalls > 0 && state.legalBalls % 6 === 0 && state.legalBalls !== prevLegalBalls.current) {
       setShowChangeBowler(true)
-      setCurrentOverBowlingType(null)  // reset per-over bowling type for professional mode
     }
     prevLegalBalls.current = state.legalBalls
   }, [state.legalBalls])
@@ -688,6 +689,7 @@ function ScorerShellInner({
       // Professional mode: show annotation panel for this ball (always skippable)
       if (match.scoring_mode === 'professional') {
         setPendingAnnotationBallId(newBall.id)
+        setPendingAnnotationBowlerId(effectiveBowlerId ?? null)
       }
 
       // Prompt scorer to confirm end — they may want to undo a misclick
@@ -1571,12 +1573,18 @@ function ScorerShellInner({
       {pendingAnnotationBallId && match.scoring_mode === 'professional' && (
         <BallAnnotationPanel
           ballId={pendingAnnotationBallId}
-          currentOverBowlingType={currentOverBowlingType}
-          onAnnotated={(_annotation: BallAnnotation, overBowlingType: BowlingType | null) => {
-            if (overBowlingType !== null) setCurrentOverBowlingType(overBowlingType)
+          knownBowlingType={pendingAnnotationBowlerId ? (bowlerTypeMap[pendingAnnotationBowlerId] ?? null) : null}
+          onAnnotated={(annotation: BallAnnotation) => {
+            if (annotation.bowling_type && pendingAnnotationBowlerId) {
+              setBowlerTypeMap(prev => ({ ...prev, [pendingAnnotationBowlerId]: annotation.bowling_type! }))
+            }
             setPendingAnnotationBallId(null)
+            setPendingAnnotationBowlerId(null)
           }}
-          onSkip={() => setPendingAnnotationBallId(null)}
+          onSkip={() => {
+            setPendingAnnotationBallId(null)
+            setPendingAnnotationBowlerId(null)
+          }}
         />
       )}
 

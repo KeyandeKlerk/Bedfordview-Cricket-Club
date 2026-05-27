@@ -9,20 +9,32 @@ import ShotTypePicker from './ShotTypePicker'
 import BowlingTypePicker from './BowlingTypePicker'
 import QualityPicker from './QualityPicker'
 
+const BOWLING_TYPE_LABELS: Record<BowlingType, string> = {
+  right_arm_fast: 'Right arm fast',
+  right_arm_medium: 'Right arm medium',
+  left_arm_fast: 'Left arm fast',
+  left_arm_medium: 'Left arm medium',
+  right_arm_off_spin: 'Off spin',
+  right_arm_leg_spin: 'Leg spin',
+  left_arm_orthodox: 'Left arm orthodox',
+  left_arm_chinaman: 'Chinaman',
+}
+
 interface Props {
   ballId: string
-  currentOverBowlingType: BowlingType | null
-  onAnnotated: (annotation: BallAnnotation, overBowlingType: BowlingType | null) => void
+  knownBowlingType: BowlingType | null
+  onAnnotated: (annotation: BallAnnotation) => void
   onSkip: () => void
 }
 
-export default function BallAnnotationPanel({ ballId, currentOverBowlingType, onAnnotated, onSkip }: Props) {
+export default function BallAnnotationPanel({ ballId, knownBowlingType, onAnnotated, onSkip }: Props) {
   const [wagX, setWagX] = useState<number | null>(null)
   const [wagY, setWagY] = useState<number | null>(null)
   const [pitchLength, setPitchLength] = useState<PitchLength | null>(null)
   const [pitchLine, setPitchLine]     = useState<PitchLine | null>(null)
   const [shotType, setShotType]       = useState<ShotType | null>(null)
-  const [bowlingType, setBowlingType] = useState<BowlingType | null>(currentOverBowlingType)
+  const [bowlingType, setBowlingType] = useState<BowlingType | null>(knownBowlingType)
+  const [changingBowlingType, setChangingBowlingType] = useState(knownBowlingType === null)
   const [execQuality, setExecQuality] = useState<string | null>(null)
   const [decQuality, setDecQuality]   = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -45,20 +57,17 @@ export default function BallAnnotationPanel({ ballId, currentOverBowlingType, on
     try {
       const queued = await isInBallQueue(ballId)
       if (queued) {
-        // Ball not yet synced — merge annotation so they go together in one upsert
         await mergeAnnotationIntoBallQueue(ballId, annotation)
       } else if (typeof navigator !== 'undefined' && navigator.onLine) {
-        // Ball already synced, we're online — fire a direct UPDATE (fire-and-forget)
         supabase.from('ball_events').update(annotation).eq('id', ballId).then()
       } else {
-        // Ball already synced but we're offline — queue annotation for later
         await queueAnnotation(ballId, annotation)
       }
     } catch {
       // Annotation is non-critical — never block the scorer on failure
     }
 
-    onAnnotated(annotation, bowlingType)
+    onAnnotated(annotation)
     setSaving(false)
   }
 
@@ -121,7 +130,34 @@ export default function BallAnnotationPanel({ ballId, currentOverBowlingType, on
 
           <ShotTypePicker selected={shotType} onChange={setShotType} />
 
-          <BowlingTypePicker selected={bowlingType} onChange={setBowlingType} />
+          {/* Bowling type — full picker on first ball, compact row thereafter */}
+          {changingBowlingType ? (
+            <BowlingTypePicker
+              selected={bowlingType}
+              onChange={(t) => {
+                setBowlingType(t)
+                if (t !== null) setChangingBowlingType(false)
+              }}
+            />
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ flex: 1, fontSize: 13, color: 'var(--text)' }}>
+                <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 3 }}>Bowling type</span>
+                {bowlingType ? BOWLING_TYPE_LABELS[bowlingType] : 'Not set'}
+              </div>
+              <button
+                type="button"
+                onClick={() => setChangingBowlingType(true)}
+                style={{
+                  background: 'none', border: '1px solid var(--border)', borderRadius: 6,
+                  color: 'var(--muted)', fontSize: 12, cursor: 'pointer', padding: '5px 12px',
+                  flexShrink: 0,
+                }}
+              >
+                Change
+              </button>
+            </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <QualityPicker
