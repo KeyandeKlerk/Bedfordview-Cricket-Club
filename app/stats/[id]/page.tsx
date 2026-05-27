@@ -13,6 +13,10 @@ import FormGuide from '@/components/stats/charts/FormGuide'
 import ScatterPlot from '@/components/stats/charts/ScatterPlot'
 import WinLossPanel from '@/components/stats/charts/WinLossPanel'
 import RollingFormChart from '@/components/stats/charts/RollingFormChart'
+import WagonWheel from '@/components/analytics/charts/WagonWheel'
+import LengthHeatmap from '@/components/analytics/charts/LengthHeatmap'
+import ShotTypeBreakdown from '@/components/analytics/charts/ShotTypeBreakdown'
+import QualityScorePanel from '@/components/analytics/charts/QualityScorePanel'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -95,7 +99,7 @@ interface BowlingInning {
   match_date?: string | null
 }
 
-type ProfileTab = 'batting' | 'bowling' | 'fielding'
+type ProfileTab = 'batting' | 'bowling' | 'fielding' | 'matchups' | 'advanced'
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
@@ -130,6 +134,41 @@ export default function PlayerProfilePage() {
   const [reliabilityData, setReliabilityData] = useState<any[] | null>(null)
   const [fieldingEventMatchIds, setFieldingEventMatchIds] = useState<string[]>([])
   const [mpBatPosMap, setMpBatPosMap] = useState<Record<string, number>>({})
+
+  // Wave 4 state — matchups + advanced (lazy, loaded once per player)
+  const [matchupBatterRows, setMatchupBatterRows] = useState<any[]>([])
+  const [matchupBowlerRows, setMatchupBowlerRows] = useState<any[]>([])
+  const [phaseBatRows, setPhaseBatRows] = useState<any[]>([])
+  const [phaseBowlRows, setPhaseBowlRows] = useState<any[]>([])
+  const [scoringIntentRow, setScoringIntentRow] = useState<any | null>(null)
+  const [dismissalRows, setDismissalRows] = useState<any[]>([])
+  const [wave4Loaded, setWave4Loaded] = useState(false)
+
+  useEffect(() => {
+    if (!playerId || wave4Loaded) return
+    if (tab !== 'matchups' && tab !== 'advanced') return
+
+    async function loadWave4() {
+      const [matchupsAsBatter, matchupsAsBowler, phaseBat, phaseBowl, scoringIntent, dismissals] = await Promise.all([
+        supabase.from('batter_bowler_matchups').select('bowler_name, balls, runs, strike_rate, dismissals, boundary_pct').eq('batter_player_id', playerId).order('balls', { ascending: false }),
+        supabase.from('batter_bowler_matchups').select('batter_name, balls, runs, strike_rate, dismissals, boundary_pct').eq('bowler_player_id', playerId).order('balls', { ascending: false }),
+        supabase.from('phase_batting_stats').select('phase, balls, runs, dots, fours, sixes, strike_rate').eq('player_id', playerId),
+        supabase.from('phase_bowling_stats').select('phase, legal_balls, runs_conceded, wickets, dots, economy').eq('player_id', playerId),
+        supabase.from('scoring_intent').select('dots, singles, twos, threes, fours, sixes').eq('player_id', playerId).maybeSingle(),
+        supabase.from('dismissal_analysis').select('dismissal_type, dismissal_count').eq('player_id', playerId).order('dismissal_count', { ascending: false }),
+      ])
+
+      setMatchupBatterRows(matchupsAsBatter.data ?? [])
+      setMatchupBowlerRows(matchupsAsBowler.data ?? [])
+      setPhaseBatRows(phaseBat.data ?? [])
+      setPhaseBowlRows(phaseBowl.data ?? [])
+      setScoringIntentRow(scoringIntent.data ?? null)
+      setDismissalRows(dismissals.data ?? [])
+      setWave4Loaded(true)
+    }
+
+    loadWave4()
+  }, [playerId, tab, wave4Loaded])
 
   useEffect(() => {
     if (!playerId) return
@@ -228,7 +267,7 @@ export default function PlayerProfilePage() {
       const [batBallsRes, bowlBallsRes, matchInfoRes, matchPlayersForImpactRes, fieldingEventsRes] = await Promise.all([
         mpIds.length > 0
           ? supabase.from('ball_events')
-              .select('over_number, runs_off_bat, extras_type, dismissed_player_id, match_id, is_boundary_four, is_boundary_six')
+              .select('over_number, runs_off_bat, extras_type, dismissed_player_id, match_id, is_boundary_four, is_boundary_six, wagon_x, wagon_y, pitch_length, pitch_line, shot_type, execution_quality, decision_quality')
               .in('batter_id', mpIds)
           : Promise.resolve({ data: [] as any[] }),
         mpIds.length > 0
@@ -1339,6 +1378,18 @@ export default function PlayerProfilePage() {
               >
                 <span className="profile-tab-icon">🧤</span> Fielding
               </button>
+              <button
+                className={`profile-tab${tab === 'matchups' ? ' active' : ''}`}
+                onClick={() => setTab('matchups')}
+              >
+                <span className="profile-tab-icon">⚔</span> Matchups
+              </button>
+              <button
+                className={`profile-tab${tab === 'advanced' ? ' active' : ''}`}
+                onClick={() => setTab('advanced')}
+              >
+                <span className="profile-tab-icon">📊</span> Advanced
+              </button>
             </div>
 
             {/* Category pills — only shown when player has both senior and junior data */}
@@ -2065,6 +2116,255 @@ export default function PlayerProfilePage() {
                           </table>
                         </div>
                       </div>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+
+            {/* ── MATCHUPS TAB ── */}
+            {tab === 'matchups' && (
+              <>
+                {!wave4Loaded ? (
+                  <div className="empty-profile">Loading matchup data…</div>
+                ) : (
+                  <>
+                    {/* Phase Batting */}
+                    {phaseBatRows.length > 0 && (
+                      <div className="profile-panel">
+                        <div className="panel-header"><div className="panel-title">Phase Batting</div></div>
+                        <div className="table-scroll">
+                          <table className="season-table">
+                            <thead>
+                              <tr>
+                                <th style={{ textAlign: 'left' }}>Phase</th>
+                                <th>Balls</th>
+                                <th>Runs</th>
+                                <th>SR</th>
+                                <th>Dots</th>
+                                <th>4s</th>
+                                <th>6s</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(['powerplay', 'middle', 'death'] as const).map(ph => {
+                                const r = phaseBatRows.find((x: any) => x.phase === ph)
+                                if (!r) return null
+                                return (
+                                  <tr key={ph}>
+                                    <td style={{ textAlign: 'left', textTransform: 'capitalize' }}>{ph === 'powerplay' ? 'Powerplay' : ph === 'middle' ? 'Middle' : 'Death'}</td>
+                                    <td>{fmt(r.balls, 0)}</td>
+                                    <td><span className="key-val">{fmt(r.runs, 0)}</span></td>
+                                    <td>{fmt(r.strike_rate)}</td>
+                                    <td>{fmt(r.dots, 0)}</td>
+                                    <td>{fmt(r.fours, 0)}</td>
+                                    <td>{fmt(r.sixes, 0)}</td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Phase Bowling */}
+                    {phaseBowlRows.length > 0 && (
+                      <div className="profile-panel">
+                        <div className="panel-header"><div className="panel-title">Phase Bowling</div></div>
+                        <div className="table-scroll">
+                          <table className="season-table">
+                            <thead>
+                              <tr>
+                                <th style={{ textAlign: 'left' }}>Phase</th>
+                                <th>Balls</th>
+                                <th>Runs</th>
+                                <th>Wkts</th>
+                                <th>Econ</th>
+                                <th>Dots</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(['powerplay', 'middle', 'death'] as const).map(ph => {
+                                const r = phaseBowlRows.find((x: any) => x.phase === ph)
+                                if (!r) return null
+                                return (
+                                  <tr key={ph}>
+                                    <td style={{ textAlign: 'left', textTransform: 'capitalize' }}>{ph === 'powerplay' ? 'Powerplay' : ph === 'middle' ? 'Middle' : 'Death'}</td>
+                                    <td>{fmt(r.legal_balls, 0)}</td>
+                                    <td>{fmt(r.runs_conceded, 0)}</td>
+                                    <td><span className="key-val">{fmt(r.wickets, 0)}</span></td>
+                                    <td>{fmt(r.economy)}</td>
+                                    <td>{fmt(r.dots, 0)}</td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Batter vs Bowlers */}
+                    {matchupBatterRows.length > 0 && (
+                      <div className="profile-panel">
+                        <div className="panel-header"><div className="panel-title">As Batter — vs Bowlers</div></div>
+                        <div className="table-scroll">
+                          <table className="season-table innings-table">
+                            <thead>
+                              <tr>
+                                <th style={{ textAlign: 'left' }}>Bowler</th>
+                                <th>Balls</th>
+                                <th>Runs</th>
+                                <th>SR</th>
+                                <th>Dis</th>
+                                <th>Bdry%</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {matchupBatterRows.map((r: any, i: number) => (
+                                <tr key={i}>
+                                  <td style={{ textAlign: 'left' }}>{r.bowler_name ?? '—'}</td>
+                                  <td>{fmt(r.balls, 0)}</td>
+                                  <td><span className="key-val">{fmt(r.runs, 0)}</span></td>
+                                  <td>{fmt(r.strike_rate)}</td>
+                                  <td>{fmt(r.dismissals, 0)}</td>
+                                  <td>{r.boundary_pct != null ? `${Number(r.boundary_pct).toFixed(0)}%` : '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Bowler vs Batters */}
+                    {matchupBowlerRows.length > 0 && (
+                      <div className="profile-panel">
+                        <div className="panel-header"><div className="panel-title">As Bowler — vs Batters</div></div>
+                        <div className="table-scroll">
+                          <table className="season-table innings-table">
+                            <thead>
+                              <tr>
+                                <th style={{ textAlign: 'left' }}>Batter</th>
+                                <th>Balls</th>
+                                <th>Runs</th>
+                                <th>SR</th>
+                                <th>Dis</th>
+                                <th>Bdry%</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {matchupBowlerRows.map((r: any, i: number) => (
+                                <tr key={i}>
+                                  <td style={{ textAlign: 'left' }}>{r.batter_name ?? '—'}</td>
+                                  <td>{fmt(r.balls, 0)}</td>
+                                  <td><span className="key-val">{fmt(r.runs, 0)}</span></td>
+                                  <td>{fmt(r.strike_rate)}</td>
+                                  <td>{fmt(r.dismissals, 0)}</td>
+                                  <td>{r.boundary_pct != null ? `${Number(r.boundary_pct).toFixed(0)}%` : '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {matchupBatterRows.length === 0 && matchupBowlerRows.length === 0 && phaseBatRows.length === 0 && phaseBowlRows.length === 0 && (
+                      <div className="empty-profile">No matchup data available yet.</div>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+
+            {/* ── ADVANCED TAB ── */}
+            {tab === 'advanced' && (
+              <>
+                {!wave4Loaded ? (
+                  <div className="empty-profile">Loading advanced data…</div>
+                ) : (
+                  <>
+                    {/* Scoring Intent */}
+                    {scoringIntentRow && (() => {
+                      const si = scoringIntentRow
+                      const total = (si.dots ?? 0) + (si.singles ?? 0) + (si.twos ?? 0) + (si.threes ?? 0) + (si.fours ?? 0) + (si.sixes ?? 0)
+                      if (total === 0) return null
+                      const pct = (n: number) => total > 0 ? ((n / total) * 100).toFixed(1) : '0'
+                      const segments: Array<{ label: string; value: number; color: string }> = [
+                        { label: 'Dots', value: si.dots ?? 0, color: 'var(--muted)' },
+                        { label: '1s', value: si.singles ?? 0, color: '#3b82f6' },
+                        { label: '2s', value: si.twos ?? 0, color: '#0ea5e9' },
+                        { label: '3s', value: si.threes ?? 0, color: '#06b6d4' },
+                        { label: '4s', value: si.fours ?? 0, color: '#f59e0b' },
+                        { label: '6s', value: si.sixes ?? 0, color: '#22c55e' },
+                      ].filter(s => s.value > 0)
+                      return (
+                        <div className="profile-panel">
+                          <div className="panel-header"><div className="panel-title">Scoring Intent</div></div>
+                          <div style={{ display: 'flex', height: 28, borderRadius: 4, overflow: 'hidden', marginBottom: 12 }}>
+                            {segments.map(s => (
+                              <div
+                                key={s.label}
+                                style={{ flex: s.value, background: s.color, transition: 'flex 0.3s' }}
+                                title={`${s.label}: ${pct(s.value)}%`}
+                              />
+                            ))}
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
+                            {segments.map(s => (
+                              <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                                <div style={{ width: 10, height: 10, borderRadius: 2, background: s.color }} />
+                                <span style={{ color: 'var(--muted)' }}>{s.label}</span>
+                                <span style={{ color: 'var(--text)', fontWeight: 700 }}>{pct(s.value)}%</span>
+                                <span style={{ color: 'var(--dim)' }}>({s.value})</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })()}
+
+                    {/* Dismissal Analysis */}
+                    {dismissalRows.length > 0 && (
+                      <div className="profile-panel">
+                        <div className="panel-header"><div className="panel-title">How Out</div></div>
+                        <CSSBarChart
+                          items={dismissalRows.map((r: any) => ({ label: labelDismissal(r.dismissal_type), value: r.dismissal_count }))}
+                          maxVal={Math.max(...dismissalRows.map((r: any) => r.dismissal_count), 1)}
+                        />
+                      </div>
+                    )}
+
+                    {/* Professional Data — Tier 2 batting analytics */}
+                    {batBalls.some((b: any) => b.wagon_x != null || b.pitch_length != null || b.shot_type != null || b.execution_quality != null) && (
+                      <>
+                        <div className="profile-panel">
+                          <div className="panel-header"><div className="panel-title">Wagon Wheel</div></div>
+                          <WagonWheel balls={batBalls} size={260} />
+                        </div>
+                        <div className="profile-panel">
+                          <div className="panel-header"><div className="panel-title">Pitch Map (as Batter)</div></div>
+                          <LengthHeatmap balls={batBalls} />
+                        </div>
+                        {batBalls.some((b: any) => b.shot_type != null) && (
+                          <div className="profile-panel">
+                            <div className="panel-header"><div className="panel-title">Shot Types</div></div>
+                            <ShotTypeBreakdown balls={batBalls} />
+                          </div>
+                        )}
+                        {batBalls.some((b: any) => b.execution_quality != null || b.decision_quality != null) && (
+                          <div className="profile-panel">
+                            <div className="panel-header"><div className="panel-title">Quality Scores</div></div>
+                            <QualityScorePanel balls={batBalls} />
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {!scoringIntentRow && dismissalRows.length === 0 && !batBalls.some((b: any) => b.wagon_x != null) && (
+                      <div className="empty-profile">No advanced data available yet.</div>
                     )}
                   </>
                 )}

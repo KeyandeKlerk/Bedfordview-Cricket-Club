@@ -10,6 +10,7 @@ interface ClubConfig {
   primary_color: string
   highlight_color: string
   bg_color: string
+  default_scoring_mode: 'club' | 'professional'
 }
 
 const DEFAULTS: ClubConfig = {
@@ -20,6 +21,7 @@ const DEFAULTS: ClubConfig = {
   primary_color: '#2563eb',
   highlight_color: '#38bdf8',
   bg_color: '#050c1a',
+  default_scoring_mode: 'club',
 }
 
 export default function ClubSettingsPage() {
@@ -312,6 +314,32 @@ export default function ClubSettingsPage() {
                       Target: 178 · Need 36 off 28
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Scoring Defaults */}
+              <div className="settings-section">
+                <div className="settings-section-title">Scoring Defaults</div>
+                <div>
+                  <label className="field-label">Default Scoring Mode for New Matches</label>
+                  <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                    {(['club', 'professional'] as const).map(mode => (
+                      <button
+                        key={mode}
+                        type="button"
+                        className={form.default_scoring_mode === mode ? 'btn btn-primary' : 'btn btn-ghost'}
+                        onClick={() => setForm(p => ({ ...p, default_scoring_mode: mode }))}
+                        style={{ flex: 1, justifyContent: 'center', textTransform: 'capitalize' }}
+                      >
+                        {mode === 'club' ? 'Club' : 'Professional'}
+                      </button>
+                    ))}
+                  </div>
+                  <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
+                    {form.default_scoring_mode === 'professional'
+                      ? 'New matches will default to professional mode — post-ball annotation panel for wagon wheel, pitch map, and shot data.'
+                      : 'New matches will default to club mode — standard scoring, no extra data entry required.'}
+                  </p>
                 </div>
               </div>
 

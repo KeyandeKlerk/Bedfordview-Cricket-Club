@@ -15,7 +15,7 @@ export default async function ScorerPage({ params }: { params: Promise<{ id: str
   const sb = createServerClient()
 
   const [matchRes, inningsRes, matchPlayersRes, selectionsRes, allPlayersRes] = await Promise.all([
-    sb.from('matches').select('*, opponent:opponents(canonical_name), competition:competitions(name)').eq('id', matchId).single(),
+    sb.from('matches').select('*, opponent:opponents(canonical_name), competition:competitions(name), scoring_mode').eq('id', matchId).single(),
     sb.from('innings').select('*').eq('match_id', matchId).order('innings_number'),
     sb.from('match_players').select('*').eq('match_id', matchId),
     // Selections: pre-selected XI for this match (from coach's selection workflow)
@@ -75,6 +75,7 @@ export default async function ScorerPage({ params }: { params: Promise<{ id: str
         matchDate: match.match_date,
         initialTossWonBy: (match as any).toss_won_by ?? null,
         initialTossDecision: (match as any).toss_decision ?? null,
+        scoring_mode: ((match as any).scoring_mode ?? 'club') as 'club' | 'professional',
       }}
       innings={activeInnings}
       initialBalls={initialBalls}

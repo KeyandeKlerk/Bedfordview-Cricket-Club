@@ -1,5 +1,29 @@
 // ── ENUMS (mirror DB enums) ────────────────────────────────────────────────────
 
+export type ScoringMode = 'club' | 'professional'
+
+export type PitchLength = 'full_toss' | 'yorker' | 'full' | 'good_length' | 'short' | 'bouncer'
+export type PitchLine   = 'wide_outside_off' | 'outside_off' | 'off_stump' | 'middle' | 'leg_stump' | 'outside_leg'
+export type ShotType    = 'drive' | 'cut' | 'pull' | 'sweep' | 'glance' | 'block' | 'leave' | 'slog' | 'ramp'
+export type BowlingType =
+  | 'right_arm_fast' | 'right_arm_medium'
+  | 'left_arm_fast'  | 'left_arm_medium'
+  | 'right_arm_off_spin' | 'right_arm_leg_spin'
+  | 'left_arm_orthodox'  | 'left_arm_chinaman'
+export type ExecutionQuality = 'excellent' | 'good' | 'poor'
+export type DecisionQuality  = 'good' | 'poor'
+
+export type BallAnnotation = {
+  wagon_x?: number | null
+  wagon_y?: number | null
+  pitch_length?: PitchLength | null
+  pitch_line?: PitchLine | null
+  shot_type?: ShotType | null
+  bowling_type?: BowlingType | null
+  execution_quality?: ExecutionQuality | null
+  decision_quality?: DecisionQuality | null
+}
+
 export type ExtrasType = 'wide' | 'no_ball' | 'bye' | 'leg_bye' | 'penalty'
 
 export type DismissalType =
@@ -55,6 +79,15 @@ export type BallEvent = {
   penalty_to_fielding: boolean
   commentary: string | null
   created_at: string
+  // Tier 2 — professional scoring mode only; null for club matches
+  wagon_x?: number | null
+  wagon_y?: number | null
+  pitch_length?: PitchLength | null
+  pitch_line?: PitchLine | null
+  shot_type?: ShotType | null
+  bowling_type?: BowlingType | null
+  execution_quality?: ExecutionQuality | null
+  decision_quality?: DecisionQuality | null
 }
 
 /** A player entry for a specific match — used for both home team and opposition */

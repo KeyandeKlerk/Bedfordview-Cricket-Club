@@ -1,4 +1,4 @@
-import type { BallEvent } from '../cricket/types'
+import type { BallAnnotation, BallEvent } from '../cricket/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 const QUEUE_WARN_THRESHOLD = 250
@@ -6,6 +6,7 @@ const QUEUE_HARD_CAP = 300
 
 // In-memory fallback (used when IndexedDB is unavailable)
 let memoryQueue: BallEvent[] = []
+let memoryAnnotationQueue: Array<{ ballId: string } & BallAnnotation> = []
 
 // Dexie instance — lazily initialised
 let db: any = null
@@ -17,6 +18,12 @@ async function getDb(): Promise<any> {
     const database = new Dexie('BCCScorerQueue')
     database.version(1).stores({
       balls: 'id, innings_id, sequence_number',
+    })
+    // v2 adds pendingAnnotations for professional scoring mode.
+    // balls store is unchanged — the upgrade is additive.
+    database.version(2).stores({
+      balls: 'id, innings_id, sequence_number',
+      pendingAnnotations: 'ballId',
     })
     db = database
     return db
@@ -132,6 +139,10 @@ export async function flushQueue(
     }
   }
 
+  // After balls are flushed, flush any pending annotations (ordering invariant:
+  // the ball must exist in the DB before its annotation UPDATE is sent).
+  await flushAnnotations(supabase)
+
   return { flushed, errors }
 }
 
@@ -142,4 +153,103 @@ export async function clearQueue(): Promise<void> {
     try { await d.balls.clear() } catch { /* ignore */ }
   }
   memoryQueue = []
+}
+
+// ── Annotation queue (professional scoring mode) ─────────────────────────────
+
+/** Returns true if a ball with this id is still sitting in the local offline queue (not yet synced). */
+export async function isInBallQueue(ballId: string): Promise<boolean> {
+  const d = await getDb()
+  if (d) {
+    try {
+      const row = await d.balls.get(ballId)
+      return row != null
+    } catch { /* fall through */ }
+  }
+  return memoryQueue.some(b => b.id === ballId)
+}
+
+/**
+ * Merge annotation fields into a queued ball so they are sent together in one upsert.
+ * Call this when the ball is still in the queue (offline) and the annotation arrives offline.
+ */
+export async function mergeAnnotationIntoBallQueue(ballId: string, annotation: BallAnnotation): Promise<void> {
+  const d = await getDb()
+  if (d) {
+    try {
+      const existing = await d.balls.get(ballId)
+      if (existing) await d.balls.put({ ...existing, ...annotation })
+      return
+    } catch { /* fall through */ }
+  }
+  const idx = memoryQueue.findIndex(b => b.id === ballId)
+  if (idx !== -1) memoryQueue[idx] = { ...memoryQueue[idx], ...annotation }
+}
+
+/**
+ * Queue an annotation UPDATE for a ball that has already been synced to Supabase.
+ * The annotation will be flushed (as an UPDATE on ball_events) when connectivity restores.
+ */
+export async function queueAnnotation(ballId: string, annotation: BallAnnotation): Promise<void> {
+  const d = await getDb()
+  const row = { ballId, ...annotation }
+  if (d) {
+    try {
+      await d.pendingAnnotations.put(row)
+      return
+    } catch { /* fall through */ }
+  }
+  const idx = memoryAnnotationQueue.findIndex(a => a.ballId === ballId)
+  if (idx !== -1) memoryAnnotationQueue[idx] = row
+  else memoryAnnotationQueue.push(row)
+}
+
+/**
+ * Flush pending annotation UPDATEs to Supabase.
+ * MUST be called AFTER flushQueue() so the parent balls exist in the DB.
+ */
+export async function flushAnnotations(
+  supabase: SupabaseClient
+): Promise<{ flushed: number; errors: number }> {
+  const d = await getDb()
+
+  let annotations: Array<{ ballId: string } & BallAnnotation> = []
+  if (d) {
+    try {
+      annotations = await d.pendingAnnotations.toArray()
+    } catch {
+      annotations = [...memoryAnnotationQueue]
+    }
+  } else {
+    annotations = [...memoryAnnotationQueue]
+  }
+
+  if (annotations.length === 0) return { flushed: 0, errors: 0 }
+
+  let flushed = 0
+  let errors = 0
+
+  for (const { ballId, ...annotation } of annotations) {
+    try {
+      const { error } = await supabase
+        .from('ball_events')
+        .update(annotation)
+        .eq('id', ballId)
+
+      if (error) {
+        errors++
+      } else {
+        if (d) {
+          try { await d.pendingAnnotations.delete(ballId) } catch { /* ignore */ }
+        } else {
+          memoryAnnotationQueue = memoryAnnotationQueue.filter(a => a.ballId !== ballId)
+        }
+        flushed++
+      }
+    } catch {
+      errors++
+    }
+  }
+
+  return { flushed, errors }
 }

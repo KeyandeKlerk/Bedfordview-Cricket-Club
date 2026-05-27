@@ -787,6 +787,54 @@ export default function AnalyticsPage() {
                   </div>
                 </div>
               )}
+
+              {/* Match Analysis Links */}
+              {filteredMatches.length > 0 && (
+                <div className="analytics-section">
+                  <div className="section-header">
+                    <div className="section-title">Match Analysis</div>
+                    <div className="section-subtitle">Detailed breakdown for each completed match</div>
+                  </div>
+                  <div className="profile-panel">
+                    <div className="table-scroll">
+                      <table className="season-table">
+                        <thead>
+                          <tr>
+                            <th style={{ textAlign: 'left' }}>Date</th>
+                            <th style={{ textAlign: 'left' }}>Opponent</th>
+                            <th style={{ textAlign: 'left' }}>Result</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[...filteredMatches].reverse().slice(0, 20).map((m: any) => {
+                            const opp = opponents.find((o: any) => o.id === m.opponent_id)
+                            return (
+                              <tr key={m.id}>
+                                <td style={{ textAlign: 'left', fontSize: 11, color: 'var(--muted)' }}>
+                                  {new Date(m.match_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
+                                </td>
+                                <td style={{ textAlign: 'left' }}>{opp?.canonical_name ?? '—'}</td>
+                                <td style={{ textAlign: 'left', fontSize: 12, color: 'var(--muted)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {m.result_text ?? '—'}
+                                </td>
+                                <td>
+                                  <Link
+                                    href={`/analytics/match/${m.id}`}
+                                    style={{ fontSize: 12, color: 'var(--highlight)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                                  >
+                                    Full analysis →
+                                  </Link>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>

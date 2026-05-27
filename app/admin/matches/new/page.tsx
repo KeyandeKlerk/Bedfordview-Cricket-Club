@@ -17,6 +17,7 @@ export default function NewMatchPage() {
   const [teamCategory, setTeamCategory]   = useState<'senior' | 'junior'>('senior')
   const [ourTeamSide, setOurTeamSide]     = useState<'home' | 'away'>('home')
   const [freeHit, setFreeHit]             = useState(true)
+  const [scoringMode, setScoringMode]     = useState<'club' | 'professional'>('club')
   const [newOpponentName, setNewOpponentName] = useState('')
   const [addingOpponent, setAddingOpponent]   = useState(false)
 
@@ -25,10 +26,11 @@ export default function NewMatchPage() {
 
   useEffect(() => {
     async function load() {
-      const [seasonsRes, opponentsRes, groundsRes] = await Promise.all([
+      const [seasonsRes, opponentsRes, groundsRes, configRes] = await Promise.all([
         supabase.from('seasons').select('*').order('start_date', { ascending: false }),
         supabase.from('opponents').select('*').order('canonical_name'),
         supabase.from('grounds').select('*').order('name'),
+        supabase.from('club_config').select('default_scoring_mode').limit(1).maybeSingle(),
       ])
       if (seasonsRes.data) {
         setSeasons(seasonsRes.data)
@@ -37,6 +39,7 @@ export default function NewMatchPage() {
       }
       if (opponentsRes.data) setOpponents(opponentsRes.data)
       if (groundsRes.data)   setGrounds(groundsRes.data)
+      if (configRes.data?.default_scoring_mode) setScoringMode(configRes.data.default_scoring_mode)
     }
     load()
   }, [])
@@ -97,6 +100,7 @@ export default function NewMatchPage() {
           free_hit_on_no_ball: freeHit,
           match_format: selectedComp?.match_format ?? 'club',
           overs_per_innings: selectedComp?.overs_per_innings ?? 20,
+          scoring_mode: scoringMode,
           status: 'upcoming',
         })
         .select('id')
@@ -276,6 +280,29 @@ export default function NewMatchPage() {
                 />
                 Free hit after no-ball
               </label>
+            </div>
+
+            {/* Scoring Mode */}
+            <div className="form-section">
+              <label className="form-label">Scoring Mode</label>
+              <div style={{ display: 'flex', gap: 10 }}>
+                {(['club', 'professional'] as const).map(mode => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={scoringMode === mode ? 'btn btn-primary' : 'btn btn-ghost'}
+                    onClick={() => setScoringMode(mode)}
+                    style={{ flex: 1, justifyContent: 'center', textTransform: 'capitalize' }}
+                  >
+                    {mode === 'club' ? 'Club' : 'Professional'}
+                  </button>
+                ))}
+              </div>
+              {scoringMode === 'professional' && (
+                <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
+                  After each ball the scorer can optionally record wagon wheel, pitch map, shot type, and bowling type.
+                </p>
+              )}
             </div>
 
             {error && (

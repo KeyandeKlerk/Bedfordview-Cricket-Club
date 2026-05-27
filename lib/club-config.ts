@@ -9,6 +9,7 @@ export type ClubConfig = {
   primary_color: string
   highlight_color: string
   bg_color: string
+  default_scoring_mode: 'club' | 'professional'
 }
 
 export const DEFAULT_CONFIG: ClubConfig = {
@@ -19,13 +20,14 @@ export const DEFAULT_CONFIG: ClubConfig = {
   primary_color: '#2563eb',
   highlight_color: '#38bdf8',
   bg_color: '#050c1a',
+  default_scoring_mode: 'club',
 }
 
 export const getClubConfig = cache(async (): Promise<ClubConfig> => {
   try {
     const { data } = await anonSupabase
       .from('club_config')
-      .select('club_name, club_short_name, logo_url, favicon_url, primary_color, highlight_color, bg_color')
+      .select('club_name, club_short_name, logo_url, favicon_url, primary_color, highlight_color, bg_color, default_scoring_mode')
       .limit(1)
       .maybeSingle()
     return data ?? DEFAULT_CONFIG

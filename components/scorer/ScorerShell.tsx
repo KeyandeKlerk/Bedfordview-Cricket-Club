@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import type { BallEvent, DismissalType, ExtrasType, InningsState, MatchPlayer } from '@/lib/cricket/types'
+import type { BallAnnotation, BallEvent, BowlingType, DismissalType, ExtrasType, InningsState, MatchPlayer, ScoringMode } from '@/lib/cricket/types'
 import { computeInningsState, isNaturalEnd, deriveResultText, totalBallRuns, recomputeBatterSequence } from '@/lib/cricket/engine'
 import { deriveEffectivePositions } from '@/lib/cricket/positions'
 import { detectPhase as _detectPhase, type Phase } from '@/lib/cricket/phases'
@@ -26,6 +26,7 @@ import PenaltyModal from './PenaltyModal'
 import SetupBccXi from './SetupBccXi'
 import SetupOppXi from './SetupOppXi'
 import SearchSelect from './SearchSelect'
+import BallAnnotationPanel from './professional/BallAnnotationPanel'
 
 interface MatchData {
   id: string
@@ -37,6 +38,7 @@ interface MatchData {
   matchDate?: string
   initialTossWonBy?: 'home' | 'away' | null
   initialTossDecision?: 'bat' | 'field' | null
+  scoring_mode: ScoringMode
 }
 
 interface InningsData {
@@ -149,6 +151,9 @@ function ScorerShellInner({
   const [team1Score, setTeam1Score]                   = useState(0)
   const [team1OversAllocated, setTeam1OversAllocated] = useState(match.overs_per_innings)
   const [endInningsBallId, setEndInningsBallId] = useState<string | null>(null)
+  // Professional scoring mode — annotation panel shown after each ball
+  const [pendingAnnotationBallId, setPendingAnnotationBallId] = useState<string | null>(null)
+  const [currentOverBowlingType, setCurrentOverBowlingType] = useState<BowlingType | null>(null)
   const [correctingBall, setCorrectingBall] = useState<BallEvent | null>(null)
   // Pending selections: hold chosen player until the next ball is submitted
   const [pendingNewBatterId, setPendingNewBatterId] = useState<string | null>(null)
@@ -262,8 +267,10 @@ function ScorerShellInner({
   // Over boundary → prompt new bowler (must be before any early returns)
   const prevLegalBalls = useRef(state.legalBalls)
   useEffect(() => {
-    if (state.legalBalls > 0 && state.legalBalls % 6 === 0 && state.legalBalls !== prevLegalBalls.current)
+    if (state.legalBalls > 0 && state.legalBalls % 6 === 0 && state.legalBalls !== prevLegalBalls.current) {
       setShowChangeBowler(true)
+      setCurrentOverBowlingType(null)  // reset per-over bowling type for professional mode
+    }
     prevLegalBalls.current = state.legalBalls
   }, [state.legalBalls])
 
@@ -676,6 +683,11 @@ function ScorerShellInner({
         if (blocked) setError('Offline queue full (300 balls). Connect to sync.')
         else if (warned) setError('Warning: 250+ balls in offline queue.')
         getQueueCount().then(onQueueCount)
+      }
+
+      // Professional mode: show annotation panel for this ball (always skippable)
+      if (match.scoring_mode === 'professional') {
+        setPendingAnnotationBallId(newBall.id)
       }
 
       // Prompt scorer to confirm end — they may want to undo a misclick
@@ -1553,6 +1565,18 @@ function ScorerShellInner({
           fieldingTeamName={innings.batting_side !== match.our_team_side ? 'BCC' : (match.opponentName ?? 'Opponents')}
           onConfirm={handlePenalty}
           onClose={() => setShowPenaltyModal(false)}
+        />
+      )}
+
+      {pendingAnnotationBallId && match.scoring_mode === 'professional' && (
+        <BallAnnotationPanel
+          ballId={pendingAnnotationBallId}
+          currentOverBowlingType={currentOverBowlingType}
+          onAnnotated={(_annotation: BallAnnotation, overBowlingType: BowlingType | null) => {
+            if (overBowlingType !== null) setCurrentOverBowlingType(overBowlingType)
+            setPendingAnnotationBallId(null)
+          }}
+          onSkip={() => setPendingAnnotationBallId(null)}
         />
       )}
 
