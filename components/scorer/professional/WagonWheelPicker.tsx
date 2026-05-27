@@ -12,13 +12,13 @@ const SECTOR_ANGLES_DEG = [0, 45, 90, 135, 180, 225, 270, 315]
 
 // Sector labels (outside the field)
 const SECTOR_LABELS = [
-  { deg: 22,  label: 'Straight' },
-  { deg: 68,  label: 'Mid-off' },
-  { deg: 113, label: 'Cover' },
-  { deg: 158, label: 'Point' },
+  { deg: 22,  label: 'Long-off' },
+  { deg: 68,  label: 'Cover' },
+  { deg: 113, label: 'Point' },
+  { deg: 158, label: 'Third man' },
   { deg: 202, label: 'Fine leg' },
   { deg: 248, label: 'Sq. leg' },
-  { deg: 293, label: 'Mid-on' },
+  { deg: 293, label: 'Mid-wicket' },
   { deg: 338, label: 'Long-on' },
 ]
 
@@ -67,7 +67,7 @@ export default function WagonWheelPicker({ wagX, wagY, onChange }: Props) {
         {wagX != null && wagY != null && (
           <span style={{ color: 'var(--highlight)', textTransform: 'none', letterSpacing: 0, marginLeft: 6 }}>
             {wagX > 0.3 ? 'Off side' : wagX < -0.3 ? 'Leg side' : 'Straight'}
-            {wagY > 0.5 ? ' · Straight' : wagY > 0 ? ' · Long' : ' · Fine leg/3rd man'}
+            {wagY > 0.5 ? ' · Straight' : wagY > 0 ? ' · Long boundary' : ' · Fine/behind'}
           </span>
         )}
       </div>
