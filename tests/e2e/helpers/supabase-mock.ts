@@ -253,3 +253,28 @@ export async function mockAllAdmin(page: Page) {
     }
   })
 }
+
+/**
+ * Sets the E2E bypass cookie (middleware) and mocks client-side auth checks.
+ * Call in beforeEach for any test that navigates to a protected route (/admin, /dashboard, etc.).
+ */
+export async function mockE2eAuth(
+  page: Page,
+  userId = 'test-user-uuid',
+  email = 'admin@bcc.test'
+) {
+  // 1. Bypass server-side middleware redirect
+  await page.context().addCookies([{
+    name: 'e2e-bypass',
+    value: 'e2e-test-mode',
+    domain: 'localhost',
+    path: '/',
+    httpOnly: false,
+    secure: false,
+    sameSite: 'Lax',
+  }])
+
+  // 2. Mock client-side auth checks using existing helpers
+  await mockAuthUser(page, userId, email)
+  await mockSupabaseAuth(page, { id: userId, email })
+}

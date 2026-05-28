@@ -15,10 +15,9 @@
  *   Fix: ConditionalNotificationBell hides the bell on /admin/matches/[id]/score routes.
  */
 import { test, expect } from '@playwright/test'
-import { MATCH_FIXTURE, INNINGS_FIXTURE } from './helpers/supabase-mock'
+import { MATCH_FIXTURE, INNINGS_FIXTURE, mockE2eAuth } from './helpers/supabase-mock'
 
 const SCORER_URL = `/admin/matches/${MATCH_FIXTURE.id}/score`
-const NEEDS_AUTH = 'Requires TEST_USER_EMAIL + TEST_USER_PASSWORD env vars'
 
 // ─── Shared ball fixtures ─────────────────────────────────────────────────────
 
@@ -56,6 +55,7 @@ test.describe('Bug regression: scorer phase reversion on re-entry', () => {
    * The scorer must show the scoring screen, not BCC XI setup.
    */
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     // match_players returns empty — simulates transient RLS failure
     await page.route('**/rest/v1/match_players**', async route => {
       await route.fulfill({
@@ -121,8 +121,6 @@ test.describe('Bug regression: scorer phase reversion on re-entry', () => {
   })
 
   test('shows scoring screen when re-entering a match with existing balls, even if match_players is empty', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
-
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -137,8 +135,6 @@ test.describe('Bug regression: scorer phase reversion on re-entry', () => {
   })
 
   test('no 500 error shown when match_players is empty on re-entry', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
-
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -152,6 +148,7 @@ test.describe('Bug regression: scorer with partial match_players (< 11 per side)
    * in_progress innings, phase must still be scoring.
    */
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     await page.route('**/rest/v1/match_players**', async route => {
       await route.fulfill({
         status: 200,
@@ -199,8 +196,6 @@ test.describe('Bug regression: scorer with partial match_players (< 11 per side)
   })
 
   test('shows scoring screen even with partial match_players load', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
-
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -214,6 +209,7 @@ test.describe('Bug regression: scorer with partial match_players (< 11 per side)
 
 test.describe('Bug regression: notification bell must not overlap scorer controls', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     // Full setup for the scoring screen
     await page.route('**/rest/v1/match_players**', async route => {
       await route.fulfill({
@@ -262,8 +258,6 @@ test.describe('Bug regression: notification bell must not overlap scorer control
   })
 
   test('notification bell is hidden on the scorer page', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
-
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -279,8 +273,6 @@ test.describe('Bug regression: notification bell must not overlap scorer control
   })
 
   test('← Matches link is clickable and not obscured by notification bell', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
-
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -306,8 +298,6 @@ test.describe('Bug regression: notification bell must not overlap scorer control
   })
 
   test('Inn N label in scorer header is visible and not obscured on mobile', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
-
     // Simulate mobile viewport — most likely to cause overlap
     await page.setViewportSize({ width: 375, height: 667 })
     await page.goto(SCORER_URL)
@@ -332,6 +322,7 @@ test.describe('Bug regression: notification bell must not overlap scorer control
 
 test.describe('Bug regression: notification bell hidden during scorer setup phases', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     // Empty innings → forces setup_bcc_xi phase
     await page.route('**/rest/v1/innings**', async route => {
       await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify([]) })
@@ -365,8 +356,6 @@ test.describe('Bug regression: notification bell hidden during scorer setup phas
   })
 
   test('notification bell not visible during BCC XI setup phase', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
-
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')
 
@@ -381,8 +370,6 @@ test.describe('Bug regression: notification bell hidden during scorer setup phas
   })
 
   test('STEP header text not clipped behind bell on iPhone SE width', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
-
     await page.setViewportSize({ width: 375, height: 667 })
     await page.goto(SCORER_URL)
     await page.waitForLoadState('networkidle')

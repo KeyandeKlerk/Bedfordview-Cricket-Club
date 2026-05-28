@@ -4,12 +4,11 @@
  * Supabase data calls are intercepted and mocked.
  */
 import { test, expect } from '@playwright/test'
-import { MATCH_FIXTURE } from './helpers/supabase-mock'
-
-// All tests in this file run under chromium with auth state
-// (configured by playwright.config.ts)
+import { MATCH_FIXTURE, mockE2eAuth } from './helpers/supabase-mock'
 
 test.beforeEach(async ({ page }) => {
+  await mockE2eAuth(page)
+
   // Mock matches query
   await page.route('**/rest/v1/matches**', async route => {
     await route.fulfill({

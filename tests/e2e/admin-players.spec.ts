@@ -3,38 +3,33 @@
  * Requires auth.
  */
 import { test, expect } from '@playwright/test'
-import { PLAYER_FIXTURE, mockAllAdmin } from './helpers/supabase-mock'
-
-const NEEDS_AUTH = 'Requires TEST_USER_EMAIL + TEST_USER_PASSWORD env vars'
+import { PLAYER_FIXTURE, mockAllAdmin, mockE2eAuth } from './helpers/supabase-mock'
 
 test.describe('Players list', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     await mockAllAdmin(page)
   })
 
   test('loads without error', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/players')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toContainText(/500|internal server error/i)
   })
 
   test('shows page heading', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/players')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('h1, [class*="title"]')).toBeVisible({ timeout: 10_000 })
   })
 
   test('player names are listed', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/players')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).toContainText(/alice|smith|bob|jones/i)
   })
 
   test('has add/new player button', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/players')
     await page.waitForLoadState('networkidle')
     const addBtn = page.locator('button:has-text("Add"), button:has-text("New Player"), button:has-text("Add Player")')
@@ -42,7 +37,6 @@ test.describe('Players list', () => {
   })
 
   test('no horizontal overflow on mobile', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.setViewportSize({ width: 375, height: 667 })
     await page.goto('/admin/players')
     await page.waitForLoadState('networkidle')
@@ -54,6 +48,7 @@ test.describe('Players list', () => {
 
 test.describe('Players add form', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     await mockAllAdmin(page)
     await page.route('**/rest/v1/players**', async route => {
       const method = route.request().method()
@@ -74,7 +69,6 @@ test.describe('Players add form', () => {
   })
 
   test('add form has first name and last name fields', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/players')
     await page.waitForLoadState('networkidle')
 
@@ -88,7 +82,6 @@ test.describe('Players add form', () => {
   })
 
   test('add form has batting and bowling style selects', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/players')
     await page.waitForLoadState('networkidle')
 

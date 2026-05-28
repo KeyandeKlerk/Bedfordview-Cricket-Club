@@ -4,14 +4,13 @@
  * Data tables are mocked via route interception for isolation.
  */
 import { test, expect } from '@playwright/test'
-import { AVAILABILITY_WINDOW_FIXTURE, MATCH_FIXTURE, PLAYER_FIXTURE, mockAllAdmin } from './helpers/supabase-mock'
-
-const NEEDS_AUTH = 'Requires TEST_USER_EMAIL + TEST_USER_PASSWORD env vars'
+import { AVAILABILITY_WINDOW_FIXTURE, MATCH_FIXTURE, PLAYER_FIXTURE, mockAllAdmin, mockE2eAuth } from './helpers/supabase-mock'
 
 // ─── Window list ──────────────────────────────────────────────────────────────
 
 test.describe('Availability windows list', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     await mockAllAdmin(page)
     await page.route('**/rest/v1/availability_windows**', async route => {
       await route.fulfill({
@@ -23,28 +22,24 @@ test.describe('Availability windows list', () => {
   })
 
   test('loads without error', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/availability')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toContainText(/500|internal server error/i)
   })
 
   test('shows window title', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/availability')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).toContainText(/weekend|availability|window/i)
   })
 
   test('shows Open badge for active window', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/availability')
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).toContainText('Open')
   })
 
   test('has create/new window button', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/availability')
     await page.waitForLoadState('networkidle')
     const btn = page.locator('button:has-text("New Window"), button:has-text("Create")')
@@ -52,7 +47,6 @@ test.describe('Availability windows list', () => {
   })
 
   test('toggling new window shows create form', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/availability')
     await page.waitForLoadState('networkidle')
     await page.locator('button:has-text("New Window")').first().click()
@@ -61,7 +55,6 @@ test.describe('Availability windows list', () => {
   })
 
   test('shows Closed section for past-deadline window', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     const pastWindow = {
       ...AVAILABILITY_WINDOW_FIXTURE,
       id: 'window-past-1',
@@ -82,7 +75,6 @@ test.describe('Availability windows list', () => {
   })
 
   test('create form validates deadline in the past', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto('/admin/availability')
     await page.waitForLoadState('networkidle')
     await page.locator('button:has-text("New Window")').first().click()
@@ -104,7 +96,6 @@ test.describe('Availability windows list', () => {
   })
 
   test('no overflow on mobile', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.setViewportSize({ width: 375, height: 667 })
     await page.goto('/admin/availability')
     await page.waitForLoadState('networkidle')
@@ -118,6 +109,7 @@ test.describe('Availability windows list', () => {
 
 test.describe('Availability window detail', () => {
   test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
     await mockAllAdmin(page)
     await page.route('**/rest/v1/availability_windows**', async route => {
       const url = route.request().url()
@@ -183,35 +175,30 @@ test.describe('Availability window detail', () => {
   })
 
   test('loads window detail without error', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(`/admin/availability/${AVAILABILITY_WINDOW_FIXTURE.id}`)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).not.toContainText(/500|internal server error/i)
   })
 
   test('shows player response summary chips', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(`/admin/availability/${AVAILABILITY_WINDOW_FIXTURE.id}`)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).toContainText(/available|unavailable|tentative/i)
   })
 
   test('shows player name in response list', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(`/admin/availability/${AVAILABILITY_WINDOW_FIXTURE.id}`)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).toContainText('Alice')
   })
 
   test('shows XI selected indicator when active selections exist', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(`/admin/availability/${AVAILABILITY_WINDOW_FIXTURE.id}`)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('body')).toContainText('XI selected')
   })
 
   test('shows XI not selected when only withdrawn selections exist', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     // Override selections mock with withdrawn-only data
     await page.route('**/rest/v1/selections**', async route => {
       await route.fulfill({
@@ -226,14 +213,12 @@ test.describe('Availability window detail', () => {
   })
 
   test('linked match has "Select XI" link', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.goto(`/admin/availability/${AVAILABILITY_WINDOW_FIXTURE.id}`)
     await page.waitForLoadState('networkidle')
     await expect(page.locator(`a[href*="${MATCH_FIXTURE.id}/select"]`)).toBeVisible({ timeout: 10_000 })
   })
 
   test('no overflow on mobile', async ({ page }) => {
-    test.skip(!process.env.TEST_USER_EMAIL, NEEDS_AUTH)
     await page.setViewportSize({ width: 375, height: 667 })
     await page.goto(`/admin/availability/${AVAILABILITY_WINDOW_FIXTURE.id}`)
     await page.waitForLoadState('networkidle')

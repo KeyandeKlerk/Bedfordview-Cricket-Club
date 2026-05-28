@@ -13,6 +13,13 @@ const PROTECTED_PREFIXES = [
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } })
 
+  // E2E test bypass — only active when E2E_AUTH_BYPASS_ENABLED=true (never set in production).
+  const bypassEnabled = process.env.E2E_AUTH_BYPASS_ENABLED === 'true'
+  const isE2eTest = bypassEnabled && request.cookies.get('e2e-bypass')?.value === 'e2e-test-mode'
+  if (isE2eTest) {
+    return NextResponse.next({ request: { headers: request.headers } })
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
