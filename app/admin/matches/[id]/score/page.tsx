@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentPlayerServer } from '@/lib/supabase-server'
 import ScorerShell from '@/components/scorer/ScorerShell'
+import { getClubConfig, isPro } from '@/lib/club-config'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,7 @@ export default async function ScorerPage({ params }: { params: Promise<{ id: str
 
   const { id: matchId } = await params
   const sb = createServerClient()
+  const clubConfig = await getClubConfig()
 
   const [matchRes, inningsRes, matchPlayersRes, selectionsRes, allPlayersRes] = await Promise.all([
     sb.from('matches').select('*, opponent:opponents(canonical_name), competition:competitions(name), scoring_mode').eq('id', matchId).single(),
@@ -63,6 +65,10 @@ export default async function ScorerPage({ params }: { params: Promise<{ id: str
     initialBalls = data ?? []
   }
 
+  const effectiveScoringMode = isPro(clubConfig)
+    ? match.scoring_mode
+    : 'club'
+
   return (
     <ScorerShell
       match={{
@@ -75,7 +81,7 @@ export default async function ScorerPage({ params }: { params: Promise<{ id: str
         matchDate: match.match_date,
         initialTossWonBy: (match as any).toss_won_by ?? null,
         initialTossDecision: (match as any).toss_decision ?? null,
-        scoring_mode: ((match as any).scoring_mode ?? 'club') as 'club' | 'professional',
+        scoring_mode: (effectiveScoringMode ?? 'club') as 'club' | 'professional',
       }}
       innings={activeInnings}
       initialBalls={initialBalls}
