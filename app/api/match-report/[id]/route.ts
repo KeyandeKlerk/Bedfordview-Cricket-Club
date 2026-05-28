@@ -3,6 +3,7 @@ import { serverSupabase as supabase } from '@/lib/supabase/server'
 import { computeInningsState } from '@/lib/cricket/engine'
 import { buildInningsSummary, generateMatchReport } from '@/lib/cricket/reportGenerator'
 import type { BallEvent } from '@/lib/cricket/types'
+import { getClubConfig, isPro } from '@/lib/club-config'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,14 @@ export async function POST(
   const webhookSecret = process.env.WEBHOOK_SECRET
   if (!webhookSecret || _req.headers.get('x-webhook-secret') !== webhookSecret) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const clubConfig = await getClubConfig()
+  if (!isPro(clubConfig)) {
+    return NextResponse.json(
+      { error: 'Match reports are available on the Pro plan.' },
+      { status: 403 }
+    )
   }
 
   const { id: matchId } = await params
