@@ -11,6 +11,8 @@ interface ClubConfig {
   highlight_color: string
   bg_color: string
   default_scoring_mode: 'club' | 'professional'
+  contact_email: string | null
+  plan?: 'club' | 'pro'
 }
 
 const DEFAULTS: ClubConfig = {
@@ -22,6 +24,7 @@ const DEFAULTS: ClubConfig = {
   highlight_color: '#38bdf8',
   bg_color: '#050c1a',
   default_scoring_mode: 'club',
+  contact_email: null,
 }
 
 export default function ClubSettingsPage() {
@@ -340,6 +343,42 @@ export default function ClubSettingsPage() {
                       ? 'New matches will default to professional mode — post-ball annotation panel for wagon wheel, pitch map, and shot data.'
                       : 'New matches will default to club mode — standard scoring, no extra data entry required.'}
                   </p>
+                </div>
+              </div>
+
+              {/* Contact & Plan */}
+              <div className="settings-section">
+                <div className="settings-section-title">Contact &amp; Plan</div>
+                <div className="settings-grid">
+                  <div>
+                    <label className="field-label">Contact Email</label>
+                    <input
+                      className="settings-input"
+                      type="email"
+                      placeholder="contact@yourclub.com"
+                      value={form.contact_email ?? ''}
+                      onChange={e => set('contact_email', e.target.value)}
+                    />
+                    <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
+                      Shown to users when a feature requires a plan upgrade.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="field-label">Plan</label>
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 8,
+                      padding: '6px 14px', borderRadius: 4,
+                      background: form.plan === 'pro' ? 'rgba(37,99,235,0.15)' : 'var(--surface)',
+                      border: '1px solid var(--border)', marginTop: 2,
+                    }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: form.plan === 'pro' ? 'var(--blue-mid)' : 'var(--muted)', textTransform: 'uppercase' }}>
+                        {form.plan ?? 'Club'}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
+                      To change your plan, contact your account manager.
+                    </p>
+                  </div>
                 </div>
               </div>
 
