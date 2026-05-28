@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import Nav from '@/components/layout/Nav'
+import DemoBanner from '@/components/DemoBanner'
 import { getClubConfig, hexToRgb } from '@/lib/club-config'
 
 export const dynamic = 'force-dynamic'
@@ -56,6 +57,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <Nav config={config} />
         {children}
+        {config.is_demo && <DemoBanner />}
       </body>
     </html>
   )

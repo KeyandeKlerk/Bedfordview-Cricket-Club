@@ -10,31 +10,41 @@ export type ClubConfig = {
   highlight_color: string
   bg_color: string
   default_scoring_mode: 'club' | 'professional'
+  plan: 'club' | 'pro'
+  contact_email: string | null
+  is_demo: boolean
 }
 
 export const DEFAULT_CONFIG: ClubConfig = {
-  club_name: 'Bedfordview Cricket Club',
-  club_short_name: 'BCC',
-  logo_url: '/img/bcc-logo.png',
+  club_name: 'Cricket Club',
+  club_short_name: 'CC',
+  logo_url: null,
   favicon_url: null,
   primary_color: '#2563eb',
   highlight_color: '#38bdf8',
   bg_color: '#050c1a',
   default_scoring_mode: 'club',
+  plan: 'club',
+  contact_email: null,
+  is_demo: false,
 }
 
 export const getClubConfig = cache(async (): Promise<ClubConfig> => {
   try {
     const { data } = await anonSupabase
       .from('club_config')
-      .select('club_name, club_short_name, logo_url, favicon_url, primary_color, highlight_color, bg_color, default_scoring_mode')
+      .select('club_name, club_short_name, logo_url, favicon_url, primary_color, highlight_color, bg_color, default_scoring_mode, plan, contact_email, is_demo')
       .limit(1)
       .maybeSingle()
-    return data ?? DEFAULT_CONFIG
+    return data ? { ...DEFAULT_CONFIG, ...data } : DEFAULT_CONFIG
   } catch {
     return DEFAULT_CONFIG
   }
 })
+
+export function isPro(config: ClubConfig): boolean {
+  return config.plan === 'pro'
+}
 
 /** Convert #rrggbb hex to "r,g,b" for use in rgba() */
 export function hexToRgb(hex: string): string {
