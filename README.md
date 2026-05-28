@@ -4,6 +4,14 @@ A full-featured cricket club management platform built with Next.js 15 and Supab
 
 ---
 
+## Quick Deploy
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FYOUR_ORG%2FYOUR_REPO&env=NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,SUPABASE_SERVICE_ROLE_KEY,NEXT_PUBLIC_SITE_URL&envDescription=Required%20Supabase%20and%20site%20configuration&project-name=bcc-cricket)
+
+> After deploying, run all migrations (`supabase/migrations/001` → `033`) in your Supabase SQL Editor. See [DEPLOYMENT.md](DEPLOYMENT.md) for the full guide.
+
+---
+
 ## Prerequisites
 
 - Node.js 18+
