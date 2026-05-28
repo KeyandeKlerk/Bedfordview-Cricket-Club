@@ -34,7 +34,7 @@ export async function PUT(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { club_name, club_short_name, logo_url, favicon_url, primary_color, highlight_color, bg_color, default_scoring_mode } = body
+  const { club_name, club_short_name, logo_url, favicon_url, primary_color, highlight_color, bg_color, default_scoring_mode, contact_email } = body
 
   const hexRe = /^#[0-9a-fA-F]{6}$/
   if (primary_color && !hexRe.test(primary_color))
@@ -55,6 +55,7 @@ export async function PUT(req: NextRequest) {
   if (highlight_color !== undefined)      updates.highlight_color       = highlight_color
   if (bg_color !== undefined)             updates.bg_color              = bg_color
   if (default_scoring_mode !== undefined) updates.default_scoring_mode  = default_scoring_mode
+  if (contact_email !== undefined)        updates.contact_email         = contact_email || null
 
   if (Object.keys(updates).length === 0)
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
