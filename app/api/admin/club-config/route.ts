@@ -16,6 +16,8 @@ async function requireAdmin(req: NextRequest) {
   return data && data.length > 0 ? user : null
 }
 
+// Intentionally public — branding, plan, and is_demo are all needed by
+// client-side components (stats tabs, demo banner). contact_email is low-sensitivity.
 export async function GET() {
   const { data, error } = await adminClient
     .from('club_config')

@@ -5,7 +5,11 @@ import { getClubConfig } from '@/lib/club-config'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
-export async function POST(req: NextRequest) {
+/**
+ * Wipes all demo data. Re-seeding requires running `npx tsx scripts/seed-demo.ts`
+ * separately (e.g. via a GitHub Actions workflow triggered after this endpoint fires).
+ */
+async function handleReset(req: NextRequest): Promise<NextResponse> {
   const secret = process.env.CRON_SECRET
   if (!secret || req.headers.get('authorization') !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -37,4 +41,12 @@ export async function POST(req: NextRequest) {
     ok: true,
     message: 'Demo data wiped. Run seed-demo.ts to repopulate.',
   })
+}
+
+export async function GET(req: NextRequest) {
+  return handleReset(req)
+}
+
+export async function POST(req: NextRequest) {
+  return handleReset(req)
 }

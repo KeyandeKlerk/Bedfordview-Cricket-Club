@@ -110,8 +110,8 @@ async function seed() {
     const { data, error } = await supabase
       .from('competitions')
       .insert([
-        { name: 'Premier League', match_format: 'limited_overs', overs_per_innings: 40, category: 'senior' },
-        { name: 'Regional Cup', match_format: 'limited_overs', overs_per_innings: 20, category: 'senior' },
+        { name: 'Premier League', match_format: 'limited_overs', overs_per_innings: 40, category: 'senior', season_id: seasonId },
+        { name: 'Regional Cup', match_format: 'limited_overs', overs_per_innings: 20, category: 'senior', season_id: seasonId },
       ])
       .select('id, name')
     if (error) throw new Error(error.message)

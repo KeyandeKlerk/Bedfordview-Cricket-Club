@@ -75,7 +75,7 @@ echo "Running migrations..."
 MIGRATIONS_DIR="supabase/migrations"
 for f in "$MIGRATIONS_DIR"/*.sql; do
   echo "  Applying $(basename "$f")..."
-  supabase db push --project-ref "$PROJECT_REF" < "$f" || {
+  supabase db execute --project-ref "$PROJECT_REF" --file "$f" || {
     echo "Migration failed: $f"
     exit 1
   }
@@ -88,10 +88,13 @@ echo "All migrations applied."
 echo ""
 echo "Inserting club configuration..."
 
+CLUB_NAME_SAFE="${CLUB_NAME//\'/\'\'}"
+CLUB_SHORT_SAFE="${CLUB_SHORT//\'/\'\'}"
+
 supabase sql --project-ref "$PROJECT_REF" <<SQL
 UPDATE club_config SET
-  club_name = '${CLUB_NAME}',
-  club_short_name = '${CLUB_SHORT}',
+  club_name = '${CLUB_NAME_SAFE}',
+  club_short_name = '${CLUB_SHORT_SAFE}',
   plan = '${PLAN}',
   default_scoring_mode = '${DEFAULT_MODE}',
   is_demo = false

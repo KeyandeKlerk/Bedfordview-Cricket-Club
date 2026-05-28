@@ -75,6 +75,33 @@ Set these environment variables when prompted:
 3. Navigate to `/admin/setup` — setup checklist should show 0/5 steps complete
 4. Follow the checklist to finish configuration
 
+## Demo Instance Reset
+
+The demo instance resets nightly via a Vercel cron at 02:00 UTC (`/api/cron/reset-demo`). The cron **wipes** all data; re-seeding requires a separate step.
+
+**Recommended setup:** Create a GitHub Actions workflow that runs after the cron fires:
+
+```yaml
+# .github/workflows/reseed-demo.yml
+name: Reseed Demo
+on:
+  schedule:
+    - cron: '15 2 * * *'  # 15 min after wipe
+jobs:
+  reseed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - run: npm ci
+      - run: npx tsx scripts/seed-demo.ts
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.DEMO_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.DEMO_SERVICE_ROLE_KEY }}
+```
+
 ## Upgrading a tenant from Club to Pro
 
 ```sql

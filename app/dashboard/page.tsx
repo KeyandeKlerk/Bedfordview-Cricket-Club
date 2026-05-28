@@ -38,17 +38,24 @@ const SHOP_LINKS = [
 ]
 
 export default async function DashboardPage() {
-  const [player, matchRes, clubConfig, playerCountRes, seasonCountRes, matchCountRes, windowCountRes] = await Promise.all([
+  const [player, matchRes, clubConfig] = await Promise.all([
     getCurrentPlayerServer(),
     supabase.from('matches').select('*, opponent:opponents(canonical_name), competition:competitions(match_format, overs_per_innings)').in('status', ['upcoming', 'in_progress', 'completed']).order('match_date', { ascending: false }).limit(20),
     getClubConfig(),
-    serverSupabase.from('players').select('*', { count: 'exact', head: true }).eq('is_active', true),
-    serverSupabase.from('seasons').select('*', { count: 'exact', head: true }),
-    serverSupabase.from('matches').select('*', { count: 'exact', head: true }),
-    serverSupabase.from('availability_windows').select('*', { count: 'exact', head: true }),
   ])
 
   if (!player) redirect('/login')
+
+  // Only fetch setup data for roles that see the setup card
+  const isAdminOrCoach = player.role === 'admin' || player.role === 'coach'
+  const [playerCountRes, seasonCountRes, matchCountRes, windowCountRes] = isAdminOrCoach
+    ? await Promise.all([
+        serverSupabase.from('players').select('*', { count: 'exact', head: true }).eq('is_active', true),
+        serverSupabase.from('seasons').select('*', { count: 'exact', head: true }),
+        serverSupabase.from('matches').select('*', { count: 'exact', head: true }),
+        serverSupabase.from('availability_windows').select('*', { count: 'exact', head: true }),
+      ])
+    : [{ count: 0 }, { count: 0 }, { count: 0 }, { count: 0 }]
 
   const setupSteps = getSetupSteps({
     clubName: clubConfig.club_name,
