@@ -136,6 +136,21 @@ export default function PlayerProfilePage() {
   const [fieldingEventMatchIds, setFieldingEventMatchIds] = useState<string[]>([])
   const [mpBatPosMap, setMpBatPosMap] = useState<Record<string, number>>({})
 
+  const [plan, setPlan] = useState<'club' | 'pro'>('club')
+
+  useEffect(() => {
+    fetch('/api/admin/club-config')
+      .then(r => r.json())
+      .then(d => { if (d?.plan) setPlan(d.plan) })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (plan === 'club' && (tab === 'matchups' || tab === 'advanced')) {
+      setTab('batting')
+    }
+  }, [plan, tab])
+
   // Wave 4 state — matchups + advanced (lazy, loaded once per player)
   const [matchupBatterRows, setMatchupBatterRows] = useState<any[]>([])
   const [matchupBowlerRows, setMatchupBowlerRows] = useState<any[]>([])
@@ -1386,18 +1401,22 @@ export default function PlayerProfilePage() {
               >
                 <span className="profile-tab-icon">🧤</span> Fielding
               </button>
-              <button
-                className={`profile-tab${tab === 'matchups' ? ' active' : ''}`}
-                onClick={() => setTab('matchups')}
-              >
-                <span className="profile-tab-icon">⚔</span> Matchups
-              </button>
-              <button
-                className={`profile-tab${tab === 'advanced' ? ' active' : ''}`}
-                onClick={() => setTab('advanced')}
-              >
-                <span className="profile-tab-icon">📊</span> Advanced
-              </button>
+              {plan === 'pro' && (
+                <button
+                  className={`profile-tab${tab === 'matchups' ? ' active' : ''}`}
+                  onClick={() => setTab('matchups')}
+                >
+                  <span className="profile-tab-icon">⚔</span> Matchups
+                </button>
+              )}
+              {plan === 'pro' && (
+                <button
+                  className={`profile-tab${tab === 'advanced' ? ' active' : ''}`}
+                  onClick={() => setTab('advanced')}
+                >
+                  <span className="profile-tab-icon">📊</span> Advanced
+                </button>
+              )}
             </div>
 
             {/* Category pills — only shown when player has both senior and junior data */}
