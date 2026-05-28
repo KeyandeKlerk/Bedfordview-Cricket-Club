@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getCurrentPlayerServer } from '@/lib/supabase-server'
 import { serverSupabase, anonSupabase as supabase } from '@/lib/supabase/server'
+import { getSetupSteps, isOnboarded } from '@/lib/onboarding'
+import { getClubConfig, isPro } from '@/lib/club-config'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,17 +12,20 @@ function formatDate(d: string) {
 }
 
 
-const ADMIN_LINKS = [
-  { href: '/admin/matches',      icon: '⚡', label: 'Matches',      sub: 'Manage, score & create', },
-  { href: '/admin/availability', icon: '📅', label: 'Availability', sub: 'Windows & selection',    },
-  { href: '/admin/news',         icon: '📰', label: 'News',         sub: 'Articles & match reports', },
-  { href: '/admin/players',      icon: '👤', label: 'Players',      sub: 'Squad, accounts & roles', },
-  { href: '/admin/seasons',      icon: '📆', label: 'Seasons',      sub: 'Manage seasons',         },
-  { href: '/admin/opponents',    icon: '🏏', label: 'Opponents',    sub: 'Opposition clubs',       },
-  { href: '/admin/grounds',      icon: '📍', label: 'Grounds',      sub: 'Match venues',           },
-  { href: '/admin/competitions', icon: '🏆', label: 'Competitions', sub: 'Leagues & cups',         },
-  { href: '/admin/settings',    icon: '🎨', label: 'Branding',     sub: 'Logo, colours & name',   },
-]
+function getAdminLinks(pro: boolean) {
+  return [
+    { href: '/admin/matches',      icon: '⚡', label: 'Matches',      sub: 'Manage, score & create' },
+    { href: '/admin/availability', icon: '📅', label: 'Availability', sub: 'Windows & selection'    },
+    { href: '/admin/news',         icon: '📰', label: 'News',         sub: 'Articles & match reports' },
+    { href: '/admin/players',      icon: '👤', label: 'Players',      sub: 'Squad, accounts & roles' },
+    { href: '/admin/seasons',      icon: '📆', label: 'Seasons',      sub: 'Manage seasons'          },
+    { href: '/admin/opponents',    icon: '🏏', label: 'Opponents',    sub: 'Opposition clubs'        },
+    { href: '/admin/grounds',      icon: '📍', label: 'Grounds',      sub: 'Match venues'            },
+    { href: '/admin/competitions', icon: '🏆', label: 'Competitions', sub: 'Leagues & cups'          },
+    { href: '/admin/settings',     icon: '🎨', label: 'Branding',     sub: 'Logo, colours & name'    },
+    ...(pro ? [{ href: '/analytics', icon: '📈', label: 'Analytics', sub: 'Season & match analytics' }] : []),
+  ]
+}
 
 const SCORER_LINKS = [
   { href: '/admin/matches',      icon: '⚡', label: 'Matches',      sub: 'View & score matches', },
@@ -33,17 +38,27 @@ const SHOP_LINKS = [
 ]
 
 export default async function DashboardPage() {
-  const [player, matchRes] = await Promise.all([
+  const [player, matchRes, clubConfig, playerCountRes, seasonCountRes, matchCountRes, windowCountRes] = await Promise.all([
     getCurrentPlayerServer(),
-    supabase
-      .from('matches')
-      .select('*, opponent:opponents(canonical_name), competition:competitions(match_format, overs_per_innings)')
-      .in('status', ['upcoming', 'in_progress', 'completed'])
-      .order('match_date', { ascending: false })
-      .limit(20),
+    supabase.from('matches').select('*, opponent:opponents(canonical_name), competition:competitions(match_format, overs_per_innings)').in('status', ['upcoming', 'in_progress', 'completed']).order('match_date', { ascending: false }).limit(20),
+    getClubConfig(),
+    serverSupabase.from('players').select('*', { count: 'exact', head: true }).eq('is_active', true),
+    serverSupabase.from('seasons').select('*', { count: 'exact', head: true }),
+    serverSupabase.from('matches').select('*', { count: 'exact', head: true }),
+    serverSupabase.from('availability_windows').select('*', { count: 'exact', head: true }),
   ])
 
   if (!player) redirect('/login')
+
+  const setupSteps = getSetupSteps({
+    clubName: clubConfig.club_name,
+    playerCount: playerCountRes.count ?? 0,
+    seasonCount: seasonCountRes.count ?? 0,
+    matchCount: matchCountRes.count ?? 0,
+    windowCount: windowCountRes.count ?? 0,
+  })
+  const setupDone = setupSteps.filter(s => s.done).length
+  const allSetupDone = isOnboarded(setupSteps)
 
   const matches = matchRes.data ?? []
   const liveMatch = matches.find(m => m.status === 'in_progress')
@@ -637,6 +652,28 @@ export default async function DashboardPage() {
         {(isAdminRole || isShopRole || hasToolsPanel) && (
           <section className="db-bottom-section container">
 
+            {(player.role === 'admin' || player.role === 'coach') && !allSetupDone && (
+              <div style={{
+                background: 'var(--panel)', border: '1px solid var(--border)',
+                borderRadius: 6, padding: '20px 24px', marginBottom: 24,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>Club Setup</div>
+                  <span style={{ fontSize: 13, color: 'var(--muted)' }}>{setupDone} of {setupSteps.length} complete</span>
+                </div>
+                <div style={{ height: 6, background: 'var(--surface)', borderRadius: 3, marginBottom: 16, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${(setupDone / setupSteps.length) * 100}%`,
+                    background: 'var(--blue-mid)', borderRadius: 3,
+                  }} />
+                </div>
+                <Link href="/admin/setup" style={{ color: 'var(--blue-mid)', fontWeight: 600, fontSize: 14 }}>
+                  Continue setup →
+                </Link>
+              </div>
+            )}
+
             {isAdminRole && (
               <div className="db-bottom-panel">
                 <div className="db-bottom-panel-head">
@@ -644,7 +681,7 @@ export default async function DashboardPage() {
                   <span className="db-bottom-panel-title">Admin Panel</span>
                 </div>
                 <div className="db-tiles">
-                  {ADMIN_LINKS.map(link => (
+                  {getAdminLinks(isPro(clubConfig)).map(link => (
                     <Link key={link.href} href={link.href} className="db-tile">
                       <div className="db-tile-icon">{link.icon}</div>
                       <div className="db-tile-label">{link.label}</div>
