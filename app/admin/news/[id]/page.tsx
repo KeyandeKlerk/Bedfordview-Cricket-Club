@@ -226,11 +226,11 @@ export default function ArticleEditorPage() {
           <div className="editor-header">
             <div className="editor-title-h">{isNew ? 'New Article' : 'Edit Article'}</div>
             <div className="editor-actions">
-              <button className="btn btn-outline" onClick={() => save(false)} disabled={saving}>
-                {saving ? 'Saving…' : 'Save Draft'}
+              <button className="btn btn-outline" onClick={() => save(false)} disabled={saving || uploadingFeatured}>
+                {saving ? 'Saving…' : uploadingFeatured ? 'Uploading image…' : 'Save Draft'}
               </button>
-              <button className="btn btn-primary" onClick={() => save(true)} disabled={saving}>
-                {publishedAt ? 'Update' : 'Publish'}
+              <button className="btn btn-primary" onClick={() => save(true)} disabled={saving || uploadingFeatured}>
+                {saving ? 'Saving…' : uploadingFeatured ? 'Uploading image…' : (publishedAt ? 'Update' : 'Publish')}
               </button>
             </div>
           </div>
