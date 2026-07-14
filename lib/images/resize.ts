@@ -29,11 +29,17 @@ export function resizeImageFile(
   file: File,
   opts: { maxWidth?: number; quality?: number } = {}
 ): Promise<Blob> {
-  assertFileSize(file)
   const maxWidth = opts.maxWidth ?? 1600
   const quality = opts.quality ?? 0.82
 
   return new Promise((resolve, reject) => {
+    try {
+      assertFileSize(file)
+    } catch (err) {
+      reject(err)
+      return
+    }
+
     const img = new Image()
     const url = URL.createObjectURL(file)
     img.onload = () => {
