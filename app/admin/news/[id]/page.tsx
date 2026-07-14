@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
+import ArticleEditor from '@/components/admin/ArticleEditor'
+import { sanitizeArticleHtml } from '@/lib/content/sanitize'
 
 type Match = { id: string; match_date: string; opponent: { canonical_name: string } | null; status: string }
 
@@ -31,6 +33,11 @@ export default function ArticleEditorPage() {
   const [generating, setGenerating] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
   const [loading, setLoading] = useState(!isNew)
+  const [userId, setUserId] = useState<string>('')
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? ''))
+  }, [])
 
   useEffect(() => {
     supabase
@@ -93,7 +100,7 @@ export default function ArticleEditorPage() {
     const payload = {
       title: title.trim(),
       slug: slug.trim() || slugify(title.trim()),
-      content,
+      content: sanitizeArticleHtml(content),
       excerpt: excerpt.trim() || null,
       match_id: matchId || null,
       published_at: publish ? (publishedAt ?? now) : null,
@@ -240,12 +247,8 @@ export default function ArticleEditorPage() {
           </div>
 
           <div className="field" style={{ marginTop: 20 }}>
-            <label>Content (Markdown)</label>
-            <textarea
-              value={content}
-              onChange={e => setContent(e.target.value)}
-              placeholder="Write your article here… or click Generate Report above."
-            />
+            <label>Content</label>
+            {userId && <ArticleEditor value={content} onChange={setContent} userId={userId} />}
           </div>
 
           {saveMsg && <div className="save-msg">{saveMsg}</div>}
