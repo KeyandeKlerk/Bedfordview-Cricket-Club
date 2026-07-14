@@ -15,6 +15,18 @@ function slugify(s: string) {
     .replace(/^-|-$/g, '')
 }
 
+// Converts plain text (paragraphs separated by blank lines, as produced by
+// lib/cricket/reportGenerator.ts) into simple paragraph HTML so it survives
+// being loaded into the Tiptap-based ArticleEditor, which parses its `value`
+// prop as HTML. Without this, bare text collapses into one run-on paragraph.
+export function reportTextToHtml(text: string): string {
+  return text
+    .split(/\n\n+/)
+    .filter(p => p.trim())
+    .map(p => `<p>${p.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`)
+    .join('')
+}
+
 export default function ArticleEditorPage() {
   const params = useParams()
   const router = useRouter()
@@ -81,7 +93,7 @@ export default function ArticleEditorPage() {
       const res = await fetch(`/api/match-report/${matchId}`, { method: 'POST' })
       const json = await res.json()
       if (json.report) {
-        setContent(json.report)
+        setContent(reportTextToHtml(json.report))
         setSaveMsg('Report generated — review and edit before publishing.')
       } else {
         setSaveMsg('Could not generate report: ' + (json.error ?? 'Unknown error'))
