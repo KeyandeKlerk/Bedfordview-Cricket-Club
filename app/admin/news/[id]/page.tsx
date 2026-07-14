@@ -18,6 +18,13 @@ function slugify(s: string) {
     .replace(/^-|-$/g, '')
 }
 
+// Formats a Date into the `YYYY-MM-DDTHH:mm` string a `datetime-local` input
+// expects, in the browser's local timezone (not UTC).
+function toDatetimeLocalValue(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 // Converts plain text (paragraphs separated by blank lines, as produced by
 // lib/cricket/reportGenerator.ts) into simple paragraph HTML so it survives
 // being loaded into the Tiptap-based ArticleEditor, which parses its `value`
@@ -169,7 +176,10 @@ export default function ArticleEditorPage() {
     setSaveMsg(mode === 'draft' ? 'Draft saved.' : mode === 'publish' ? 'Published!' : 'Scheduled!')
     setSaving(false)
     setShowScheduler(false)
+    if (mode === 'schedule') setScheduleAt('')
   }
+
+  const isScheduleInPast = !!scheduleAt && new Date(scheduleAt) <= new Date()
 
   if (loading) return <div style={{ padding: 80, textAlign: 'center', color: 'var(--muted)' }}>Loading…</div>
 
@@ -243,7 +253,15 @@ export default function ArticleEditorPage() {
               <button className="btn btn-outline" onClick={() => save('draft')} disabled={saving || uploadingFeatured}>
                 {saving ? 'Saving…' : uploadingFeatured ? 'Uploading image…' : 'Save Draft'}
               </button>
-              <button className="btn btn-outline" onClick={() => setShowScheduler(s => !s)} disabled={saving || uploadingFeatured}>
+              <button
+                className="btn btn-outline"
+                onClick={() => {
+                  const next = !showScheduler
+                  setShowScheduler(next)
+                  if (!next) setScheduleAt('')
+                }}
+                disabled={saving || uploadingFeatured}
+              >
                 Schedule…
               </button>
               <button className="btn btn-primary" onClick={() => save('publish')} disabled={saving || uploadingFeatured}>
@@ -258,12 +276,18 @@ export default function ArticleEditorPage() {
               <input
                 type="datetime-local"
                 value={scheduleAt}
+                min={toDatetimeLocalValue(new Date())}
                 onChange={e => setScheduleAt(e.target.value)}
               />
+              {isScheduleInPast && (
+                <div className="save-msg" style={{ color: '#f87171', marginTop: 6 }}>
+                  Pick a time in the future.
+                </div>
+              )}
               <button
                 className="btn btn-primary"
                 style={{ marginTop: 10 }}
-                disabled={!scheduleAt || saving || uploadingFeatured}
+                disabled={!scheduleAt || saving || uploadingFeatured || isScheduleInPast}
                 onClick={() => save('schedule')}
               >
                 Confirm Schedule
