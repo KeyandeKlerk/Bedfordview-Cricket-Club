@@ -1,6 +1,9 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { anonSupabase as supabase } from '@/lib/supabase/server'
+import { sanitizeArticleHtml } from '@/lib/content/sanitize'
+import { categoryLabel } from '@/lib/content/categories'
 
 export const revalidate = 60
 
@@ -22,61 +25,12 @@ function formatDate(iso: string) {
   })
 }
 
-function sanitizeHtml(html: string): string {
-  return html
-    .replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, '') // remove event handlers
-    .replace(/javascript\s*:/gi, '')                  // remove javascript: URLs
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // remove script tags
-}
-
-/** Very simple markdown → HTML: paragraphs, bold, italic, headings */
-function renderMarkdown(md: string): string {
-  const escaped = md
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-
-  const lines = escaped.split('\n')
-  const html: string[] = []
-  let inParagraph = false
-
-  for (const raw of lines) {
-    const line = raw.trimEnd()
-
-    if (line.startsWith('### ')) {
-      if (inParagraph) { html.push('</p>'); inParagraph = false }
-      html.push(`<h3>${inline(line.slice(4))}</h3>`)
-    } else if (line.startsWith('## ')) {
-      if (inParagraph) { html.push('</p>'); inParagraph = false }
-      html.push(`<h2>${inline(line.slice(3))}</h2>`)
-    } else if (line.startsWith('# ')) {
-      if (inParagraph) { html.push('</p>'); inParagraph = false }
-      html.push(`<h1>${inline(line.slice(2))}</h1>`)
-    } else if (line === '') {
-      if (inParagraph) { html.push('</p>'); inParagraph = false }
-    } else {
-      if (!inParagraph) { html.push('<p>'); inParagraph = true }
-      else html.push('<br />')
-      html.push(inline(line))
-    }
-  }
-  if (inParagraph) html.push('</p>')
-  return sanitizeHtml(html.join(''))
-}
-
-function inline(s: string): string {
-  return s
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/_(.+?)_/g, '<em>$1</em>')
-}
-
 export default async function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const article = await getArticle(slug)
   if (!article) notFound()
 
-  const html = renderMarkdown(article.content)
+  const html = sanitizeArticleHtml(article.content)
 
   return (
     <>
@@ -98,6 +52,14 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         }
         .article-breadcrumb a { color: #60a5fa; text-decoration: none; }
         .article-breadcrumb a:hover { color: #93c5fd; }
+        .article-category-badge {
+          display: inline-block; margin-bottom: 10px;
+          font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+          padding: 3px 9px; border-radius: 5px;
+          background: rgba(56,189,248,0.12); color: #38bdf8;
+          border: 1px solid rgba(56,189,248,0.25);
+        }
+        .article-featured-image { margin-bottom: 32px; overflow: hidden; border-radius: 12px; }
         .article-date {
           font-family: 'Outfit', sans-serif;
           font-size: 11px; font-weight: 600;
@@ -128,6 +90,11 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         .article-body h3 { font-size: 18px; font-weight: 700; }
         .article-body strong { color: #e2eeff; font-weight: 700; }
         .article-body em { color: #93c5fd; font-style: italic; }
+        .article-body img.article-img { max-width: 100%; border-radius: 8px; }
+        .article-body img.align-left { float: left; margin: 0 20px 12px 0; max-width: 45%; }
+        .article-body img.align-right { float: right; margin: 0 0 12px 20px; max-width: 45%; }
+        .article-body img.align-center { display: block; margin: 20px auto; }
+        .article-body img.align-full { width: 100%; margin: 20px 0; }
         .article-match-link {
           display: inline-flex; align-items: center; gap: 8px;
           margin-top: 32px;
@@ -153,10 +120,28 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
               <span>/</span>
               Article
             </div>
+            {article.category && (
+              <div className="article-category-badge">{categoryLabel(article.category)}</div>
+            )}
             <div className="article-date">{formatDate(article.published_at)}</div>
             <div className="article-headline">{article.title}</div>
           </div>
         </div>
+
+        {article.featured_image_url && (
+          <div className="container">
+            <div className="article-featured-image">
+              <Image
+                src={article.featured_image_url}
+                alt={article.featured_image_alt ?? article.title}
+                width={1200}
+                height={420}
+                style={{ width: '100%', height: 420, objectFit: 'cover', borderRadius: 12 }}
+                priority
+              />
+            </div>
+          </div>
+        )}
 
         <div className="container">
           <div
