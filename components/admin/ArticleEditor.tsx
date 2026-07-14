@@ -1,25 +1,86 @@
 'use client'
 
-import { useEffect } from 'react'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useCallback, useEffect, useRef } from 'react'
+import { useEditor, EditorContent, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
+import Image from '@tiptap/extension-image'
+import { supabase } from '@/lib/supabase/client'
+import { resizeImageFile } from '@/lib/images/resize'
+import { uploadNewsImage } from '@/lib/supabase/storage'
+
+const AlignableImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      align: {
+        default: 'center',
+        parseHTML: (element: HTMLElement) => element.getAttribute('data-align') || 'center',
+        renderHTML: (attributes: { align?: string }) => ({
+          'data-align': attributes.align,
+          class: `article-img align-${attributes.align ?? 'center'}`,
+        }),
+      },
+    }
+  },
+})
 
 type ArticleEditorProps = {
   value: string
   onChange: (html: string) => void
+  userId: string
 }
 
-export default function ArticleEditor({ value, onChange }: ArticleEditorProps) {
+async function insertImageFile(editor: Editor, file: File, userId: string) {
+  if (!file.type.startsWith('image/')) return
+  let blob: Blob
+  try {
+    blob = await resizeImageFile(file)
+  } catch (err) {
+    window.alert(err instanceof Error ? err.message : 'Image processing failed.')
+    return
+  }
+  const { url, error } = await uploadNewsImage(supabase, blob, userId, 'jpg')
+  if (error || !url) { window.alert(`Image upload failed: ${error ?? 'unknown error'}`); return }
+  editor.chain().focus().setImage({ src: url, alt: file.name.replace(/\.[^.]+$/, '') }).run()
+}
+
+export default function ArticleEditor({ value, onChange, userId }: ArticleEditorProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // editorProps callbacks are created once by Tiptap, before `editor` exists —
+  // a ref lets them reach the current editor instance without stale closures.
+  const editorRef = useRef<Editor | null>(null)
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ link: false }),
       Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer' } }),
+      AlignableImage,
     ],
     content: value,
     immediatelyRender: false,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
+    editorProps: {
+      handleDrop: (_view, event) => {
+        const file = event.dataTransfer?.files?.[0]
+        if (!file || !file.type.startsWith('image/')) return false
+        event.preventDefault()
+        insertImageFile(editorRef.current!, file, userId)
+        return true
+      },
+      handlePaste: (_view, event) => {
+        const file = Array.from(event.clipboardData?.items ?? [])
+          .find(item => item.type.startsWith('image/'))
+          ?.getAsFile()
+        if (!file) return false
+        insertImageFile(editorRef.current!, file, userId)
+        return true
+      },
+    },
   })
+
+  editorRef.current = editor
 
   useEffect(() => {
     if (!editor) return
@@ -27,6 +88,12 @@ export default function ArticleEditor({ value, onChange }: ArticleEditorProps) {
       editor.commands.setContent(value, { emitUpdate: false })
     }
   }, [editor, value])
+
+  const onPickImage = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (file && editor) insertImageFile(editor, file, userId)
+  }, [editor, userId])
 
   if (!editor) return null
 
@@ -63,7 +130,13 @@ export default function ArticleEditor({ value, onChange }: ArticleEditorProps) {
         .tiptap-content p { margin: 0 0 1em 0; }
         .tiptap-content h2, .tiptap-content h3 { font-family: 'Syne', sans-serif; color: #f0f8ff; margin: 1em 0 0.5em; }
         .tiptap-content a { color: #38bdf8; }
+        .tiptap-content img.article-img { max-width: 100%; border-radius: 8px; display: block; }
+        .tiptap-content img.align-left { float: left; margin: 0 16px 12px 0; max-width: 45%; }
+        .tiptap-content img.align-right { float: right; margin: 0 0 12px 16px; max-width: 45%; }
+        .tiptap-content img.align-center { margin: 12px auto; }
+        .tiptap-content img.align-full { width: 100%; margin: 12px 0; }
       `}</style>
+      <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onPickImage} />
       <div className="tiptap-toolbar">
         <button type="button" className={`tiptap-btn ${editor.isActive('bold') ? 'is-active' : ''}`} onClick={() => editor.chain().focus().toggleBold().run()}>Bold</button>
         <button type="button" className={`tiptap-btn ${editor.isActive('italic') ? 'is-active' : ''}`} onClick={() => editor.chain().focus().toggleItalic().run()}>Italic</button>
@@ -73,6 +146,15 @@ export default function ArticleEditor({ value, onChange }: ArticleEditorProps) {
         <button type="button" className={`tiptap-btn ${editor.isActive('orderedList') ? 'is-active' : ''}`} onClick={() => editor.chain().focus().toggleOrderedList().run()}>1. List</button>
         <button type="button" className={`tiptap-btn ${editor.isActive('blockquote') ? 'is-active' : ''}`} onClick={() => editor.chain().focus().toggleBlockquote().run()}>Quote</button>
         <button type="button" className={`tiptap-btn ${editor.isActive('link') ? 'is-active' : ''}`} onClick={setLink}>Link</button>
+        <button type="button" className="tiptap-btn" onClick={() => fileInputRef.current?.click()}>🖼 Image</button>
+        {editor.isActive('image') && (
+          <>
+            <button type="button" className="tiptap-btn" onClick={() => editor.chain().focus().updateAttributes('image', { align: 'left' }).run()}>⯇ Left</button>
+            <button type="button" className="tiptap-btn" onClick={() => editor.chain().focus().updateAttributes('image', { align: 'center' }).run()}>▬ Center</button>
+            <button type="button" className="tiptap-btn" onClick={() => editor.chain().focus().updateAttributes('image', { align: 'right' }).run()}>⯈ Right</button>
+            <button type="button" className="tiptap-btn" onClick={() => editor.chain().focus().updateAttributes('image', { align: 'full' }).run()}>⬛ Full</button>
+          </>
+        )}
         <button type="button" className="tiptap-btn" onClick={() => editor.chain().focus().undo().run()}>Undo</button>
         <button type="button" className="tiptap-btn" onClick={() => editor.chain().focus().redo().run()}>Redo</button>
       </div>

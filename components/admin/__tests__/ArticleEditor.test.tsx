@@ -71,6 +71,7 @@ describe('ArticleEditor controlled value resync (Finding 2)', () => {
         onChange={() => {
           onChangeCalls++
         }}
+        userId="test-user-id"
       />
     )
     await act(async () => {})
@@ -87,6 +88,7 @@ describe('ArticleEditor controlled value resync (Finding 2)', () => {
         onChange={() => {
           onChangeCalls++
         }}
+        userId="test-user-id"
       />
     )
     await act(async () => {})
@@ -98,6 +100,7 @@ describe('ArticleEditor controlled value resync (Finding 2)', () => {
         onChange={() => {
           onChangeCalls++
         }}
+        userId="test-user-id"
       />
     )
     await act(async () => {})
