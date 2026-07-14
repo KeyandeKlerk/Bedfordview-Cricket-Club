@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
@@ -12,13 +13,20 @@ type ArticleEditorProps = {
 export default function ArticleEditor({ value, onChange }: ArticleEditorProps) {
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({ link: false }),
       Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer' } }),
     ],
     content: value,
     immediatelyRender: false,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
   })
+
+  useEffect(() => {
+    if (!editor) return
+    if (editor.getHTML() !== value) {
+      editor.commands.setContent(value, { emitUpdate: false })
+    }
+  }, [editor, value])
 
   if (!editor) return null
 
