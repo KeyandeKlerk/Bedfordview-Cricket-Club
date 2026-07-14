@@ -44,4 +44,31 @@ describe('sanitizeArticleHtml', () => {
     expect(out).not.toContain('<iframe')
     expect(out).toContain('<p>safe</p>')
   })
+
+  it('strips data:image/svg+xml URIs from img src (SVG can carry script payloads)', () => {
+    const out = sanitizeArticleHtml(
+      '<img src="data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9ImFsZXJ0KDEpIi8+">'
+    )
+    expect(out).not.toContain('data:')
+    expect(out).not.toContain('svg+xml')
+  })
+
+  it('strips plain data:image/png URIs from img src', () => {
+    const out = sanitizeArticleHtml('<img src="data:image/png;base64,iVBORw0KGgo=">')
+    expect(out).not.toContain('data:')
+  })
+
+  it('forces rel="noopener noreferrer" on links with target="_blank"', () => {
+    const out = sanitizeArticleHtml('<a href="https://example.com" target="_blank">link</a>')
+    expect(out).toContain('rel="noopener noreferrer"')
+    expect(out).toContain('target="_blank"')
+    expect(out).toContain('href="https://example.com"')
+  })
+
+  it('does not alter https:// href/src that have no target="_blank"', () => {
+    const out = sanitizeArticleHtml(
+      '<a href="https://example.com">link</a><img src="https://x.supabase.co/a.jpg">'
+    )
+    expect(out).toBe('<a href="https://example.com">link</a><img src="https://x.supabase.co/a.jpg">')
+  })
 })
