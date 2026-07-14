@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import ArticleEditor from '@/components/admin/ArticleEditor'
 import { sanitizeArticleHtml } from '@/lib/content/sanitize'
+import { resizeImageFile } from '@/lib/images/resize'
+import { uploadNewsImage } from '@/lib/supabase/storage'
 
 type Match = { id: string; match_date: string; opponent: { canonical_name: string } | null; status: string }
 
@@ -39,6 +41,9 @@ export default function ArticleEditorPage() {
   const [excerpt, setExcerpt] = useState('')
   const [matchId, setMatchId] = useState<string>('')
   const [publishedAt, setPublishedAt] = useState<string | null>(null)
+  const [featuredImageUrl, setFeaturedImageUrl] = useState<string | null>(null)
+  const [featuredImageAlt, setFeaturedImageAlt] = useState('')
+  const [uploadingFeatured, setUploadingFeatured] = useState(false)
 
   const [matches, setMatches] = useState<Match[]>([])
   const [saving, setSaving] = useState(false)
@@ -76,6 +81,8 @@ export default function ArticleEditorPage() {
           setExcerpt(data.excerpt ?? '')
           setMatchId(data.match_id ?? '')
           setPublishedAt(data.published_at ?? null)
+          setFeaturedImageUrl(data.featured_image_url ?? null)
+          setFeaturedImageAlt(data.featured_image_alt ?? '')
         }
         setLoading(false)
       })
@@ -84,6 +91,23 @@ export default function ArticleEditorPage() {
   const handleTitleChange = (v: string) => {
     setTitle(v)
     if (!slugEdited) setSlug(slugify(v))
+  }
+
+  const onPickFeaturedImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !userId) return
+    setUploadingFeatured(true)
+    try {
+      const blob = await resizeImageFile(file)
+      const { url, error } = await uploadNewsImage(supabase, blob, userId, 'jpg')
+      if (error || !url) { setSaveMsg(`Featured image upload failed: ${error}`); return }
+      setFeaturedImageUrl(url)
+    } catch (err) {
+      setSaveMsg(err instanceof Error ? err.message : 'Featured image processing failed.')
+    } finally {
+      setUploadingFeatured(false)
+    }
   }
 
   const generateReport = useCallback(async () => {
@@ -115,6 +139,8 @@ export default function ArticleEditorPage() {
       content: sanitizeArticleHtml(content),
       excerpt: excerpt.trim() || null,
       match_id: matchId || null,
+      featured_image_url: featuredImageUrl,
+      featured_image_alt: featuredImageAlt.trim() || null,
       published_at: publish ? (publishedAt ?? now) : null,
       updated_at: now,
     }
@@ -256,6 +282,24 @@ export default function ArticleEditorPage() {
             >
               {generating ? 'Generating…' : '⚡ Generate Report'}
             </button>
+          </div>
+
+          <div className="field">
+            <label>Featured Image (optional)</label>
+            {featuredImageUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={featuredImageUrl} alt={featuredImageAlt} style={{ maxWidth: 320, borderRadius: 8, marginBottom: 10, display: 'block' }} />
+            )}
+            <input type="file" accept="image/*" onChange={onPickFeaturedImage} disabled={uploadingFeatured} />
+            {uploadingFeatured && <div className="save-msg">Uploading…</div>}
+            {featuredImageUrl && (
+              <input
+                style={{ marginTop: 10 }}
+                value={featuredImageAlt}
+                onChange={e => setFeaturedImageAlt(e.target.value)}
+                placeholder="Alt text (for accessibility & SEO)"
+              />
+            )}
           </div>
 
           <div className="field" style={{ marginTop: 20 }}>
