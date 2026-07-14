@@ -134,6 +134,10 @@ export const ARTICLE_FIXTURE = {
   published_at: new Date().toISOString(),
   created_at: new Date().toISOString(),
   match_id: null,
+  featured_image_url: null,
+  featured_image_alt: null,
+  category: 'club_news',
+  meta_description: null,
 }
 
 export const PRODUCT_FIXTURE = {
@@ -251,6 +255,13 @@ export async function mockAllAdmin(page: Page) {
     } else {
       await route.fulfill({ status: 201, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
     }
+  })
+}
+
+/** Mock the Supabase Storage upload endpoint for news images */
+export async function mockStorageUpload(page: Page) {
+  await page.route('**/storage/v1/object/news-images/**', async route => {
+    await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ Key: 'news-images/fake.jpg' }) })
   })
 }
 

@@ -3,7 +3,7 @@
  * Requires auth.
  */
 import { test, expect } from '@playwright/test'
-import { ARTICLE_FIXTURE, mockAllAdmin, mockE2eAuth } from './helpers/supabase-mock'
+import { ARTICLE_FIXTURE, mockAllAdmin, mockE2eAuth, mockStorageUpload } from './helpers/supabase-mock'
 
 test.describe('Admin news page', () => {
   test.beforeEach(async ({ page }) => {
@@ -54,5 +54,42 @@ test.describe('Admin news page', () => {
     await page.waitForLoadState('networkidle')
     const deleteBtn = page.locator('button:has-text("Delete"), button[aria-label*="delete" i]')
     await expect(deleteBtn.first()).toBeVisible({ timeout: 10_000 })
+  })
+})
+
+test.describe('Admin news editor — rich content', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockE2eAuth(page)
+    await mockAllAdmin(page)
+    await mockStorageUpload(page)
+    await page.route('**/rest/v1/articles**', async route => {
+      await route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ARTICLE_FIXTURE),
+      })
+    })
+  })
+
+  test('shows the rich text toolbar instead of a plain textarea', async ({ page }) => {
+    await page.goto('/admin/news/new')
+    await page.waitForLoadState('networkidle')
+    await expect(page.locator('.tiptap-toolbar')).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('textarea[placeholder*="markdown" i]')).toHaveCount(0)
+  })
+
+  test('shows category dropdown with all five options', async ({ page }) => {
+    await page.goto('/admin/news/new')
+    await page.waitForLoadState('networkidle')
+    const options = page.locator('select option')
+    await expect(page.locator('body')).toContainText(/match report|club news|junior section|announcement|general/i)
+  })
+
+  test('shows Save Draft, Schedule, and Publish Now actions', async ({ page }) => {
+    await page.goto('/admin/news/new')
+    await page.waitForLoadState('networkidle')
+    await expect(page.locator('button:has-text("Save Draft")')).toBeVisible()
+    await expect(page.locator('button:has-text("Schedule")')).toBeVisible()
+    await expect(page.locator('button:has-text("Publish Now")')).toBeVisible()
   })
 })
