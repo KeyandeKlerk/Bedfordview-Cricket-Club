@@ -104,6 +104,8 @@ export default function AdminNewsPage() {
         .btn-sm-green:hover { background: rgba(34,197,94,0.18); border-color: rgba(34,197,94,0.5); }
         .btn-sm-red { border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.08); color: #f87171; }
         .btn-sm-red:hover { background: rgba(239,68,68,0.18); border-color: rgba(239,68,68,0.5); }
+        .btn-sm-sky { border-color: rgba(56,189,248,0.3); background: rgba(56,189,248,0.08); color: #38bdf8; }
+        .btn-sm-sky:hover { background: rgba(56,189,248,0.18); border-color: rgba(56,189,248,0.5); }
         .badge-published {
           font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
           padding: 2px 7px; border-radius: 4px;
@@ -165,12 +167,16 @@ export default function AdminNewsPage() {
                   <div className="article-row-actions">
                     <Link href={`/admin/news/${a.id}`} className="btn-sm">Edit</Link>
                     <button
-                      className={`btn-sm ${a.published_at ? 'btn-sm-red' : 'btn-sm-green'}`}
+                      className={`btn-sm ${
+                        articleStatus(a) === 'published' ? 'btn-sm-red' :
+                        articleStatus(a) === 'scheduled' ? 'btn-sm-sky' : 'btn-sm-green'
+                      }`}
                       onClick={() => togglePublish(a)}
                     >
-                      {a.published_at ? 'Unpublish' : 'Publish'}
+                      {articleStatus(a) === 'published' ? 'Unpublish' :
+                        articleStatus(a) === 'scheduled' ? 'Cancel Schedule' : 'Publish'}
                     </button>
-                    {a.published_at && (
+                    {articleStatus(a) === 'published' && (
                       <Link href={`/news/${a.slug}`} className="btn-sm" target="_blank">View</Link>
                     )}
                     <button className="btn-sm btn-sm-red" onClick={() => deleteArticle(a.id)}>Delete</button>
