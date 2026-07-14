@@ -1,15 +1,20 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { anonSupabase as supabase } from '@/lib/supabase/server'
+import { categoryLabel } from '@/lib/content/categories'
+import CategoryFilter from './CategoryFilter'
 
 export const revalidate = 60
 
-async function getArticles() {
-  const { data } = await supabase
+async function getArticles(category?: string) {
+  let query = supabase
     .from('articles')
-    .select('id, title, slug, excerpt, published_at, match_id')
+    .select('id, title, slug, excerpt, published_at, match_id, featured_image_url, featured_image_alt, category')
     .not('published_at', 'is', null)
     .lte('published_at', new Date().toISOString())
     .order('published_at', { ascending: false })
+  if (category) query = query.eq('category', category)
+  const { data } = await query
   return data ?? []
 }
 
@@ -19,8 +24,9 @@ function formatDate(iso: string) {
   })
 }
 
-export default async function NewsPage() {
-  const articles = await getArticles()
+export default async function NewsPage({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
+  const { category } = await searchParams
+  const articles = await getArticles(category)
 
   return (
     <>
@@ -66,6 +72,15 @@ export default async function NewsPage() {
           border-color: rgba(59,130,246,0.35);
           transform: translateY(-2px);
         }
+        .article-card-image { overflow: hidden; }
+        .category-filter {
+          margin-top: 16px;
+          background: rgba(10,22,40,0.6);
+          border: 1px solid rgba(59,130,246,0.2);
+          border-radius: 8px; padding: 8px 14px;
+          color: #e2eeff; font-family: 'Outfit', sans-serif; font-size: 13px;
+        }
+        .category-filter option { background: #050c1a; }
         .article-card-body { padding: 22px; }
         .article-card-date {
           font-family: 'Outfit', sans-serif;
@@ -108,6 +123,7 @@ export default async function NewsPage() {
           <div className="container">
             <div className="news-hero-title">News &amp; Reports</div>
             <div className="news-hero-sub">Club updates, match reports and announcements</div>
+            <CategoryFilter />
           </div>
         </div>
 
@@ -118,8 +134,21 @@ export default async function NewsPage() {
             <div className="articles-grid">
               {articles.map((a: any) => (
                 <Link key={a.id} href={`/news/${a.slug}`} className="article-card">
+                  {a.featured_image_url && (
+                    <div className="article-card-image">
+                      <Image
+                        src={a.featured_image_url}
+                        alt={a.featured_image_alt ?? a.title}
+                        width={400}
+                        height={220}
+                        style={{ width: '100%', height: 180, objectFit: 'cover' }}
+                      />
+                    </div>
+                  )}
                   <div className="article-card-body">
-                    <div className="article-card-date">{formatDate(a.published_at)}</div>
+                    <div className="article-card-date">
+                      {formatDate(a.published_at)} &nbsp;·&nbsp; {categoryLabel(a.category)}
+                    </div>
                     <div className="article-card-title">{a.title}</div>
                     {a.excerpt && <div className="article-card-excerpt">{a.excerpt}</div>}
                   </div>
