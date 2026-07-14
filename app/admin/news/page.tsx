@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
+import { categoryLabel } from '@/lib/content/categories'
 
 type Article = {
   id: string
@@ -11,6 +12,7 @@ type Article = {
   published_at: string | null
   created_at: string
   match_id: string | null
+  category: string | null
 }
 
 export default function AdminNewsPage() {
@@ -20,7 +22,7 @@ export default function AdminNewsPage() {
   useEffect(() => {
     supabase
       .from('articles')
-      .select('id, title, slug, published_at, created_at, match_id')
+      .select('id, title, slug, published_at, created_at, match_id, category')
       .order('created_at', { ascending: false })
       .then(({ data }) => {
         setArticles(data ?? [])
@@ -39,6 +41,11 @@ export default function AdminNewsPage() {
     const newVal = article.published_at ? null : now
     await supabase.from('articles').update({ published_at: newVal }).eq('id', article.id)
     setArticles(a => a.map(x => x.id === article.id ? { ...x, published_at: newVal } : x))
+  }
+
+  function articleStatus(article: Article): 'draft' | 'scheduled' | 'published' {
+    if (!article.published_at) return 'draft'
+    return new Date(article.published_at) > new Date() ? 'scheduled' : 'published'
   }
 
   return (
@@ -109,6 +116,12 @@ export default function AdminNewsPage() {
           background: rgba(234,179,8,0.1); color: #fbbf24;
           border: 1px solid rgba(234,179,8,0.2);
         }
+        .badge-scheduled {
+          font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+          padding: 2px 7px; border-radius: 4px;
+          background: rgba(56,189,248,0.1); color: #38bdf8;
+          border: 1px solid rgba(56,189,248,0.2);
+        }
         .empty-state {
           text-align: center; padding: 60px 0;
           color: rgba(147,197,253,0.4);
@@ -136,9 +149,14 @@ export default function AdminNewsPage() {
                   <div className="article-row-info">
                     <div className="article-row-title">{a.title}</div>
                     <div className="article-row-meta">
-                      <span className={a.published_at ? 'badge-published' : 'badge-draft'}>
-                        {a.published_at ? 'Published' : 'Draft'}
+                      <span className={
+                        articleStatus(a) === 'published' ? 'badge-published' :
+                        articleStatus(a) === 'scheduled' ? 'badge-scheduled' : 'badge-draft'
+                      }>
+                        {articleStatus(a) === 'published' ? 'Published' : articleStatus(a) === 'scheduled' ? 'Scheduled' : 'Draft'}
                       </span>
+                      &nbsp;·&nbsp;
+                      {categoryLabel(a.category)}
                       &nbsp;·&nbsp;
                       {new Date(a.created_at).toLocaleDateString('en-ZA')}
                       {a.match_id && <>&nbsp;· Linked to match</>}
