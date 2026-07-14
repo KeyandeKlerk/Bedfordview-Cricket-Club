@@ -47,6 +47,8 @@ export default function ArticleEditorPage() {
   const [uploadingFeatured, setUploadingFeatured] = useState(false)
   const [category, setCategory] = useState('general')
   const [metaDescription, setMetaDescription] = useState('')
+  const [scheduleAt, setScheduleAt] = useState('')
+  const [showScheduler, setShowScheduler] = useState(false)
 
   const [matches, setMatches] = useState<Match[]>([])
   const [saving, setSaving] = useState(false)
@@ -134,10 +136,14 @@ export default function ArticleEditorPage() {
     }
   }, [matchId])
 
-  const save = async (publish: boolean) => {
+  const save = async (mode: 'draft' | 'publish' | 'schedule') => {
     setSaving(true)
     setSaveMsg('')
     const now = new Date().toISOString()
+    const nextPublishedAt =
+      mode === 'draft' ? null :
+      mode === 'publish' ? now :
+      scheduleAt ? new Date(scheduleAt).toISOString() : null
     const payload = {
       title: title.trim(),
       slug: slug.trim() || slugify(title.trim()),
@@ -148,7 +154,7 @@ export default function ArticleEditorPage() {
       featured_image_alt: featuredImageAlt.trim() || null,
       category,
       meta_description: metaDescription.trim() || null,
-      published_at: publish ? (publishedAt ?? now) : null,
+      published_at: nextPublishedAt,
       updated_at: now,
     }
     if (isNew) {
@@ -158,10 +164,11 @@ export default function ArticleEditorPage() {
     } else {
       const { error } = await supabase.from('articles').update(payload).eq('id', params.id as string)
       if (error) { setSaveMsg('Error: ' + error.message); setSaving(false); return }
-      setPublishedAt(publish ? (publishedAt ?? now) : null)
+      setPublishedAt(nextPublishedAt)
     }
-    setSaveMsg(publish ? 'Published!' : 'Draft saved.')
+    setSaveMsg(mode === 'draft' ? 'Draft saved.' : mode === 'publish' ? 'Published!' : 'Scheduled!')
     setSaving(false)
+    setShowScheduler(false)
   }
 
   if (loading) return <div style={{ padding: 80, textAlign: 'center', color: 'var(--muted)' }}>Loading…</div>
@@ -233,14 +240,36 @@ export default function ArticleEditorPage() {
           <div className="editor-header">
             <div className="editor-title-h">{isNew ? 'New Article' : 'Edit Article'}</div>
             <div className="editor-actions">
-              <button className="btn btn-outline" onClick={() => save(false)} disabled={saving || uploadingFeatured}>
+              <button className="btn btn-outline" onClick={() => save('draft')} disabled={saving || uploadingFeatured}>
                 {saving ? 'Saving…' : uploadingFeatured ? 'Uploading image…' : 'Save Draft'}
               </button>
-              <button className="btn btn-primary" onClick={() => save(true)} disabled={saving || uploadingFeatured}>
-                {saving ? 'Saving…' : uploadingFeatured ? 'Uploading image…' : (publishedAt ? 'Update' : 'Publish')}
+              <button className="btn btn-outline" onClick={() => setShowScheduler(s => !s)} disabled={saving || uploadingFeatured}>
+                Schedule…
+              </button>
+              <button className="btn btn-primary" onClick={() => save('publish')} disabled={saving || uploadingFeatured}>
+                {saving ? 'Saving…' : uploadingFeatured ? 'Uploading image…' : (publishedAt ? 'Update & Publish Now' : 'Publish Now')}
               </button>
             </div>
           </div>
+
+          {showScheduler && (
+            <div className="field" style={{ maxWidth: 320 }}>
+              <label>Publish at</label>
+              <input
+                type="datetime-local"
+                value={scheduleAt}
+                onChange={e => setScheduleAt(e.target.value)}
+              />
+              <button
+                className="btn btn-primary"
+                style={{ marginTop: 10 }}
+                disabled={!scheduleAt || saving || uploadingFeatured}
+                onClick={() => save('schedule')}
+              >
+                Confirm Schedule
+              </button>
+            </div>
+          )}
 
           <div className="field">
             <label>Title</label>
