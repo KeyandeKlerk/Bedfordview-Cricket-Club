@@ -146,6 +146,14 @@ export default function ArticleEditorPage() {
   const save = async (mode: 'draft' | 'publish' | 'schedule') => {
     setSaving(true)
     setSaveMsg('')
+    // Defense-in-depth: the "Confirm Schedule" button's disabled state is computed
+    // at render time and can go stale if the popover sits open past the chosen
+    // time with no re-render. Re-check right before writing to the DB.
+    if (mode === 'schedule' && !(scheduleAt && new Date(scheduleAt) > new Date())) {
+      setSaveMsg('That time has already passed — pick a new time and try again.')
+      setSaving(false)
+      return
+    }
     const now = new Date().toISOString()
     const nextPublishedAt =
       mode === 'draft' ? null :
