@@ -38,8 +38,10 @@ DOMPurify.addHook('uponSanitizeAttribute', (_node, event) => {
 // Finding 2: force rel="noopener noreferrer" on any link opened in a new
 // tab, to prevent reverse tabnabbing (the opened page could otherwise use
 // window.opener to navigate the original tab to a phishing page).
+// Match target attribute case-insensitively per WHATWG HTML spec (browsing-context
+// keywords are matched ASCII case-insensitively by real browsers).
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-  if (node.tagName === 'A' && node.getAttribute('target') === '_blank') {
+  if (node.tagName === 'A' && node.getAttribute('target')?.toLowerCase() === '_blank') {
     node.setAttribute('rel', 'noopener noreferrer')
   }
 })

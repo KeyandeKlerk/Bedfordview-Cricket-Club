@@ -65,6 +65,13 @@ describe('sanitizeArticleHtml', () => {
     expect(out).toContain('href="https://example.com"')
   })
 
+  it('forces rel="noopener noreferrer" on links with uppercase target="_BLANK" (case-insensitive match per WHATWG spec)', () => {
+    const out = sanitizeArticleHtml('<a href="https://example.com" target="_BLANK">link</a>')
+    expect(out).toContain('rel="noopener noreferrer"')
+    expect(out).toContain('target="_BLANK"')
+    expect(out).toContain('href="https://example.com"')
+  })
+
   it('does not alter https:// href/src that have no target="_blank"', () => {
     const out = sanitizeArticleHtml(
       '<a href="https://example.com">link</a><img src="https://x.supabase.co/a.jpg">'
