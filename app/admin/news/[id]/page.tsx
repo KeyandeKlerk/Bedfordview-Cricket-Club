@@ -7,6 +7,7 @@ import ArticleEditor from '@/components/admin/ArticleEditor'
 import { sanitizeArticleHtml } from '@/lib/content/sanitize'
 import { resizeImageFile } from '@/lib/images/resize'
 import { uploadNewsImage } from '@/lib/supabase/storage'
+import { ARTICLE_CATEGORIES } from '@/lib/content/categories'
 
 type Match = { id: string; match_date: string; opponent: { canonical_name: string } | null; status: string }
 
@@ -44,6 +45,8 @@ export default function ArticleEditorPage() {
   const [featuredImageUrl, setFeaturedImageUrl] = useState<string | null>(null)
   const [featuredImageAlt, setFeaturedImageAlt] = useState('')
   const [uploadingFeatured, setUploadingFeatured] = useState(false)
+  const [category, setCategory] = useState('general')
+  const [metaDescription, setMetaDescription] = useState('')
 
   const [matches, setMatches] = useState<Match[]>([])
   const [saving, setSaving] = useState(false)
@@ -83,6 +86,8 @@ export default function ArticleEditorPage() {
           setPublishedAt(data.published_at ?? null)
           setFeaturedImageUrl(data.featured_image_url ?? null)
           setFeaturedImageAlt(data.featured_image_alt ?? '')
+          setCategory(data.category ?? 'general')
+          setMetaDescription(data.meta_description ?? '')
         }
         setLoading(false)
       })
@@ -141,6 +146,8 @@ export default function ArticleEditorPage() {
       match_id: matchId || null,
       featured_image_url: featuredImageUrl,
       featured_image_alt: featuredImageAlt.trim() || null,
+      category,
+      meta_description: metaDescription.trim() || null,
       published_at: publish ? (publishedAt ?? now) : null,
       updated_at: now,
     }
@@ -259,6 +266,25 @@ export default function ArticleEditorPage() {
                 value={excerpt}
                 onChange={e => setExcerpt(e.target.value)}
                 placeholder="Short preview text…"
+              />
+            </div>
+          </div>
+
+          <div className="two-col" style={{ marginTop: 20 }}>
+            <div className="field">
+              <label>Category</label>
+              <select value={category} onChange={e => setCategory(e.target.value)}>
+                {ARTICLE_CATEGORIES.map(c => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>Meta Description ({metaDescription.length}/155)</label>
+              <input
+                value={metaDescription}
+                onChange={e => setMetaDescription(e.target.value.slice(0, 155))}
+                placeholder="Short summary for search engines & link previews…"
               />
             </div>
           </div>
