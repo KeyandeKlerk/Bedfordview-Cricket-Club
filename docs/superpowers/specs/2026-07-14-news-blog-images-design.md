@@ -41,7 +41,7 @@ Admin editor (Tiptap)
 
 ## Database changes
 
-New migration `supabase/migrations/032_article_images_categories.sql`:
+New migration `supabase/migrations/034_article_images_categories.sql` (latest existing migration at time of writing is `033_is_demo.sql`):
 
 ```sql
 alter table articles
