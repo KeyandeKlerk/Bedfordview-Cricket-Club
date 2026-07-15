@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import { sanitizeArticleHtml } from '@/lib/content/sanitize'
 import ArticleView from '@/components/ArticleView'
 
@@ -28,6 +29,20 @@ export default function ArticlePreviewModal({
   matchId,
   onClose,
 }: ArticlePreviewModalProps) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
+  useEffect(() => {
+    closeButtonRef.current?.focus()
+  }, [])
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#050c1a', zIndex: 300, overflowY: 'auto' }}>
       <div
@@ -43,6 +58,7 @@ export default function ArticlePreviewModal({
       >
         <span>Preview — not saved or published</span>
         <button
+          ref={closeButtonRef}
           aria-label="Close preview"
           onClick={onClose}
           style={{
