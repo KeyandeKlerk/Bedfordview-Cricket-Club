@@ -33,4 +33,8 @@ describe('deriveExcerpt', () => {
   it('returns an empty string for whitespace-only input', () => {
     expect(deriveExcerpt('<p>   </p>')).toBe('')
   })
+
+  it('removes a space left before punctuation by a stripped inline tag', () => {
+    expect(deriveExcerpt('<p>Great win <em>indeed</em> , wasn’t it?</p>')).toBe('Great win indeed, wasn’t it?')
+  })
 })
