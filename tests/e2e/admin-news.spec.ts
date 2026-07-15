@@ -104,7 +104,7 @@ test.describe('Admin news editor — rich content', () => {
     await page.click('button:has-text("Preview")')
     await expect(page.getByText(/preview.*not saved or published/i)).toBeVisible()
     await expect(page.getByText('Preview Test Title')).toBeVisible()
-    await expect(page.getByText('Preview body content.')).toBeVisible()
+    await expect(page.locator('.article-body').getByText('Preview body content.')).toBeVisible()
 
     await page.click('button[aria-label="Close preview"]')
     await expect(page.locator('input[value="Preview Test Title"]')).toBeVisible()
