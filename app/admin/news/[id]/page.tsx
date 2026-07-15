@@ -8,6 +8,7 @@ import { sanitizeArticleHtml } from '@/lib/content/sanitize'
 import { resizeImageFile } from '@/lib/images/resize'
 import { uploadNewsImage } from '@/lib/supabase/storage'
 import { ARTICLE_CATEGORIES } from '@/lib/content/categories'
+import ArticlePreviewModal from '@/components/admin/ArticlePreviewModal'
 
 type Match = { id: string; match_date: string; opponent: { canonical_name: string } | null; status: string }
 
@@ -56,6 +57,7 @@ export default function ArticleEditorPage() {
   const [metaDescription, setMetaDescription] = useState('')
   const [scheduleAt, setScheduleAt] = useState('')
   const [showScheduler, setShowScheduler] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
 
   const [matches, setMatches] = useState<Match[]>([])
   const [saving, setSaving] = useState(false)
@@ -261,6 +263,9 @@ export default function ArticleEditorPage() {
               <button className="btn btn-outline" onClick={() => save('draft')} disabled={saving || uploadingFeatured}>
                 {saving ? 'Saving…' : uploadingFeatured ? 'Uploading image…' : 'Save Draft'}
               </button>
+              <button className="btn btn-outline" onClick={() => setShowPreview(true)} disabled={saving || uploadingFeatured}>
+                Preview
+              </button>
               <button
                 className="btn btn-outline"
                 onClick={() => {
@@ -397,6 +402,18 @@ export default function ArticleEditorPage() {
           {saveMsg && <div className="save-msg">{saveMsg}</div>}
         </div>
       </div>
+
+      {showPreview && (
+        <ArticlePreviewModal
+          title={title}
+          category={category}
+          featuredImageUrl={featuredImageUrl}
+          featuredImageAlt={featuredImageAlt}
+          content={content}
+          matchId={matchId}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </>
   )
 }

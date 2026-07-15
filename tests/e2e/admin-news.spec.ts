@@ -92,4 +92,21 @@ test.describe('Admin news editor — rich content', () => {
     await expect(page.locator('button:has-text("Schedule")')).toBeVisible()
     await expect(page.locator('button:has-text("Publish Now")')).toBeVisible()
   })
+
+  test('Preview shows the current draft as it would appear publicly', async ({ page }) => {
+    await page.goto('/admin/news/new')
+    await page.waitForLoadState('networkidle')
+
+    await page.fill('input[placeholder="Article title…"]', 'Preview Test Title')
+    await page.locator('.ProseMirror').click()
+    await page.locator('.ProseMirror').fill('Preview body content.')
+
+    await page.click('button:has-text("Preview")')
+    await expect(page.getByText(/preview.*not saved or published/i)).toBeVisible()
+    await expect(page.getByText('Preview Test Title')).toBeVisible()
+    await expect(page.getByText('Preview body content.')).toBeVisible()
+
+    await page.click('button[aria-label="Close preview"]')
+    await expect(page.locator('input[value="Preview Test Title"]')).toBeVisible()
+  })
 })
