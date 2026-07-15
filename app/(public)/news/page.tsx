@@ -2,6 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { anonSupabase as supabase } from '@/lib/supabase/server'
 import { categoryLabel } from '@/lib/content/categories'
+import { deriveExcerpt } from '@/lib/content/excerpt'
 import CategoryFilter from './CategoryFilter'
 
 export const revalidate = 60
@@ -9,7 +10,7 @@ export const revalidate = 60
 async function getArticles(category?: string) {
   let query = supabase
     .from('articles')
-    .select('id, title, slug, excerpt, published_at, match_id, featured_image_url, featured_image_alt, category')
+    .select('id, title, slug, excerpt, content, published_at, match_id, featured_image_url, featured_image_alt, category')
     .not('published_at', 'is', null)
     .lte('published_at', new Date().toISOString())
     .order('published_at', { ascending: false })
@@ -22,6 +23,10 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-ZA', {
     day: 'numeric', month: 'long', year: 'numeric',
   })
+}
+
+export function resolveExcerpt(excerpt: string | null, content: string): string {
+  return excerpt?.trim() || deriveExcerpt(content)
 }
 
 export default async function NewsPage({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
@@ -132,29 +137,32 @@ export default async function NewsPage({ searchParams }: { searchParams: Promise
             <div className="empty-state">No articles published yet.</div>
           ) : (
             <div className="articles-grid">
-              {articles.map((a: any) => (
-                <Link key={a.id} href={`/news/${a.slug}`} className="article-card">
-                  {a.featured_image_url && (
-                    <div className="article-card-image">
-                      <Image
-                        src={a.featured_image_url}
-                        alt={a.featured_image_alt ?? a.title}
-                        width={400}
-                        height={220}
-                        style={{ width: '100%', height: 180, objectFit: 'cover' }}
-                      />
+              {articles.map((a: any) => {
+                const excerptText = resolveExcerpt(a.excerpt, a.content)
+                return (
+                  <Link key={a.id} href={`/news/${a.slug}`} className="article-card">
+                    {a.featured_image_url && (
+                      <div className="article-card-image">
+                        <Image
+                          src={a.featured_image_url}
+                          alt={a.featured_image_alt ?? a.title}
+                          width={400}
+                          height={220}
+                          style={{ width: '100%', height: 180, objectFit: 'cover' }}
+                        />
+                      </div>
+                    )}
+                    <div className="article-card-body">
+                      <div className="article-card-date">
+                        {formatDate(a.published_at)} &nbsp;·&nbsp; {categoryLabel(a.category)}
+                      </div>
+                      <div className="article-card-title">{a.title}</div>
+                      {excerptText && <div className="article-card-excerpt">{excerptText}</div>}
                     </div>
-                  )}
-                  <div className="article-card-body">
-                    <div className="article-card-date">
-                      {formatDate(a.published_at)} &nbsp;·&nbsp; {categoryLabel(a.category)}
-                    </div>
-                    <div className="article-card-title">{a.title}</div>
-                    {a.excerpt && <div className="article-card-excerpt">{a.excerpt}</div>}
-                  </div>
-                  <div className="article-card-footer">Read more →</div>
-                </Link>
-              ))}
+                    <div className="article-card-footer">Read more →</div>
+                  </Link>
+                )
+              })}
             </div>
           )}
         </div>
