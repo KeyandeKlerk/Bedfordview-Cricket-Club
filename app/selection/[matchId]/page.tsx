@@ -27,6 +27,11 @@ interface TeamMate {
   players: { first_name: string; last_name: string } | null
 }
 
+interface ActablePlayer {
+  id: string
+  name: string
+}
+
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('en-ZA', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -48,9 +53,11 @@ export default function SelectionConfirmPage() {
   const router = useRouter()
 
   const [match, setMatch] = useState<Match | null>(null)
-  const [selection, setSelection] = useState<Selection | null>(null)
+  const [selectionsByPlayer, setSelectionsByPlayer] = useState<Record<string, Selection>>({})
   const [teammates, setTeammates] = useState<TeamMate[]>([])
-  const [playerId, setPlayerId] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [actablePlayers, setActablePlayers] = useState<ActablePlayer[]>([])
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [confirming, setConfirming] = useState(false)
   const [withdrawing, setWithdrawing] = useState(false)
@@ -61,17 +68,28 @@ export default function SelectionConfirmPage() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
+      setCurrentUserId(user.id)
 
-      const { data: playerData } = await supabase
-        .from('players')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle()
+      const [selfPlayerRes, guardianLinksRes] = await Promise.all([
+        supabase.from('players').select('id').eq('user_id', user.id).maybeSingle(),
+        supabase
+          .from('player_guardians')
+          .select('player:players(id, first_name, last_name, user_id)')
+          .eq('guardian_user_id', user.id),
+      ])
 
-      if (!playerData) { setLoading(false); return }
-      setPlayerId(playerData.id)
+      const players: ActablePlayer[] = []
+      if (selfPlayerRes.data) players.push({ id: selfPlayerRes.data.id, name: 'You' })
+      const dependents = ((guardianLinksRes.data ?? []) as unknown as { player: { id: string; first_name: string; last_name: string; user_id: string | null } | null }[])
+        .map(row => row.player)
+        .filter((p): p is { id: string; first_name: string; last_name: string; user_id: string | null } => !!p && p.user_id == null)
+      for (const p of dependents) players.push({ id: p.id, name: `${p.first_name} ${p.last_name}` })
 
-      const [matchRes, selectionRes, teamsRes] = await Promise.all([
+      setActablePlayers(players)
+      if (players.length === 0) { setLoading(false); return }
+      setSelectedPlayerId(players[0].id)
+
+      const [matchRes, selectionsRes, teamsRes] = await Promise.all([
         supabase
           .from('matches')
           .select('id, match_date, venue, competitions(name, category), opponents(canonical_name)')
@@ -79,10 +97,9 @@ export default function SelectionConfirmPage() {
           .single(),
         supabase
           .from('selections')
-          .select('id, position, role, status, confirmed_at, withdrawn_at')
+          .select('id, player_id, position, role, status, confirmed_at, withdrawn_at')
           .eq('match_id', matchId)
-          .eq('player_id', playerData.id)
-          .maybeSingle(),
+          .in('player_id', players.map(p => p.id)),
         supabase
           .from('selections')
           .select('player_id, position, role, players(first_name, last_name)')
@@ -93,41 +110,60 @@ export default function SelectionConfirmPage() {
 
       if (!matchRes.data) { router.push('/dashboard'); return }
       setMatch(matchRes.data as unknown as Match)
-      setSelection(selectionRes.data as Selection | null)
+
+      const map: Record<string, Selection> = {}
+      for (const s of (selectionsRes.data ?? []) as unknown as (Selection & { player_id: string })[]) {
+        map[s.player_id] = s
+      }
+      setSelectionsByPlayer(map)
       setTeammates((teamsRes.data ?? []) as unknown as TeamMate[])
       setLoading(false)
     }
     load()
   }, [matchId, router])
 
+  function selectPlayer(playerId: string) {
+    setSelectedPlayerId(playerId)
+    setError(null)
+    setWithdrawConfirm(false)
+  }
+
   async function handleConfirm() {
-    if (!selection) return
+    const selection = selectedPlayerId ? selectionsByPlayer[selectedPlayerId] : undefined
+    if (!selection || !selectedPlayerId || !currentUserId) return
     setConfirming(true); setError(null)
 
     const { error: err } = await supabase
       .from('selections')
-      .update({ confirmed_at: new Date().toISOString() })
+      .update({ confirmed_at: new Date().toISOString(), confirmed_by: currentUserId })
       .eq('id', selection.id)
-      .eq('player_id', playerId)
+      .eq('player_id', selectedPlayerId)
 
     setConfirming(false)
     if (err) { setError(err.message); return }
-    setSelection(s => s ? { ...s, confirmed_at: new Date().toISOString() } : s)
+    setSelectionsByPlayer(prev => ({
+      ...prev,
+      [selectedPlayerId]: { ...prev[selectedPlayerId], confirmed_at: new Date().toISOString() },
+    }))
   }
 
   async function handleWithdraw() {
-    if (!selection) return
+    const selection = selectedPlayerId ? selectionsByPlayer[selectedPlayerId] : undefined
+    if (!selection || !selectedPlayerId || !currentUserId) return
     setWithdrawing(true); setError(null)
 
     const { error: err } = await supabase
       .from('selections')
-      .update({ status: 'withdrawn', withdrawn_at: new Date().toISOString() })
+      .update({ status: 'withdrawn', withdrawn_at: new Date().toISOString(), confirmed_by: currentUserId })
       .eq('id', selection.id)
-      .eq('player_id', playerId)
+      .eq('player_id', selectedPlayerId)
 
     setWithdrawing(false)
     if (err) { setError(err.message); return }
-    setSelection(s => s ? { ...s, status: 'withdrawn', withdrawn_at: new Date().toISOString() } : s)
+    setSelectionsByPlayer(prev => ({
+      ...prev,
+      [selectedPlayerId]: { ...prev[selectedPlayerId], status: 'withdrawn', withdrawn_at: new Date().toISOString() },
+    }))
     setWithdrawConfirm(false)
   }
 
@@ -137,7 +173,7 @@ export default function SelectionConfirmPage() {
     </div>
   )
 
-  if (!playerId) return (
+  if (actablePlayers.length === 0) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 24 }}>
       <div style={{ fontSize: 40 }}>⚠️</div>
       <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#f0f8ff', textAlign: 'center' }}>
@@ -152,24 +188,11 @@ export default function SelectionConfirmPage() {
     </div>
   )
 
-  if (!selection) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 24 }}>
-      <div style={{ fontSize: 40 }}>📋</div>
-      <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#f0f8ff', textAlign: 'center' }}>
-        Not Selected
-      </div>
-      <div style={{ fontSize: 14, color: 'var(--muted)', textAlign: 'center', maxWidth: 300 }}>
-        You have not been selected for this match.
-      </div>
-      <button className="btn btn-ghost" onClick={() => router.push('/dashboard')}>
-        ← Dashboard
-      </button>
-    </div>
-  )
+  const selection = selectedPlayerId ? selectionsByPlayer[selectedPlayerId] : undefined
 
   const category = match?.competitions?.category
-  const isWithdrawn = selection.status === 'withdrawn'
-  const isConfirmed = !!selection.confirmed_at
+  const isWithdrawn = selection?.status === 'withdrawn'
+  const isConfirmed = !!selection?.confirmed_at
 
   return (
     <>
@@ -189,6 +212,17 @@ export default function SelectionConfirmPage() {
         .sel-title { font-family: var(--font-display); font-size: clamp(22px,4vw,36px); font-weight: 800; color: #f0f8ff; margin: 0 0 6px; }
         .sel-sub { font-size: 14px; color: var(--muted); }
         .sel-body { max-width: 480px; margin: 0 auto; padding: 0 20px; }
+        .player-switcher {
+          display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;
+        }
+        .player-tab {
+          padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 700;
+          border: 1px solid var(--border); background: rgba(255,255,255,0.02);
+          color: var(--muted); cursor: pointer; transition: border-color 0.15s, background 0.15s, color 0.15s;
+        }
+        .player-tab.active {
+          border-color: rgba(59,130,246,0.5); background: rgba(59,130,246,0.12); color: #93c5fd;
+        }
         .sel-card {
           padding: 24px; border-radius: 14px;
           border: 1px solid var(--border); background: rgba(255,255,255,0.02);
@@ -287,72 +321,100 @@ export default function SelectionConfirmPage() {
         </div>
 
         <div className="sel-body">
+          {actablePlayers.length > 1 && (
+            <div className="player-switcher">
+              {actablePlayers.map(p => (
+                <button
+                  key={p.id}
+                  className={`player-tab${selectedPlayerId === p.id ? ' active' : ''}`}
+                  onClick={() => selectPlayer(p.id)}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
+
           {error && (
             <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', fontSize: 13, marginBottom: 16 }}>
               {error}
             </div>
           )}
 
-          {/* Position badge */}
-          {selection.role === 'player' && selection.position && (
+          {!selection ? (
             <div className="sel-card" style={{ textAlign: 'center' }}>
-              <div className="sel-position">#{selection.position}</div>
-              <div className="sel-role-label">{ROLE_LABELS[selection.role] ?? selection.role}</div>
-            </div>
-          )}
-
-          {selection.role !== 'player' && (
-            <div className="sel-card" style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>
-                {selection.role === 'reserve' ? '🔄' : '🎯'}
+              <div style={{ fontSize: 40, marginBottom: 8 }}>📋</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#f0f8ff', marginBottom: 4 }}>
+                Not Selected
               </div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: '#93c5fd' }}>
-                {ROLE_LABELS[selection.role] ?? selection.role}
-              </div>
-            </div>
-          )}
-
-          {/* Status */}
-          {isWithdrawn ? (
-            <div className="withdrawn-banner">
-              <div style={{ fontSize: 28, marginBottom: 8 }}>🚫</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#fca5a5', marginBottom: 4 }}>
-                Withdrawn
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-                You have withdrawn from this match. Contact the coach if this was a mistake.
-              </div>
-            </div>
-          ) : isConfirmed ? (
-            <div className="confirmed-banner">
-              <div style={{ fontSize: 28, marginBottom: 8 }}>✅</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#86efac', marginBottom: 4 }}>
-                You&apos;re Confirmed!
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-                The coach knows you&apos;ll be there.
+              <div style={{ fontSize: 14, color: 'var(--muted)' }}>
+                Not selected for this match.
               </div>
             </div>
           ) : (
-            <button
-              className="confirm-btn"
-              disabled={confirming}
-              onClick={handleConfirm}
-            >
-              {confirming ? 'Confirming…' : '✅  CONFIRM I\'LL PLAY'}
-            </button>
-          )}
+            <>
+              {/* Position badge */}
+              {selection.role === 'player' && selection.position && (
+                <div className="sel-card" style={{ textAlign: 'center' }}>
+                  <div className="sel-position">#{selection.position}</div>
+                  <div className="sel-role-label">{ROLE_LABELS[selection.role] ?? selection.role}</div>
+                </div>
+              )}
 
-          {/* Withdraw link */}
-          {!isWithdrawn && (
-            <div style={{ textAlign: 'center', marginBottom: 24 }}>
-              <button
-                style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
-                onClick={() => setWithdrawConfirm(true)}
-              >
-                I need to withdraw
-              </button>
-            </div>
+              {selection.role !== 'player' && (
+                <div className="sel-card" style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>
+                    {selection.role === 'reserve' ? '🔄' : '🎯'}
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: '#93c5fd' }}>
+                    {ROLE_LABELS[selection.role] ?? selection.role}
+                  </div>
+                </div>
+              )}
+
+              {/* Status */}
+              {isWithdrawn ? (
+                <div className="withdrawn-banner">
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>🚫</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#fca5a5', marginBottom: 4 }}>
+                    Withdrawn
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+                    Withdrawn from this match. Contact the coach if this was a mistake.
+                  </div>
+                </div>
+              ) : isConfirmed ? (
+                <div className="confirmed-banner">
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>✅</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#86efac', marginBottom: 4 }}>
+                    Confirmed!
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+                    The coach knows they&apos;ll be there.
+                  </div>
+                </div>
+              ) : (
+                <button
+                  className="confirm-btn"
+                  disabled={confirming}
+                  onClick={handleConfirm}
+                >
+                  {confirming ? 'Confirming…' : "✅  CONFIRM I'LL PLAY"}
+                </button>
+              )}
+
+              {/* Withdraw link */}
+              {!isWithdrawn && (
+                <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                  <button
+                    style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                    onClick={() => setWithdrawConfirm(true)}
+                  >
+                    Withdraw from this match
+                  </button>
+                </div>
+              )}
+            </>
           )}
 
           {/* Team list */}
@@ -363,15 +425,15 @@ export default function SelectionConfirmPage() {
               </div>
               <ul className="team-list">
                 {teammates.map(t => {
-                  const isMe = t.player_id === playerId
+                  const isSelectedPlayer = t.player_id === selectedPlayerId
                   const name = t.players ? `${t.players.first_name} ${t.players.last_name}` : 'Unknown'
                   return (
                     <li key={t.player_id} className="team-item">
-                      <div className="team-pos" style={isMe ? { background: 'rgba(59,130,246,0.3)', borderColor: '#3b82f6' } : {}}>
+                      <div className="team-pos" style={isSelectedPlayer ? { background: 'rgba(59,130,246,0.3)', borderColor: '#3b82f6' } : {}}>
                         {t.position ?? '—'}
                       </div>
-                      <span className={`team-name${isMe ? ' highlight' : ''}`}>
-                        {name}{isMe ? ' (you)' : ''}
+                      <span className={`team-name${isSelectedPlayer ? ' highlight' : ''}`}>
+                        {name}
                       </span>
                       {t.role !== 'player' && (
                         <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>

@@ -64,10 +64,28 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { orderType, lineItems, shippingAddress, customerName, customerEmail } = body
+  const { orderType, lineItems, shippingAddress, customerName, customerEmail, playerId } = body
 
   if (!orderType || !lineItems || !Array.isArray(lineItems) || lineItems.length === 0) {
     return NextResponse.json({ error: 'Invalid order data' }, { status: 400 })
+  }
+
+  // If the order is placed on behalf of a specific player (self or a linked
+  // child), verify the caller is actually authorized to act for them —
+  // this route uses the service-role client, so RLS's
+  // current_actable_player_ids() doesn't apply and must be re-implemented
+  // here explicitly.
+  if (playerId) {
+    if (!userId) {
+      return NextResponse.json({ error: 'You must be signed in to order for a specific player.' }, { status: 401 })
+    }
+    const [{ data: ownPlayer }, { data: guardianLink }] = await Promise.all([
+      serverSupabase.from('players').select('id').eq('id', playerId).eq('user_id', userId).maybeSingle(),
+      serverSupabase.from('player_guardians').select('player_id').eq('guardian_user_id', userId).eq('player_id', playerId).maybeSingle(),
+    ])
+    if (!ownPlayer && !guardianLink) {
+      return NextResponse.json({ error: 'You are not authorized to order for this player.' }, { status: 403 })
+    }
   }
 
   // Validate products and prices from DB
@@ -114,6 +132,7 @@ export async function POST(req: NextRequest) {
     .insert({
       reference,
       user_id: userId,
+      player_id: playerId || null,
       order_type: orderType,
       amount_total: amountTotal,
       line_items: lineItems,
@@ -129,12 +148,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'An internal error occurred.' }, { status: 500 })
   }
 
-  // If membership order with logged-in user, create pending membership
+  // If membership order with logged-in user, create pending membership.
+  // The onConflict target must match whichever split partial unique index
+  // applies: self memberships dedupe on user_id alone, per-player
+  // memberships dedupe on (user_id, player_id) — see 035_guardians.sql.
   if (orderType === 'membership' && userId) {
     const tier = lineItems[0]?.tier || 'standard'
     await serverSupabase
       .from('memberships')
-      .upsert({ user_id: userId, order_id: order.id, status: 'pending', tier }, { onConflict: 'user_id' })
+      .upsert(
+        { user_id: userId, player_id: playerId || null, order_id: order.id, status: 'pending', tier },
+        { onConflict: playerId ? 'user_id,player_id' : 'user_id' }
+      )
   }
 
   return NextResponse.json({ orderId: order.id, reference, total: amountTotal }, { status: 201 })

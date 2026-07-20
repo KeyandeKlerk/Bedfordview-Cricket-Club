@@ -24,6 +24,11 @@ interface ExistingResponse {
   note: string | null
 }
 
+interface ActablePlayer {
+  id: string
+  name: string
+}
+
 type Status = 'available' | 'unavailable' | 'tentative'
 
 function formatDate(d: string) {
@@ -47,11 +52,12 @@ export default function AvailabilityPage() {
 
   const [window, setWindow] = useState<Window | null>(null)
   const [matches, setMatches] = useState<Match[]>([])
-  const [existing, setExisting] = useState<ExistingResponse | null>(null)
-  const [playerId, setPlayerId] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [actablePlayers, setActablePlayers] = useState<ActablePlayer[]>([])
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
+  const [responsesByPlayer, setResponsesByPlayer] = useState<Record<string, ExistingResponse>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<Status | null>(null)
-  const [saved, setSaved] = useState<Status | null>(null)
   const [note, setNote] = useState('')
   const [showNote, setShowNote] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -61,15 +67,20 @@ export default function AvailabilityPage() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
+      setCurrentUserId(user.id)
 
-      const [windowRes, playerRes, matchesRes] = await Promise.all([
+      const [windowRes, matchesRes, selfPlayerRes, guardianLinksRes] = await Promise.all([
         supabase.from('availability_windows').select('*').eq('id', windowId).single(),
-        supabase.from('players').select('id').eq('user_id', user.id).maybeSingle(),
         supabase
           .from('matches')
           .select('id, match_date, competition:competitions(name, category), opponent:opponents(canonical_name)')
           .eq('availability_window_id', windowId)
           .order('match_date'),
+        supabase.from('players').select('id, first_name, last_name').eq('user_id', user.id).maybeSingle(),
+        supabase
+          .from('player_guardians')
+          .select('player:players(id, first_name, last_name, user_id)')
+          .eq('guardian_user_id', user.id),
       ])
 
       if (!windowRes.data) { router.push('/dashboard'); return }
@@ -77,21 +88,27 @@ export default function AvailabilityPage() {
       setCountdown(deadlineCountdown(windowRes.data.deadline))
       if (matchesRes.data) setMatches(matchesRes.data as unknown as Match[])
 
-      if (!playerRes.data) { setLoading(false); return }
-      setPlayerId(playerRes.data.id)
+      const players: ActablePlayer[] = []
+      if (selfPlayerRes.data) players.push({ id: selfPlayerRes.data.id, name: 'You' })
+      const dependents = ((guardianLinksRes.data ?? []) as unknown as { player: { id: string; first_name: string; last_name: string; user_id: string | null } | null }[])
+        .map(row => row.player)
+        .filter((p): p is { id: string; first_name: string; last_name: string; user_id: string | null } => !!p && p.user_id == null)
+      for (const p of dependents) players.push({ id: p.id, name: `${p.first_name} ${p.last_name}` })
+
+      setActablePlayers(players)
+      if (players.length === 0) { setLoading(false); return }
+      setSelectedPlayerId(players[0].id)
 
       const { data: resp } = await supabase
         .from('player_availability')
-        .select('status, note')
+        .select('player_id, status, note')
         .eq('window_id', windowId)
-        .eq('player_id', playerRes.data.id)
-        .maybeSingle()
+        .in('player_id', players.map(p => p.id))
 
-      if (resp) {
-        setExisting(resp as ExistingResponse)
-        setSaved(resp.status as Status)
-        setNote(resp.note ?? '')
-      }
+      const map: Record<string, ExistingResponse> = {}
+      for (const r of resp ?? []) map[r.player_id] = { status: r.status as Status, note: r.note }
+      setResponsesByPlayer(map)
+      setNote(map[players[0].id]?.note ?? '')
       setLoading(false)
     }
     load()
@@ -104,21 +121,34 @@ export default function AvailabilityPage() {
     return () => clearInterval(interval)
   }, [window])
 
+  function selectPlayer(playerId: string) {
+    setSelectedPlayerId(playerId)
+    setNote(responsesByPlayer[playerId]?.note ?? '')
+    setShowNote(false)
+    setError(null)
+  }
+
   async function submit(status: Status) {
-    if (!playerId || !window) return
+    if (!selectedPlayerId || !window || !currentUserId) return
     setSaving(status); setError(null)
 
     const { error: err } = await supabase
       .from('player_availability')
       .upsert(
-        { window_id: windowId, player_id: playerId, status, note: note || null, updated_at: new Date().toISOString() },
+        {
+          window_id: windowId,
+          player_id: selectedPlayerId,
+          status,
+          note: note || null,
+          submitted_by: currentUserId,
+          updated_at: new Date().toISOString(),
+        },
         { onConflict: 'window_id,player_id' }
       )
 
     setSaving(null)
     if (err) { setError(err.message); return }
-    setSaved(status)
-    setExisting({ status, note: note || null })
+    setResponsesByPlayer(prev => ({ ...prev, [selectedPlayerId]: { status, note: note || null } }))
   }
 
   if (loading) return (
@@ -127,7 +157,7 @@ export default function AvailabilityPage() {
     </div>
   )
 
-  if (!playerId) return (
+  if (actablePlayers.length === 0) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 24 }}>
       <div style={{ fontSize: 40 }}>⚠️</div>
       <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#f0f8ff', textAlign: 'center' }}>
@@ -143,6 +173,8 @@ export default function AvailabilityPage() {
   )
 
   const isExpired = countdown.expired
+  const existing = selectedPlayerId ? responsesByPlayer[selectedPlayerId] : undefined
+  const saved = existing?.status ?? null
 
   const STATUS_CONFIG: Record<Status, { label: string; emoji: string; bg: string; border: string; activeBg: string }> = {
     available: {
@@ -194,6 +226,17 @@ export default function AvailabilityPage() {
           padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;
         }
         .avail-body { max-width: 480px; margin: 0 auto; padding: 0 20px; }
+        .player-switcher {
+          display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;
+        }
+        .player-tab {
+          padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 700;
+          border: 1px solid var(--border); background: rgba(255,255,255,0.02);
+          color: var(--muted); cursor: pointer; transition: border-color 0.15s, background 0.15s, color 0.15s;
+        }
+        .player-tab.active {
+          border-color: rgba(59,130,246,0.5); background: rgba(59,130,246,0.12); color: #93c5fd;
+        }
         .status-btn {
           width: 100%; padding: 20px 16px; border-radius: 14px;
           border: 2px solid; cursor: pointer; margin-bottom: 12px;
@@ -278,6 +321,20 @@ export default function AvailabilityPage() {
         </div>
 
         <div className="avail-body">
+          {actablePlayers.length > 1 && (
+            <div className="player-switcher">
+              {actablePlayers.map(p => (
+                <button
+                  key={p.id}
+                  className={`player-tab${selectedPlayerId === p.id ? ' active' : ''}`}
+                  onClick={() => selectPlayer(p.id)}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
+
           {isExpired && (
             <div className="expired-banner">
               The deadline for this window has passed. Responses are now locked.

@@ -8,17 +8,23 @@ const BATTING_STYLES = ['Right-hand bat', 'Left-hand bat']
 const BOWLING_STYLES = ['Right-arm fast', 'Right-arm medium', 'Right-arm off-spin', 'Right-arm leg-spin',
   'Left-arm fast', 'Left-arm medium', 'Left-arm orthodox', 'Left-arm wrist-spin', 'Does not bowl']
 
+type Screen = 'choose' | 'self' | 'child'
+
 export default function RegisterPage() {
   const router = useRouter()
+  const [screen, setScreen] = useState<Screen>('choose')
   const [form, setForm] = useState({
     full_name: '', email: '', password: '', confirm_password: '',
     batting_style: '', bowling_style: '',
   })
+  const [parentAlsoPlays, setParentAlsoPlays] = useState(false)
+  const [child, setChild] = useState({ firstName: '', lastName: '', dateOfBirth: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+  const setChildField = (k: string, v: string) => setChild(c => ({ ...c, [k]: v }))
 
   async function handleSubmit() {
     setError('')
@@ -26,25 +32,49 @@ export default function RegisterPage() {
     if (form.password !== form.confirm_password) { setError('Passwords do not match.'); return }
     if (form.password.length < 8) { setError('Password must be at least 8 characters.'); return }
 
+    if (screen === 'child') {
+      if (!child.firstName || !child.lastName || !child.dateOfBirth) {
+        setError("Please fill in your child's name and date of birth."); return
+      }
+      if (new Date(child.dateOfBirth) > new Date()) {
+        setError('Date of birth cannot be in the future.'); return
+      }
+    }
+
     setLoading(true)
     try {
-      // Create user + player record + role via server route (uses service role,
-      // so email is auto-confirmed and sign-in works immediately after)
+      // Create user + player record(s) + role via server route (uses service
+      // role, so email is auto-confirmed and sign-in works immediately after)
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          mode: screen,
           email: form.email,
           password: form.password,
           full_name: form.full_name,
-          batting_style: form.batting_style || undefined,
-          bowling_style: form.bowling_style || undefined,
+          ...(screen === 'self' ? {
+            batting_style: form.batting_style || undefined,
+            bowling_style: form.bowling_style || undefined,
+          } : {
+            child: {
+              firstName: child.firstName,
+              lastName: child.lastName,
+              dateOfBirth: child.dateOfBirth,
+            },
+            ...(parentAlsoPlays ? {
+              parentAlsoPlays: {
+                battingStyle: form.batting_style || undefined,
+                bowlingStyle: form.bowling_style || undefined,
+              },
+            } : {}),
+          }),
         }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Registration failed. Please try again.'); return }
 
-      // Auto sign-in so the user lands on the dashboard immediately
+      // Auto sign-in so the user lands on their dashboard immediately
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: form.email,
         password: form.password,
@@ -54,7 +84,7 @@ export default function RegisterPage() {
         setSuccess(true)
         return
       }
-      router.push('/dashboard')
+      router.push(screen === 'child' ? '/dashboard/family' : '/dashboard')
     } catch {
       setError('Registration failed. Please try again.')
     } finally {
@@ -255,6 +285,55 @@ export default function RegisterPage() {
           margin-top: 8px;
           font-size: 14px;
         }
+
+        .choose-cards {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        .choose-card {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 18px 20px;
+          border-radius: 12px;
+          border: 1px solid rgba(59,130,246,0.18);
+          background: rgba(255,255,255,0.02);
+          cursor: pointer;
+          transition: border-color 0.15s, background 0.15s;
+          text-align: left;
+        }
+        .choose-card:hover {
+          border-color: rgba(96,165,250,0.5);
+          background: rgba(37,99,235,0.07);
+        }
+        .choose-card-icon { font-size: 26px; flex-shrink: 0; }
+        .choose-card-label {
+          font-family: 'Syne', sans-serif;
+          font-size: 15px; font-weight: 800; color: #f0f8ff;
+          margin-bottom: 2px;
+        }
+        .choose-card-sub {
+          font-family: 'Outfit', sans-serif;
+          font-size: 12px; color: rgba(147,197,253,0.55);
+        }
+
+        .back-link {
+          background: none; border: none; cursor: pointer;
+          color: rgba(147,197,253,0.55); font-family: 'Outfit', sans-serif;
+          font-size: 12px; padding: 0; margin-bottom: 16px;
+          display: inline-flex; align-items: center; gap: 6px;
+        }
+        .back-link:hover { color: #93c5fd; }
+
+        .checkbox-row {
+          display: flex; align-items: center; gap: 10px;
+          margin-bottom: 18px; cursor: pointer;
+        }
+        .checkbox-row input { width: 16px; height: 16px; accent-color: #2563eb; }
+        .checkbox-row span {
+          font-family: 'Outfit', sans-serif; font-size: 13px; color: rgba(226,238,255,0.85);
+        }
       `}</style>
 
       <div className="auth-page">
@@ -279,14 +358,47 @@ export default function RegisterPage() {
                   Sign In
                 </Link>
               </div>
-            ) : (
+            ) : screen === 'choose' ? (
               <>
                 <div className="auth-title">Join the Club</div>
                 <div className="auth-sub">
                   Already a member? <Link href="/login">Sign in →</Link>
                 </div>
 
+                <div className="choose-cards">
+                  <button type="button" className="choose-card" onClick={() => setScreen('self')}>
+                    <span className="choose-card-icon">🏏</span>
+                    <span>
+                      <div className="choose-card-label">Register Myself</div>
+                      <div className="choose-card-sub">I want to create my own player account.</div>
+                    </span>
+                  </button>
+                  <button type="button" className="choose-card" onClick={() => setScreen('child')}>
+                    <span className="choose-card-icon">👨‍👩‍👧</span>
+                    <span>
+                      <div className="choose-card-label">Register My Child</div>
+                      <div className="choose-card-sub">I'm a parent/guardian signing up a junior player.</div>
+                    </span>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <button type="button" className="back-link" onClick={() => setScreen('choose')}>← Back</button>
+                <div className="auth-title">{screen === 'child' ? 'Register Your Child' : 'Join the Club'}</div>
+                <div className="auth-sub">
+                  Already a member? <Link href="/login">Sign in →</Link>
+                </div>
+
                 {error && <div className="error-box">{error}</div>}
+
+                {screen === 'child' && (
+                  <div className="section-divider" style={{ marginTop: 0 }}>
+                    <div className="section-divider-line" />
+                    <span className="section-divider-text">Your Details (Parent/Guardian)</span>
+                    <div className="section-divider-line" />
+                  </div>
+                )}
 
                 <div className="auth-field">
                   <label className="auth-label">Full Name *</label>
@@ -315,30 +427,72 @@ export default function RegisterPage() {
                   </div>
                 </div>
 
-                <div className="section-divider">
-                  <div className="section-divider-line" />
-                  <span className="section-divider-text">Cricket Profile (optional)</span>
-                  <div className="section-divider-line" />
-                </div>
+                {screen === 'child' && (
+                  <label className="checkbox-row">
+                    <input type="checkbox" checked={parentAlsoPlays}
+                      onChange={e => setParentAlsoPlays(e.target.checked)} />
+                    <span>I also play for the club</span>
+                  </label>
+                )}
 
-                <div className="field-row">
-                  <div className="auth-field">
-                    <label className="auth-label">Batting Style</label>
-                    <select className="auth-select" value={form.batting_style}
-                      onChange={e => set('batting_style', e.target.value)}>
-                      <option value="">Select…</option>
-                      {BATTING_STYLES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div className="auth-field">
-                    <label className="auth-label">Bowling Style</label>
-                    <select className="auth-select" value={form.bowling_style}
-                      onChange={e => set('bowling_style', e.target.value)}>
-                      <option value="">Select…</option>
-                      {BOWLING_STYLES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                </div>
+                {(screen === 'self' || parentAlsoPlays) && (
+                  <>
+                    <div className="section-divider">
+                      <div className="section-divider-line" />
+                      <span className="section-divider-text">Cricket Profile (optional)</span>
+                      <div className="section-divider-line" />
+                    </div>
+
+                    <div className="field-row">
+                      <div className="auth-field">
+                        <label className="auth-label">Batting Style</label>
+                        <select className="auth-select" value={form.batting_style}
+                          onChange={e => set('batting_style', e.target.value)}>
+                          <option value="">Select…</option>
+                          {BATTING_STYLES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div className="auth-field">
+                        <label className="auth-label">Bowling Style</label>
+                        <select className="auth-select" value={form.bowling_style}
+                          onChange={e => set('bowling_style', e.target.value)}>
+                          <option value="">Select…</option>
+                          {BOWLING_STYLES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {screen === 'child' && (
+                  <>
+                    <div className="section-divider">
+                      <div className="section-divider-line" />
+                      <span className="section-divider-text">Your Child's Details</span>
+                      <div className="section-divider-line" />
+                    </div>
+
+                    <div className="field-row">
+                      <div className="auth-field">
+                        <label className="auth-label">First Name *</label>
+                        <input className="auth-input" value={child.firstName}
+                          onChange={e => setChildField('firstName', e.target.value)}
+                          placeholder="Child's first name" />
+                      </div>
+                      <div className="auth-field">
+                        <label className="auth-label">Last Name *</label>
+                        <input className="auth-input" value={child.lastName}
+                          onChange={e => setChildField('lastName', e.target.value)}
+                          placeholder="Child's last name" />
+                      </div>
+                    </div>
+                    <div className="auth-field">
+                      <label className="auth-label">Date of Birth *</label>
+                      <input className="auth-input" type="date" value={child.dateOfBirth}
+                        onChange={e => setChildField('dateOfBirth', e.target.value)} />
+                    </div>
+                  </>
+                )}
 
                 <button className="btn btn-primary btn-submit" onClick={handleSubmit} disabled={loading}>
                   {loading ? 'Creating Account…' : 'Create Account'}

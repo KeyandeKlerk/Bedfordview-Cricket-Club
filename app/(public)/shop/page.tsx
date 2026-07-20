@@ -20,6 +20,10 @@ interface Membership {
   valid_until: string | null
 }
 
+interface Dependent {
+  player: { id: string; first_name: string; last_name: string }
+}
+
 type CartItem = {
   productId: string
   name: string
@@ -72,6 +76,11 @@ export default function ShopPage() {
   const [memSubmitting, setMemSubmitting] = useState(false)
   const [memSubmitError, setMemSubmitError] = useState<string | null>(null)
 
+  // Guardian/dependent state — "who is this order for?"
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null)
+  const [dependents, setDependents] = useState<Dependent[]>([])
+  const [orderingForPlayerId, setOrderingForPlayerId] = useState<string | null>(null)
+
   // Kit checkout form state
   const [form, setForm] = useState({
     customerName: '',
@@ -95,25 +104,40 @@ export default function ShopPage() {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
         setAuthToken(session.access_token)
+        setSessionUserId(session.user.id)
         const name = session.user.user_metadata?.full_name || ''
         const email = session.user.email || ''
         setForm(prev => ({ ...prev, customerEmail: email, customerName: name }))
         setMemForm({ customerName: name, customerEmail: email })
 
-        const { data } = await supabase
-          .from('memberships')
-          .select('status, tier, valid_until')
-          .eq('user_id', session.user.id)
-          .maybeSingle()
-        setMembership(data as Membership | null)
+        const res = await fetch('/api/dependents', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setDependents(data.dependents ?? [])
+        }
       } else {
         setMembership(null)
       }
     })
   }, [])
 
+  // Re-check membership status for whichever beneficiary (self or a linked
+  // child) is currently selected in the "who is this for?" selector.
+  useEffect(() => {
+    if (!sessionUserId) return
+    let query = supabase
+      .from('memberships')
+      .select('status, tier, valid_until')
+      .eq('user_id', sessionUserId)
+    query = orderingForPlayerId ? query.eq('player_id', orderingForPlayerId) : query.is('player_id', null)
+    query.maybeSingle().then(({ data }) => setMembership(data as Membership | null))
+  }, [sessionUserId, orderingForPlayerId])
+
   const kitProducts = products.filter(p => p.category === 'kit')
   const membershipProducts = products.filter(p => p.category === 'membership')
+  const isFamilyMembership = (product: Product) => product.name.toLowerCase().includes('family')
 
   async function handleMembershipJoin(product: Product, e: React.FormEvent) {
     e.preventDefault()
@@ -135,10 +159,14 @@ export default function ShopPage() {
             size: '',
             qty: 1,
             unitPrice: product.price_zar,
-            tier: product.name.toLowerCase().includes('family') ? 'family' : 'standard',
+            tier: isFamilyMembership(product) ? 'family' : 'standard',
           }],
           customerName: memForm.customerName,
           customerEmail: memForm.customerEmail,
+          // A Family Membership always covers the whole household under the
+          // guardian's own account — only an individual tier can be
+          // attributed to a specific linked child.
+          playerId: isFamilyMembership(product) ? null : orderingForPlayerId,
         }),
       })
       const data = await res.json()
@@ -211,6 +239,7 @@ export default function ShopPage() {
           },
           customerName: form.customerName,
           customerEmail: form.customerEmail,
+          playerId: orderingForPlayerId,
         }),
       })
       const data = await res.json()
@@ -697,6 +726,17 @@ export default function ShopPage() {
                     ) : activeMembershipForm === product.id ? (
                       <form className="mem-join-form" onSubmit={e => handleMembershipJoin(product, e)}>
                         <div style={{ fontFamily: 'var(--font-display)', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 12 }}>Your Details</div>
+                        {dependents.length > 0 && !isFamilyMembership(product) && (
+                          <div style={{ marginBottom: 10 }}>
+                            <label>Who is this for?</label>
+                            <select className="input" value={orderingForPlayerId ?? ''} onChange={e => setOrderingForPlayerId(e.target.value || null)}>
+                              <option value="">Myself</option>
+                              {dependents.map(d => (
+                                <option key={d.player.id} value={d.player.id}>{d.player.first_name} {d.player.last_name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                         <div style={{ marginBottom: 10 }}>
                           <label>Full Name</label>
                           <input className="input" required value={memForm.customerName} onChange={e => setMemForm(p => ({ ...p, customerName: e.target.value }))} placeholder="Your full name" />
@@ -857,6 +897,17 @@ export default function ShopPage() {
             </div>
 
             <form onSubmit={handleCheckout}>
+              {dependents.length > 0 && (
+                <div style={{ marginBottom: 14 }}>
+                  <label>Who is this order for?</label>
+                  <select className="input" value={orderingForPlayerId ?? ''} onChange={e => setOrderingForPlayerId(e.target.value || null)}>
+                    <option value="">Myself</option>
+                    {dependents.map(d => (
+                      <option key={d.player.id} value={d.player.id}>{d.player.first_name} {d.player.last_name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="form-section-label">Contact Details</div>
               <div style={{ marginBottom: 14 }}>
                 <label>Full Name</label>

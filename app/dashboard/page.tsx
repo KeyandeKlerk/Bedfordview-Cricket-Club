@@ -82,6 +82,7 @@ export default async function DashboardPage() {
     .from('memberships')
     .select('status, tier, valid_until')
     .eq('user_id', player.id)
+    .is('player_id', null)
     .maybeSingle()
 
   // Pending order count for shop badge
@@ -656,8 +657,21 @@ export default async function DashboardPage() {
         </main>
 
         {/* ── 4. ROLE PANELS ── */}
-        {(isAdminRole || isShopRole || hasToolsPanel) && (
-          <section className="db-bottom-section container">
+        <section className="db-bottom-section container">
+
+            <div className="db-bottom-panel">
+              <div className="db-bottom-panel-head">
+                <span style={{ fontSize: 14 }}>👨‍👩‍👧</span>
+                <span className="db-bottom-panel-title">Family</span>
+              </div>
+              <div className="db-tiles">
+                <Link href="/dashboard/family" className="db-tile">
+                  <div className="db-tile-icon">👨‍👩‍👧</div>
+                  <div className="db-tile-label">Family</div>
+                  <div className="db-tile-sub">Manage dependents</div>
+                </Link>
+              </div>
+            </div>
 
             {(player.role === 'admin' || player.role === 'coach') && !allSetupDone && (
               <div style={{
@@ -741,8 +755,7 @@ export default async function DashboardPage() {
               </div>
             )}
 
-          </section>
-        )}
+        </section>
 
       </div>
     </>
