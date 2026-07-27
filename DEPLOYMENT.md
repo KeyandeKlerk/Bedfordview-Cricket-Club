@@ -65,8 +65,8 @@ Set these environment variables when prompted:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-only) |
 | `NEXT_PUBLIC_SITE_URL` | Your deployed app URL |
-| `WEBHOOK_SECRET` | Random secret for match report webhook |
-| `CRON_SECRET` | Random secret for demo reset cron (demo instances only) |
+| `WEBHOOK_SECRET` | Shared secret checked by `on-selection-announced` and `on-order-paid` — must also be set as a Supabase Edge Function secret with the same value, and configured as the `x-webhook-secret` custom header on the `on-order-paid` DB Webhook |
+| `CRON_SECRET` | Shared secret for `reset-demo` (demo instances only) and `availability-deadline-reminder` crons — must also be set as a Supabase Edge Function secret with the same value |
 
 ### 6. Verify deployment
 
