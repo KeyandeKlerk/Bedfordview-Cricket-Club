@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 // ── Hoist mock variables so they are available inside vi.mock() factories ──────
 
 const { mockFrom, mockUpdate, mockEq } = vi.hoisted(() => {
-  const mockEq = vi.fn().mockReturnValue({ then: vi.fn() })
+  const mockEq = vi.fn().mockReturnValue(Promise.resolve({ error: null }))
   const mockUpdate = vi.fn().mockReturnValue({ eq: mockEq })
   const mockFrom = vi.fn().mockReturnValue({ update: mockUpdate })
   return { mockFrom, mockUpdate, mockEq }
@@ -15,7 +15,7 @@ const { mockFrom, mockUpdate, mockEq } = vi.hoisted(() => {
 
 vi.mock('@/lib/offline/queue', () => ({
   isInBallQueue: vi.fn().mockResolvedValue(false),
-  mergeAnnotationIntoBallQueue: vi.fn().mockResolvedValue(undefined),
+  mergeAnnotationIntoBallQueue: vi.fn().mockResolvedValue(true),
   queueAnnotation: vi.fn().mockResolvedValue(undefined),
   flushAnnotations: vi.fn().mockResolvedValue({ flushed: 0, errors: 0 }),
   clearQueue: vi.fn().mockResolvedValue(undefined),
@@ -53,10 +53,10 @@ beforeEach(() => {
   vi.clearAllMocks()
   // Restore resolved values cleared by clearAllMocks
   vi.mocked(queueModule.isInBallQueue).mockResolvedValue(false)
-  vi.mocked(queueModule.mergeAnnotationIntoBallQueue).mockResolvedValue(undefined)
+  vi.mocked(queueModule.mergeAnnotationIntoBallQueue).mockResolvedValue(true)
   vi.mocked(queueModule.queueAnnotation).mockResolvedValue(undefined)
   // Fix: mutate mockEq directly so the outer variable stays in sync with assertions
-  mockEq.mockReturnValue({ then: vi.fn() })
+  mockEq.mockReturnValue(Promise.resolve({ error: null }))
   mockUpdate.mockReturnValue({ eq: mockEq })
   mockFrom.mockReturnValue({ update: mockUpdate })
 })
@@ -275,6 +275,75 @@ describe('BallAnnotationPanel — Confirm button calls onAnnotated with annotati
     // Supabase should NOT have been called since the offline queue path was taken
     expect(mockFrom).not.toHaveBeenCalled()
     expect(mockUpdate).not.toHaveBeenCalled()
+  })
+})
+
+describe('BallAnnotationPanel — race condition: ball flushed between isInBallQueue check and merge', () => {
+  it('falls back to a direct Supabase update when mergeAnnotationIntoBallQueue reports the ball was not found', async () => {
+    const user = userEvent.setup()
+    const onAnnotated = vi.fn()
+    // isInBallQueue said "still queued", but by the time merge runs, flushQueue()
+    // has already removed it (and synced it) — merge reports "not found".
+    vi.mocked(queueModule.isInBallQueue).mockResolvedValueOnce(true)
+    vi.mocked(queueModule.mergeAnnotationIntoBallQueue).mockResolvedValueOnce(false)
+
+    render(<BallAnnotationPanel {...makeProps({ ballId: 'ball-race-1', onAnnotated })} />)
+
+    await user.click(screen.getByRole('button', { name: /^drive$/i }))
+    await user.click(screen.getByRole('button', { name: /save annotation/i }))
+
+    await waitFor(() => expect(onAnnotated).toHaveBeenCalledTimes(1))
+
+    expect(queueModule.mergeAnnotationIntoBallQueue).toHaveBeenCalledWith(
+      'ball-race-1',
+      expect.objectContaining({ shot_type: 'drive' })
+    )
+    // The annotation must not be lost — it should have been applied via a
+    // direct Supabase update since the ball is (by now) already synced.
+    expect(mockFrom).toHaveBeenCalledWith('ball_events')
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ shot_type: 'drive' }))
+    expect(mockEq).toHaveBeenCalledWith('id', 'ball-race-1')
+  })
+})
+
+describe('BallAnnotationPanel — online update failure falls back to queueAnnotation', () => {
+  it('queues the annotation for later retry when the direct Supabase update returns an error', async () => {
+    const user = userEvent.setup()
+    const onAnnotated = vi.fn()
+    mockEq.mockReturnValueOnce(Promise.resolve({ error: { message: 'network error' } }))
+
+    render(<BallAnnotationPanel {...makeProps({ ballId: 'ball-fail-1', onAnnotated })} />)
+
+    await user.click(screen.getByRole('button', { name: /^drive$/i }))
+    await user.click(screen.getByRole('button', { name: /save annotation/i }))
+
+    await waitFor(() => expect(onAnnotated).toHaveBeenCalledTimes(1))
+
+    expect(queueModule.queueAnnotation).toHaveBeenCalledWith(
+      'ball-fail-1',
+      expect.objectContaining({ shot_type: 'drive' })
+    )
+  })
+
+  it('queues the annotation for later retry when the direct Supabase update throws', async () => {
+    const user = userEvent.setup()
+    const onAnnotated = vi.fn()
+    // Use a lazy implementation (rather than a pre-built rejected Promise) so the
+    // rejection is only created once the component awaits it — avoids a spurious
+    // "unhandled rejection" warning from the promise existing before anything awaits it.
+    mockEq.mockImplementationOnce(() => Promise.reject(new Error('network down')))
+
+    render(<BallAnnotationPanel {...makeProps({ ballId: 'ball-fail-2', onAnnotated })} />)
+
+    await user.click(screen.getByRole('button', { name: /^drive$/i }))
+    await user.click(screen.getByRole('button', { name: /save annotation/i }))
+
+    await waitFor(() => expect(onAnnotated).toHaveBeenCalledTimes(1))
+
+    expect(queueModule.queueAnnotation).toHaveBeenCalledWith(
+      'ball-fail-2',
+      expect.objectContaining({ shot_type: 'drive' })
+    )
   })
 })
 

@@ -58,12 +58,24 @@ export default function BallAnnotationPanel({ ballId, knownBowlingType, knownBat
 
     try {
       const queued = await isInBallQueue(ballId)
-      if (queued) {
-        await mergeAnnotationIntoBallQueue(ballId, annotation)
-      } else if (typeof navigator !== 'undefined' && navigator.onLine) {
-        supabase.from('ball_events').update(annotation).eq('id', ballId).then()
-      } else {
-        await queueAnnotation(ballId, annotation)
+      // mergeAnnotationIntoBallQueue can report "not found" even when queued was
+      // true a moment ago — flushQueue() may have synced + removed the ball in
+      // the window between the check above and this call. Treat that as "not
+      // merged" and fall through to the online/offline paths below so the
+      // annotation is never silently dropped.
+      const merged = queued ? await mergeAnnotationIntoBallQueue(ballId, annotation) : false
+
+      if (!merged) {
+        if (typeof navigator !== 'undefined' && navigator.onLine) {
+          try {
+            const { error } = await supabase.from('ball_events').update(annotation).eq('id', ballId)
+            if (error) await queueAnnotation(ballId, annotation)
+          } catch {
+            await queueAnnotation(ballId, annotation)
+          }
+        } else {
+          await queueAnnotation(ballId, annotation)
+        }
       }
     } catch {
       // Annotation is non-critical — never block the scorer on failure

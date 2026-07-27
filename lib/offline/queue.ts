@@ -172,18 +172,31 @@ export async function isInBallQueue(ballId: string): Promise<boolean> {
 /**
  * Merge annotation fields into a queued ball so they are sent together in one upsert.
  * Call this when the ball is still in the queue (offline) and the annotation arrives offline.
+ *
+ * Returns true if a queued ball was found and merged, false if no matching ball was
+ * found (e.g. it was flushed — and thus already synced — between the caller's
+ * isInBallQueue() check and this call). Callers MUST treat a false return as "not
+ * applied" and fall back to another delivery path (direct update / queueAnnotation)
+ * so the annotation is never silently dropped.
  */
-export async function mergeAnnotationIntoBallQueue(ballId: string, annotation: BallAnnotation): Promise<void> {
+export async function mergeAnnotationIntoBallQueue(ballId: string, annotation: BallAnnotation): Promise<boolean> {
   const d = await getDb()
   if (d) {
     try {
       const existing = await d.balls.get(ballId)
-      if (existing) await d.balls.put({ ...existing, ...annotation })
-      return
+      if (existing) {
+        await d.balls.put({ ...existing, ...annotation })
+        return true
+      }
+      return false
     } catch { /* fall through */ }
   }
   const idx = memoryQueue.findIndex(b => b.id === ballId)
-  if (idx !== -1) memoryQueue[idx] = { ...memoryQueue[idx], ...annotation }
+  if (idx !== -1) {
+    memoryQueue[idx] = { ...memoryQueue[idx], ...annotation }
+    return true
+  }
+  return false
 }
 
 /**

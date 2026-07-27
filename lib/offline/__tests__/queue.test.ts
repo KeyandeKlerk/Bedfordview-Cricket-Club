@@ -101,6 +101,17 @@ describe('mergeAnnotationIntoBallQueue()', () => {
     expect(upserted?.wagon_x).toBe(0.7)
     expect(upserted?.shot_type).toBe('drive')
   })
+
+  it('returns true when the ball is found and merged', async () => {
+    await queueModule.queueBall(makeBall('bm2', 1))
+    const result = await queueModule.mergeAnnotationIntoBallQueue('bm2', makeAnnotation())
+    expect(result).toBe(true)
+  })
+
+  it('returns false when the ball is not in the queue (e.g. flushed between check and merge)', async () => {
+    const result = await queueModule.mergeAnnotationIntoBallQueue('not-in-queue', makeAnnotation())
+    expect(result).toBe(false)
+  })
 })
 
 // ── flushAnnotations ──────────────────────────────────────────────────────────

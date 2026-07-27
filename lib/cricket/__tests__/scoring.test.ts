@@ -540,12 +540,15 @@ describe('Section 5 — Wickets, fall of wickets, bowler attribution', () => {
     expect(state.bowlerStats['mp-bowl1'].wickets).toBe(0)
   })
 
-  it('5.8 — retired_hurt: wickets=1, bowler gets NO credit', () => {
+  it('5.8 — retired_hurt: NOT a real wicket, bowler gets NO credit', () => {
+    // retired_hurt is not an actual dismissal (batter can return later), so it
+    // must not increment the wicket count or produce a fall-of-wickets entry.
     const balls = [
       ball({ dismissal_type: 'retired_hurt', dismissed_player_id: 'mp-bat1', bowler_id: 'mp-bowl1' }),
     ]
     const state = computeInningsState(balls, NAMES)
-    expect(state.wickets).toBe(1)
+    expect(state.wickets).toBe(0)
+    expect(state.fallOfWickets).toHaveLength(0)
     expect(state.bowlerStats['mp-bowl1'].wickets).toBe(0)
   })
 

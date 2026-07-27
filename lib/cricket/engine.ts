@@ -373,19 +373,26 @@ export function computeInningsState(
       state.batterStats[dismissedId].dismissalFielder2Id      = ball.fielder2_id ?? null
       state.batterStats[dismissedId].dismissalFielder2SubName = ball.fielder2_substitute_name ?? null
 
-      state.wickets++
-      if (BOWLER_WICKET_TYPES.includes(ball.dismissal_type as DismissalType)) {
-        state.bowlerStats[bowlerId].wickets++
+      // retired_hurt is NOT a real dismissal — the batter can return later, so
+      // it must not increment the wicket count or produce a fall-of-wickets
+      // entry. isOut stays false above via this same guard.
+      if (ball.dismissal_type === 'retired_hurt') {
+        state.batterStats[dismissedId].isOut = false
+      } else {
+        state.wickets++
+        if (BOWLER_WICKET_TYPES.includes(ball.dismissal_type as DismissalType)) {
+          state.bowlerStats[bowlerId].wickets++
+        }
+
+        state.fallOfWickets.push({
+          wicketNumber: state.wickets,
+          runs: state.totalRuns,
+          matchPlayerId: dismissedId,
+          over: oversDisplay(state.legalBalls),
+        })
+
+        lastWicketBallIndex = i
       }
-
-      state.fallOfWickets.push({
-        wicketNumber: state.wickets,
-        runs: state.totalRuns,
-        matchPlayerId: dismissedId,
-        over: oversDisplay(state.legalBalls),
-      })
-
-      lastWicketBallIndex = i
     }
 
     // Track free-hit state: set on no_ball, persist through non-legal (wide), clear on legal delivery

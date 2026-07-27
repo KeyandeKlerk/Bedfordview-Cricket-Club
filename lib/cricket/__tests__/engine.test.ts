@@ -249,3 +249,78 @@ describe('Test 10 — empty innings', () => {
     }).not.toThrow()
   })
 })
+
+// ── Test 11: retired_hurt does NOT count as a real wicket ─────────────────────
+//
+// retired_hurt is a valid dismissal_type (batter leaves the field injured) but
+// is NOT an actual dismissal — the batter can return later. Only retired_out
+// (and all other genuine dismissal types) should increment state.wickets and
+// push a fallOfWickets entry.
+
+describe('Test 11 — retired_hurt is not a real wicket', () => {
+  const MANY_NAMES = new Map([
+    ['bat1', 'Bat One'], ['bat2', 'Bat Two'], ['bat3', 'Bat Three'],
+    ['bat4', 'Bat Four'], ['bat5', 'Bat Five'], ['bat6', 'Bat Six'],
+    ['bat7', 'Bat Seven'], ['bat8', 'Bat Eight'], ['bat9', 'Bat Nine'],
+    ['bat10', 'Bat Ten'], ['bat11', 'Bat Eleven'],
+    ['bowl1', 'Bowler One'],
+  ])
+
+  it('a retired_hurt ball followed by a genuine dismissal only counts the genuine one', () => {
+    const balls = [
+      makeBall({
+        over_number: 0, ball_in_over: 0,
+        batter_id: 'bat1', non_striker_id: 'bat2', bowler_id: 'bowl1',
+        dismissal_type: 'retired_hurt', dismissed_player_id: 'bat1',
+      }),
+      makeBall({
+        over_number: 0, ball_in_over: 1,
+        batter_id: 'bat3', non_striker_id: 'bat2', bowler_id: 'bowl1',
+        dismissal_type: 'bowled', dismissed_player_id: 'bat3',
+      }),
+    ]
+    const state = computeInningsState(balls, MANY_NAMES)
+    expect(state.wickets).toBe(1)
+    expect(state.fallOfWickets).toHaveLength(1)
+    expect(state.fallOfWickets[0].matchPlayerId).toBe('bat3')
+    // The retired-hurt batter should not be marked as out — he can return.
+    expect(state.batterStats['bat1'].isOut).toBe(false)
+  })
+
+  it('retired_hurt + 9 genuine dismissals is NOT all-out (only 9 real wickets)', () => {
+    // bat1 retires hurt, then bat2..bat10 (9 batters) are genuinely bowled out.
+    const balls: BallEvent[] = [
+      makeBall({
+        over_number: 0, ball_in_over: 0,
+        batter_id: 'bat1', non_striker_id: 'bat11', bowler_id: 'bowl1',
+        dismissal_type: 'retired_hurt', dismissed_player_id: 'bat1',
+      }),
+      ...Array.from({ length: 9 }, (_, i) => {
+        const batIdx = i + 2 // bat2..bat10
+        return makeBall({
+          over_number: Math.floor((i + 1) / 6),
+          ball_in_over: (i + 1) % 6,
+          batter_id: `bat${batIdx}`, non_striker_id: 'bat11', bowler_id: 'bowl1',
+          dismissal_type: 'bowled', dismissed_player_id: `bat${batIdx}`,
+        })
+      }),
+    ]
+    const state = computeInningsState(balls, MANY_NAMES)
+    expect(state.wickets).toBe(9)
+    expect(state.fallOfWickets).toHaveLength(9)
+  })
+
+  it('retired_out (distinct from retired_hurt) DOES count as a real wicket', () => {
+    const balls = [
+      makeBall({
+        over_number: 0, ball_in_over: 0,
+        batter_id: 'bat1', non_striker_id: 'bat2', bowler_id: 'bowl1',
+        dismissal_type: 'retired_out', dismissed_player_id: 'bat1',
+      }),
+    ]
+    const state = computeInningsState(balls, MANY_NAMES)
+    expect(state.wickets).toBe(1)
+    expect(state.fallOfWickets).toHaveLength(1)
+    expect(state.batterStats['bat1'].isOut).toBe(true)
+  })
+})
