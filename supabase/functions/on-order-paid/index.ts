@@ -16,7 +16,19 @@ const supabase = createClient(
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 })
 
-  let body: { record?: { id: string; status: string; order_type: string; user_id: string | null; customer_name: string } }
+  // Verify webhook secret — without this, a crafted unauthenticated POST could
+  // grant a free membership + 'player' role for any user_id (same convention
+  // as on-selection-announced; must be configured as a custom HTTP header on
+  // this DB Webhook in the Supabase dashboard).
+  const webhookSecret = Deno.env.get('WEBHOOK_SECRET')
+  if (!webhookSecret) {
+    return new Response('Webhook secret not configured', { status: 500 })
+  }
+  if (req.headers.get('x-webhook-secret') !== webhookSecret) {
+    return new Response('Unauthorized', { status: 401 })
+  }
+
+  let body: { record?: { id: string; status: string; order_type: string; user_id: string | null; player_id: string | null; customer_name: string } }
   try {
     body = await req.json()
   } catch {
@@ -44,14 +56,18 @@ Deno.serve(async (req) => {
     })
   }
 
-  // Idempotency: check if this order was already processed
-  const { data: existingMembership } = await supabase
+  // Idempotency: the checkout route (app/api/orders/route.ts) always creates a
+  // 'pending' membership row for this order_id before payment, so checking mere
+  // *existence* of a row is always true and would skip every real payment.
+  // Check for an already-*active* row instead.
+  const { data: existingActive } = await supabase
     .from('memberships')
     .select('id')
     .eq('order_id', order.id)
-    .single()
+    .eq('status', 'active')
+    .maybeSingle()
 
-  if (existingMembership) {
+  if (existingActive) {
     return new Response(JSON.stringify({ skipped: true, reason: 'already_activated' }), {
       headers: { 'Content-Type': 'application/json' },
     })
@@ -61,42 +77,86 @@ Deno.serve(async (req) => {
   const oneYearLater = new Date(now)
   oneYearLater.setFullYear(oneYearLater.getFullYear() + 1)
 
-  // Create memberships row
-  const { error: membershipErr } = await supabase
+  // Activate the pending row created at checkout (preserves its tier/player_id).
+  // Falls back to inserting one if it's missing for any reason (e.g. a manual
+  // 'paid' status flip with no prior checkout row).
+  const { data: activated, error: membershipErr } = await supabase
     .from('memberships')
-    .insert({
-      user_id: order.user_id,
-      order_id: order.id,
+    .update({
       status: 'active',
-      tier: 'standard',
       valid_from: now.toISOString(),
       valid_until: oneYearLater.toISOString(),
     })
+    .eq('order_id', order.id)
+    .eq('status', 'pending')
+    .select('id')
+    .maybeSingle()
 
   if (membershipErr) {
-    console.error('Failed to create membership:', membershipErr)
+    console.error('Failed to activate membership:', membershipErr)
     return new Response('Internal Server Error', { status: 500 })
+  }
+
+  if (!activated) {
+    const { error: insertErr } = await supabase
+      .from('memberships')
+      .insert({
+        user_id: order.user_id,
+        order_id: order.id,
+        status: 'active',
+        tier: 'standard',
+        valid_from: now.toISOString(),
+        valid_until: oneYearLater.toISOString(),
+      })
+    if (insertErr) {
+      console.error('Failed to create membership:', insertErr)
+      return new Response('Internal Server Error', { status: 500 })
+    }
+  }
+
+  // If this membership was bought for a specific player (a guardian buying for
+  // their child — see 035_guardians.sql), the role/notification belongs on
+  // that player's OWN account if they've claimed one, not the paying
+  // guardian's — otherwise the child's own login never reflects the
+  // membership they hold. Falls back to the guardian's account when the
+  // child hasn't claimed a login yet (common for young kids), since there's
+  // nowhere else to put it.
+  let targetUserId = order.user_id
+  let beneficiaryName: string | null = null
+  if (order.player_id) {
+    const { data: player } = await supabase
+      .from('players')
+      .select('user_id, first_name')
+      .eq('id', order.player_id)
+      .maybeSingle()
+    if (player?.user_id) {
+      targetUserId = player.user_id
+      beneficiaryName = player.first_name
+    }
   }
 
   // Assign 'player' role (ON CONFLICT DO NOTHING — safe to call multiple times)
   await supabase
     .from('user_roles')
-    .upsert({ user_id: order.user_id, role: 'player' }, { onConflict: 'user_id,role', ignoreDuplicates: true })
+    .upsert({ user_id: targetUserId, role: 'player' }, { onConflict: 'user_id,role', ignoreDuplicates: true })
 
   // Send in-app notification
+  const validUntilStr = oneYearLater.toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })
   await supabase
     .from('notifications')
     .upsert({
-      user_id: order.user_id,
+      user_id: targetUserId,
       type: 'membership_activated',
       title: 'Membership Activated',
-      body: `Welcome to BCC! Your membership is active until ${oneYearLater.toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })}.`,
+      body: beneficiaryName
+        ? `${beneficiaryName}'s membership is active until ${validUntilStr}.`
+        : `Welcome to BCC! Your membership is active until ${validUntilStr}.`,
       data: { order_id: order.id, valid_until: oneYearLater.toISOString() },
-      idempotency_key: `membership_activated:${order.id}:${order.user_id}`,
+      idempotency_key: `membership_activated:${order.id}:${targetUserId}`,
     }, { onConflict: 'idempotency_key', ignoreDuplicates: true })
 
   return new Response(
-    JSON.stringify({ activated: true, user_id: order.user_id }),
+    JSON.stringify({ activated: true, user_id: targetUserId }),
     { headers: { 'Content-Type': 'application/json' } }
   )
 })

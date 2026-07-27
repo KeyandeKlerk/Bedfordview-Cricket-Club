@@ -149,17 +149,19 @@ export async function POST(req: NextRequest) {
   }
 
   // If membership order with logged-in user, create pending membership.
-  // The onConflict target must match whichever split partial unique index
-  // applies: self memberships dedupe on user_id alone, per-player
-  // memberships dedupe on (user_id, player_id) — see 035_guardians.sql.
+  // supabase-js's .upsert({ onConflict }) can't express the partial-index
+  // WHERE predicate (status = 'active') that memberships_one_active_self /
+  // memberships_one_active_per_player require for ON CONFLICT inference —
+  // see 036_flow_audit_fixes.sql for the RPC that does this in plain SQL.
   if (orderType === 'membership' && userId) {
     const tier = lineItems[0]?.tier || 'standard'
-    await serverSupabase
-      .from('memberships')
-      .upsert(
-        { user_id: userId, player_id: playerId || null, order_id: order.id, status: 'pending', tier },
-        { onConflict: playerId ? 'user_id,player_id' : 'user_id' }
-      )
+    const { error: membershipErr } = await serverSupabase.rpc('upsert_pending_membership', {
+      p_user_id: userId,
+      p_player_id: playerId || null,
+      p_order_id: order.id,
+      p_tier: tier,
+    })
+    if (membershipErr) console.error('Pending membership upsert failed:', membershipErr)
   }
 
   return NextResponse.json({ orderId: order.id, reference, total: amountTotal }, { status: 201 })
