@@ -8,6 +8,7 @@ const PROTECTED_PREFIXES = [
   '/availability',
   '/selection',
   '/notifications',
+  '/claim-profile',
 ]
 
 export async function middleware(request: NextRequest) {

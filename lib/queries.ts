@@ -5,10 +5,12 @@
 import { anonSupabase as db } from './supabase/server'
 
 export async function getMatches(status?: string) {
+  // 'upcoming' should surface the soonest fixtures first; everything else
+  // (completed results, or no filter) reads most-recent-first.
   let query = db
     .from('matches')
     .select('*, opponent:opponents(canonical_name), ground:grounds(name), competition:competitions(name,match_format,overs_per_innings)')
-    .order('match_date', { ascending: false })
+    .order('match_date', { ascending: status === 'upcoming' })
   if (status) query = query.eq('status', status)
   const { data, error } = await query
   if (error) throw error

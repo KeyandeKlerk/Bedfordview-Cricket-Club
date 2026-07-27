@@ -39,24 +39,3 @@ let _anonSupabase: ReturnType<typeof createAnonClient> | undefined
 export const anonSupabase = new Proxy({} as ReturnType<typeof createAnonClient>, {
   get(_, prop) { return (_anonSupabase ??= createAnonClient())[prop as keyof ReturnType<typeof createAnonClient>] },
 })
-
-export async function getCurrentUserRole(userId: string): Promise<string | null> {
-  const { data } = await serverSupabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', userId)
-    .order('role')   // 'admin' < 'scorer' alphabetically, but we want admin first
-    .limit(1)
-    .single()
-  return data?.role ?? null
-}
-
-export async function hasRole(userId: string, role: 'scorer' | 'admin'): Promise<boolean> {
-  const { data } = await serverSupabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', userId)
-    .in('role', role === 'scorer' ? ['scorer', 'admin'] : ['admin'])
-    .limit(1)
-  return (data?.length ?? 0) > 0
-}

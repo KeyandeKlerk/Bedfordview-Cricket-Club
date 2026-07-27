@@ -1,11 +1,25 @@
 'use client'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function LoginPage() {
+/**
+ * Only allow same-origin, relative redirect targets (e.g. "/admin/matches/12/score").
+ * Rejects absolute URLs, protocol-relative URLs ("//evil.com"), and other
+ * schemes so a crafted `?next=` value can't send users off-site (open redirect).
+ */
+function isSafeNextPath(next: string | null): next is string {
+  if (!next) return false
+  if (!next.startsWith('/')) return false
+  if (next.startsWith('//')) return false
+  if (next.startsWith('/\\')) return false
+  return true
+}
+
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,7 +32,8 @@ export default function LoginPage() {
     try {
       const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
       if (authError) throw authError
-      router.push('/dashboard')
+      const next = searchParams.get('next')
+      router.push(isSafeNextPath(next) ? next : '/dashboard')
     } catch (err: any) {
       const msg: string = err?.message ?? ''
       if (msg.toLowerCase().includes('email not confirmed')) {
@@ -221,5 +236,13 @@ export default function LoginPage() {
         </div>
       </div>
     </>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   )
 }

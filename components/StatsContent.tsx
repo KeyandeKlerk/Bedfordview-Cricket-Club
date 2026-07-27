@@ -18,8 +18,8 @@ const TAB_DEFAULTS: Record<Tab, string> = {
 
 type TeamCategory = 'senior' | 'junior'
 
-export default function StatsContent() {
-  const [category, setCategory]         = useState<TeamCategory>('senior')
+export default function StatsContent({ initialCategory = 'senior' }: { initialCategory?: TeamCategory }) {
+  const [category, setCategory]         = useState<TeamCategory>(initialCategory)
   const [seasons, setSeasons]           = useState<Season[]>([])
   const [competitions, setCompetitions] = useState<Competition[]>([])
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | 'career'>('career')

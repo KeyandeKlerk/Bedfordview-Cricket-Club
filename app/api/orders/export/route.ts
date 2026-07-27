@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { serverSupabase } from '@/lib/supabase/server'
+import { formatCsvRow } from '@/lib/csv'
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
     const items = (o.line_items as Array<{ name?: string; size?: string; qty: number; unitPrice: number }> || [])
       .map((li) => `${li.name || ''} ${li.size ? `(${li.size})` : ''} x${li.qty}`)
       .join('; ')
-    return [
+    return formatCsvRow([
       o.reference,
       o.order_type,
       o.customer_name || '',
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
       o.status,
       o.created_at ? new Date(o.created_at).toLocaleDateString('en-ZA') : '',
       o.paid_at ? new Date(o.paid_at).toLocaleDateString('en-ZA') : '',
-    ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')
+    ])
   })
 
   const csv = ['Reference,Type,Customer,Email,Items,Total,Status,Date,Paid At', ...rows].join('\n')

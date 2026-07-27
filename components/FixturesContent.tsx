@@ -13,9 +13,9 @@ function formatTime(d: string) {
   return new Date(d).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })
 }
 
-export default function FixturesContent() {
+export default function FixturesContent({ initialCategory = 'all' }: { initialCategory?: Category }) {
   const [allFixtures, setAllFixtures] = useState<any[]>([])
-  const [category, setCategory] = useState<Category>('all')
+  const [category, setCategory] = useState<Category>(initialCategory)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

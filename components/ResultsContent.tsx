@@ -9,9 +9,9 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export default function ResultsContent() {
+export default function ResultsContent({ initialCategory = 'all' }: { initialCategory?: Category }) {
   const [allResults, setAllResults] = useState<any[]>([])
-  const [category, setCategory] = useState<Category>('all')
+  const [category, setCategory] = useState<Category>(initialCategory)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

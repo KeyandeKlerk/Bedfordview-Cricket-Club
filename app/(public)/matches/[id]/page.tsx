@@ -21,6 +21,9 @@ export default function PublicMatchPage() {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
+    let cancelled = false
+    let channel: ReturnType<typeof subscribeBallEvents> | null = null
+
     async function load() {
       const [matchRes, inningsRes, playersRes, registeredRes] = await Promise.all([
         supabase.from('matches').select('*').eq('id', matchId).single(),
@@ -53,7 +56,7 @@ export default function PublicMatchPage() {
         }
 
         // Subscribe AFTER fetching initial data to avoid race conditions
-        const channel = subscribeBallEvents(
+        channel = subscribeBallEvents(
           activeInnings.id,
           lastKnownSeqRef.current,
           (ball) => {
@@ -89,15 +92,15 @@ export default function PublicMatchPage() {
             }
           }
         )
-        return () => {
-          channel.unsubscribe()
-          if (pollingRef.current) clearInterval(pollingRef.current)
-        }
       }
     }
 
     load().then(() => setLoading(false))
-    return () => { if (pollingRef.current) clearInterval(pollingRef.current) }
+    return () => {
+      cancelled = true
+      if (channel) channel.unsubscribe()
+      if (pollingRef.current) clearInterval(pollingRef.current)
+    }
   }, [matchId])
 
   if (loading) {
@@ -273,7 +276,7 @@ export default function PublicMatchPage() {
                   {state.oversDisplay} overs
                   {state.legalBalls > 0 && ` · RR ${((state.totalRuns / state.legalBalls) * 6).toFixed(2)}`}
                 </div>
-                {activeInnings?.target && (
+                {activeInnings?.target && (activeInnings.target - state.totalRuns) > 0 && (
                   <div className="score-target">
                     Need {activeInnings.target - state.totalRuns} off {((match.overs_per_innings * 6) - state.legalBalls)} balls
                     {activeInnings.is_dls && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#7dd3fc', background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.35)', borderRadius: 4, padding: '1px 5px', verticalAlign: 'middle' }}>DLS</span>}
