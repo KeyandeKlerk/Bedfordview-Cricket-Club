@@ -36,6 +36,7 @@ interface Player {
   avail_note: string | null
   // selection state
   selected: boolean
+  withdrawn: boolean
   position: number | null
   override_reason: string | null
 }
@@ -154,8 +155,12 @@ export default function SelectXIPage() {
           ...p,
           avail_status: (avail?.status as Player['avail_status']) ?? 'no_response',
           avail_note: avail?.note ?? null,
-          selected: !!sel,
-          position: sel?.position ?? null,
+          // A withdrawn player still has a selections row (status='withdrawn'),
+          // but must NOT be treated as currently selected — otherwise the next
+          // save silently re-selects them (the exact bug this fixes).
+          selected: sel?.status === 'selected',
+          withdrawn: sel?.status === 'withdrawn',
+          position: sel?.status === 'selected' ? (sel?.position ?? null) : null,
           override_reason: null,
         }
       })
@@ -257,28 +262,35 @@ export default function SelectXIPage() {
     setSaving(true)
     setError(null)
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setError('Not authenticated.'); setSaving(false); return }
-
-    const upserts = players
+    const selections = players
       .filter(p => p.selected)
       .map(p => ({
-        match_id: matchId,
-        player_id: p.id,
+        playerId: p.id,
         position: p.position,
         role: 'player',
-        status: 'selected',
-        selected_by: user.id,
-        override_reason: p.override_reason ?? null,
+        overrideReason: p.override_reason ?? null,
       }))
 
-    const { error: upsertErr } = await supabase
-      .from('selections')
-      .upsert(upserts, { onConflict: 'match_id,player_id' })
+    // The route authenticates via the session cookie (see app/api/admin/selections/route.ts),
+    // which this same-origin fetch sends automatically — no Authorization header needed.
+    let ok = false
+    try {
+      const res = await fetch('/api/admin/selections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchId, selections }),
+      })
+      ok = res.ok
+      if (!ok) {
+        const body = await res.json().catch(() => ({}))
+        setError(body.error || 'Failed to save selection.')
+      }
+    } catch {
+      setError('Failed to save selection.')
+    }
 
     setSaving(false)
-    if (upsertErr) { setError(upsertErr.message); return }
-    showToast('Selection saved')
+    if (ok) showToast('Selection saved')
   }, [players, matchId, saving])
 
   // ── Announce ───────────────────────────────────────────────────────────
@@ -431,6 +443,10 @@ export default function SelectXIPage() {
         .sx-avail-no_response {
           background: rgba(59,130,246,0.06); color: rgba(147,197,253,0.5);
           border: 1px solid rgba(59,130,246,0.12);
+        }
+        .sx-avail-withdrawn {
+          background: rgba(148,163,184,0.1); color: #cbd5e1;
+          border: 1px solid rgba(148,163,184,0.25);
         }
 
         /* ── REORDER SECTION ── */
@@ -710,6 +726,9 @@ export default function SelectXIPage() {
                       <div className="sx-player-style">{styleInfo(player)}</div>
                     )}
                   </div>
+                  {player.withdrawn && (
+                    <span className="sx-avail-pill sx-avail-withdrawn">↩ Withdrawn</span>
+                  )}
                   <span className={`sx-avail-pill sx-avail-${player.avail_status}`}>
                     {player.avail_status === 'available' && '✓ Available'}
                     {player.avail_status === 'tentative' && '? Tentative'}
